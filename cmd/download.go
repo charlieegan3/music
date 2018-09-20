@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -18,12 +19,6 @@ func Download() {
 	client := buildClient()
 	playlists := fetchAllPLaylists(client)
 
-	//tracks, _ := client.GetPlaylistTracks(v.ID)
-	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.SimpleTrack.Name)
-	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.SimpleTrack.Artists)
-	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.Album.Name)
-	//os.Exit(0)
-
 	for _, p := range playlists {
 		if strings.Contains(p.Name, "Liked") {
 			fmt.Printf("Skipping %v\n", p.Name)
@@ -32,6 +27,31 @@ func Download() {
 
 		path := createPlaylistFolder(p.Name)
 		name := slug.Make(strings.Replace(p.Name, path, "", 1))
+		filename := fmt.Sprintf("spotify/%v/%v.json", path, name)
+
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			fmt.Printf("New playlist %v\n", name)
+		} else {
+			jsonFile, err := os.Open(filename)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			defer jsonFile.Close()
+
+			bytes, err := ioutil.ReadAll(jsonFile)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			var playlist spotify.FullPlaylist
+			json.Unmarshal(bytes, &playlist)
+
+			if playlist.SnapshotID == p.SnapshotID {
+				continue
+			}
+		}
 
 		fullPlaylist, err := client.GetPlaylist(p.ID)
 		if err != nil {
@@ -43,14 +63,13 @@ func Download() {
 			fmt.Printf("Failed to marshal JSON for playlist %v\n", p.Name)
 			continue
 		}
-		file, err := os.Create(fmt.Sprintf("spotify/%v/%v.json", path, name))
+		file, err := os.Create(filename)
 		if err != nil {
 			log.Fatal("Failed to create file", err)
 		}
 		defer file.Close()
 		fmt.Fprintf(file, string(json))
-		fmt.Printf("Saved %v\n", name)
-		os.Exit(0)
+		fmt.Printf("Saved %v\n", filename)
 	}
 	fmt.Println(len(playlists))
 }
