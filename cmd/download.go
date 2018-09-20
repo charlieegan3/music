@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/gosimple/slug"
 	"github.com/zmb3/spotify"
 	"golang.org/x/oauth2"
 )
@@ -14,10 +18,51 @@ func Download() {
 	client := buildClient()
 	playlists := fetchAllPLaylists(client)
 
-	for _, v := range playlists {
-		fmt.Printf("%v %v\n", v.Name, v.Tracks.Total)
+	//tracks, _ := client.GetPlaylistTracks(v.ID)
+	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.SimpleTrack.Name)
+	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.SimpleTrack.Artists)
+	//fmt.Printf("%+v\n", tracks.Tracks[0].Track.Album.Name)
+	//os.Exit(0)
+
+	for _, p := range playlists {
+		if strings.Contains(p.Name, "Liked") {
+			fmt.Printf("Skipping %v\n", p.Name)
+			continue
+		}
+
+		path := createPlaylistFolder(p.Name)
+		name := slug.Make(strings.Replace(p.Name, path, "", 1))
+
+		fullPlaylist, err := client.GetPlaylist(p.ID)
+		if err != nil {
+			fmt.Printf("Failed to download complete playlist %v\n", p.Name)
+			continue
+		}
+		json, err := json.MarshalIndent(fullPlaylist, "", "  ")
+		if err != nil {
+			fmt.Printf("Failed to marshal JSON for playlist %v\n", p.Name)
+			continue
+		}
+		file, err := os.Create(fmt.Sprintf("spotify/%v/%v.json", path, name))
+		if err != nil {
+			log.Fatal("Failed to create file", err)
+		}
+		defer file.Close()
+		fmt.Fprintf(file, string(json))
+		fmt.Printf("Saved %v\n", name)
+		os.Exit(0)
 	}
 	fmt.Println(len(playlists))
+}
+
+func createPlaylistFolder(name string) string {
+	words := strings.Split(name, " ")
+	if len(words) < 2 {
+		fmt.Printf("Incompatible playlist name %v, skipping", name)
+		return ""
+	}
+	os.MkdirAll(fmt.Sprintf("spotify/%v", words[0]), os.ModePerm)
+	return words[0]
 }
 
 func fetchAllPLaylists(client spotify.Client) []spotify.SimplePlaylist {
