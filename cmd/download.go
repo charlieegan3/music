@@ -11,27 +11,31 @@ import (
 
 // Download saves all playlists from Spotify
 func Download() {
-	token := &oauth2.Token{
-		AccessToken:  os.Getenv("SPOTIFY_ACCESS_TOKEN"),
-		TokenType:    "Bearer",
-		RefreshToken: os.Getenv("SPOTIFY_REFRESH_TOKEN"),
-		Expiry:       time.Now(),
+	client := buildClient()
+	playlists := fetchAllPLaylists(client)
+
+	for _, v := range playlists {
+		fmt.Printf("%v %v\n", v.Name, v.Tracks.Total)
 	}
+	fmt.Println(len(playlists))
+}
 
-	auth := spotify.NewAuthenticator("http://localhost:8080", spotify.ScopeUserReadPrivate)
-	auth.SetAuthInfo(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"))
-	client := auth.NewClient(token)
-
-	limit := 50
-	offset := 0
-
+func fetchAllPLaylists(client spotify.Client) []spotify.SimplePlaylist {
 	var playlists []spotify.SimplePlaylist
 
+	count := 0
+	limit := 50
+	offset := 0
 	for {
+		if count > 15 {
+			break
+		}
+
 		playlistsPage, err := client.GetPlaylistsForUserOpt("charlieegan3", &spotify.Options{Limit: &limit, Offset: &offset})
 		if err != nil {
 			fmt.Printf("There was an error getting the playlists: %s", err)
-			return
+			count++
+			continue
 		}
 
 		playlists = append(playlists, playlistsPage.Playlists...)
@@ -42,10 +46,21 @@ func Download() {
 		}
 
 		offset += limit
+		count++
 	}
 
-	for _, v := range playlists {
-		fmt.Printf("%v %v\n", v.Name, v.Tracks.Total)
+	return playlists
+}
+
+func buildClient() spotify.Client {
+	token := &oauth2.Token{
+		AccessToken:  os.Getenv("SPOTIFY_ACCESS_TOKEN"),
+		TokenType:    "Bearer",
+		RefreshToken: os.Getenv("SPOTIFY_REFRESH_TOKEN"),
+		Expiry:       time.Now(),
 	}
-	fmt.Println(len(playlists))
+
+	auth := spotify.NewAuthenticator("http://localhost:8080", spotify.ScopeUserReadPrivate)
+	auth.SetAuthInfo(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"))
+	return auth.NewClient(token)
 }
