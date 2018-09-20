@@ -38,7 +38,7 @@
     "uri": "spotify:user:charlieegan3"
   },
   "public": true,
-  "snapshot_id": "MTIwLGY3YjY2MGU4NGQwZGZkMTg5NTU2ZTU2YWUwYzViZTlmOTU4MTEzNDM=",
+  "snapshot_id": "MTIxLGM1YmNkZmZkYjEwZTkxMTIxYTE4NmU5ZjI0NzViYzFkMzlmYmJmYTc=",
   "uri": "spotify:user:charlieegan3:playlist:4yPjoF1kHNHBqgpcvf3yi2",
   "description": "",
   "followers": {
@@ -49,7 +49,7 @@
     "href": "https://api.spotify.com/v1/playlists/4yPjoF1kHNHBqgpcvf3yi2/tracks?offset=0\u0026limit=100",
     "limit": 100,
     "offset": 0,
-    "total": 145,
+    "total": 144,
     "next": "https://api.spotify.com/v1/playlists/4yPjoF1kHNHBqgpcvf3yi2/tracks?offset=100\u0026limit=100",
     "previous": "",
     "items": [
@@ -21138,227 +21138,6 @@
             "ZA"
           ],
           "disc_number": 1,
-          "duration_ms": 281800,
-          "explicit": true,
-          "external_urls": {
-            "spotify": "https://open.spotify.com/track/31ktnMJGPvRphlUqNOi22p"
-          },
-          "href": "https://api.spotify.com/v1/tracks/31ktnMJGPvRphlUqNOi22p",
-          "id": "31ktnMJGPvRphlUqNOi22p",
-          "name": "Life On Earth - Alternate Version",
-          "preview_url": "https://p.scdn.co/mp3-preview/fac05574da1dc9908de848074660c9201b56afda?cid=abdf0a10e7ca45d68337d1a39383b689",
-          "track_number": 11,
-          "uri": "spotify:track:31ktnMJGPvRphlUqNOi22p",
-          "album": {
-            "name": "Wildness (Deluxe)",
-            "artists": [
-              {
-                "name": "Snow Patrol",
-                "id": "3rIZMv9rysU7JkLzEaC5Jp",
-                "uri": "spotify:artist:3rIZMv9rysU7JkLzEaC5Jp",
-                "href": "https://api.spotify.com/v1/artists/3rIZMv9rysU7JkLzEaC5Jp",
-                "external_urls": {
-                  "spotify": "https://open.spotify.com/artist/3rIZMv9rysU7JkLzEaC5Jp"
-                }
-              }
-            ],
-            "album_group": "",
-            "album_type": "album",
-            "id": "7CGzC8FDgpAMyp36T7yyEa",
-            "uri": "spotify:album:7CGzC8FDgpAMyp36T7yyEa",
-            "available_markets": [
-              "AD",
-              "AR",
-              "AT",
-              "AU",
-              "BE",
-              "BG",
-              "BO",
-              "BR",
-              "CA",
-              "CH",
-              "CL",
-              "CO",
-              "CR",
-              "CY",
-              "CZ",
-              "DE",
-              "DK",
-              "DO",
-              "EC",
-              "EE",
-              "ES",
-              "FI",
-              "FR",
-              "GB",
-              "GR",
-              "GT",
-              "HK",
-              "HN",
-              "HU",
-              "ID",
-              "IE",
-              "IL",
-              "IS",
-              "IT",
-              "JP",
-              "LI",
-              "LT",
-              "LU",
-              "LV",
-              "MC",
-              "MT",
-              "MX",
-              "MY",
-              "NI",
-              "NL",
-              "NO",
-              "NZ",
-              "PA",
-              "PE",
-              "PH",
-              "PL",
-              "PT",
-              "PY",
-              "RO",
-              "SE",
-              "SG",
-              "SK",
-              "SV",
-              "TH",
-              "TR",
-              "TW",
-              "US",
-              "UY",
-              "VN",
-              "ZA"
-            ],
-            "href": "https://api.spotify.com/v1/albums/7CGzC8FDgpAMyp36T7yyEa",
-            "images": [
-              {
-                "height": 640,
-                "width": 640,
-                "url": "https://i.scdn.co/image/3acf132cf0dba0d158483ef5ae12d721adc5b003"
-              },
-              {
-                "height": 300,
-                "width": 300,
-                "url": "https://i.scdn.co/image/da35defa22e74b7cde189b29257f184b1fa90cd7"
-              },
-              {
-                "height": 64,
-                "width": 64,
-                "url": "https://i.scdn.co/image/ff32339a6c303c32e45f9afeadb364c5fbdfc070"
-              }
-            ],
-            "external_urls": {
-              "spotify": "https://open.spotify.com/album/7CGzC8FDgpAMyp36T7yyEa"
-            },
-            "release_date": "2018-05-25",
-            "release_date_precision": "day"
-          },
-          "external_ids": {
-            "isrc": "GBUM71800266"
-          },
-          "popularity": 46
-        }
-      },
-      {
-        "added_at": "2018-05-25T07:43:16Z",
-        "added_by": {
-          "display_name": "",
-          "external_urls": {
-            "spotify": "https://open.spotify.com/user/charlieegan3"
-          },
-          "followers": {
-            "total": 0,
-            "href": ""
-          },
-          "href": "https://api.spotify.com/v1/users/charlieegan3",
-          "id": "charlieegan3",
-          "images": null,
-          "uri": "spotify:user:charlieegan3"
-        },
-        "track": {
-          "artists": [
-            {
-              "name": "Snow Patrol",
-              "id": "3rIZMv9rysU7JkLzEaC5Jp",
-              "uri": "spotify:artist:3rIZMv9rysU7JkLzEaC5Jp",
-              "href": "https://api.spotify.com/v1/artists/3rIZMv9rysU7JkLzEaC5Jp",
-              "external_urls": {
-                "spotify": "https://open.spotify.com/artist/3rIZMv9rysU7JkLzEaC5Jp"
-              }
-            }
-          ],
-          "available_markets": [
-            "AD",
-            "AR",
-            "AT",
-            "AU",
-            "BE",
-            "BG",
-            "BO",
-            "BR",
-            "CA",
-            "CH",
-            "CL",
-            "CO",
-            "CR",
-            "CY",
-            "CZ",
-            "DE",
-            "DK",
-            "DO",
-            "EC",
-            "EE",
-            "ES",
-            "FI",
-            "FR",
-            "GB",
-            "GR",
-            "GT",
-            "HK",
-            "HN",
-            "HU",
-            "ID",
-            "IE",
-            "IL",
-            "IS",
-            "IT",
-            "JP",
-            "LI",
-            "LT",
-            "LU",
-            "LV",
-            "MC",
-            "MT",
-            "MX",
-            "MY",
-            "NI",
-            "NL",
-            "NO",
-            "NZ",
-            "PA",
-            "PE",
-            "PH",
-            "PL",
-            "PT",
-            "PY",
-            "RO",
-            "SE",
-            "SG",
-            "SK",
-            "SV",
-            "TH",
-            "TR",
-            "TW",
-            "US",
-            "UY",
-            "VN",
-            "ZA"
-          ],
-          "disc_number": 1,
           "duration_ms": 217426,
           "explicit": true,
           "external_urls": {
@@ -21482,6 +21261,227 @@
             "isrc": "GBUM71800241"
           },
           "popularity": 46
+        }
+      },
+      {
+        "added_at": "2018-05-25T07:43:16Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Snow Patrol",
+              "id": "3rIZMv9rysU7JkLzEaC5Jp",
+              "uri": "spotify:artist:3rIZMv9rysU7JkLzEaC5Jp",
+              "href": "https://api.spotify.com/v1/artists/3rIZMv9rysU7JkLzEaC5Jp",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/3rIZMv9rysU7JkLzEaC5Jp"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 1,
+          "duration_ms": 273946,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/0cx4J04kps8lrTD6nF5l2P"
+          },
+          "href": "https://api.spotify.com/v1/tracks/0cx4J04kps8lrTD6nF5l2P",
+          "id": "0cx4J04kps8lrTD6nF5l2P",
+          "name": "Heal Me - Alternate Version",
+          "preview_url": "https://p.scdn.co/mp3-preview/6bee3b14b187fd9b9ae3f5291ded876526c92cc4?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 13,
+          "uri": "spotify:track:0cx4J04kps8lrTD6nF5l2P",
+          "album": {
+            "name": "Wildness (Deluxe)",
+            "artists": [
+              {
+                "name": "Snow Patrol",
+                "id": "3rIZMv9rysU7JkLzEaC5Jp",
+                "uri": "spotify:artist:3rIZMv9rysU7JkLzEaC5Jp",
+                "href": "https://api.spotify.com/v1/artists/3rIZMv9rysU7JkLzEaC5Jp",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/3rIZMv9rysU7JkLzEaC5Jp"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "album",
+            "id": "7CGzC8FDgpAMyp36T7yyEa",
+            "uri": "spotify:album:7CGzC8FDgpAMyp36T7yyEa",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/7CGzC8FDgpAMyp36T7yyEa",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/3acf132cf0dba0d158483ef5ae12d721adc5b003"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/da35defa22e74b7cde189b29257f184b1fa90cd7"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/ff32339a6c303c32e45f9afeadb364c5fbdfc070"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/7CGzC8FDgpAMyp36T7yyEa"
+            },
+            "release_date": "2018-05-25",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "GBUM71800269"
+          },
+          "popularity": 45
         }
       }
     ]
