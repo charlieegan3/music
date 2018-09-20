@@ -1,0 +1,269 @@
+{
+  "collaborative": false,
+  "external_urls": {
+    "spotify": "https://open.spotify.com/playlist/0to8WTlKzUQOyWUO9Htdyz"
+  },
+  "href": "https://api.spotify.com/v1/playlists/0to8WTlKzUQOyWUO9Htdyz",
+  "id": "0to8WTlKzUQOyWUO9Htdyz",
+  "images": [
+    {
+      "height": 640,
+      "width": 640,
+      "url": "https://i.scdn.co/image/bc712e28827166a9ccb87f8c672be25b27ee2184"
+    }
+  ],
+  "name": "2009 09",
+  "owner": {
+    "display_name": "",
+    "external_urls": {
+      "spotify": "https://open.spotify.com/user/charlieegan3"
+    },
+    "followers": {
+      "total": 0,
+      "href": ""
+    },
+    "href": "https://api.spotify.com/v1/users/charlieegan3",
+    "id": "charlieegan3",
+    "images": null,
+    "uri": "spotify:user:charlieegan3"
+  },
+  "public": false,
+  "snapshot_id": "NCxhNTVjY2U1OTYxZjVmYTE1YTFkOWQ4ZmY4YWM2YzEyZWZhZjk5ZmQy",
+  "uri": "spotify:user:charlieegan3:playlist:0to8WTlKzUQOyWUO9Htdyz",
+  "description": "",
+  "followers": {
+    "total": 0,
+    "href": ""
+  },
+  "tracks": {
+    "href": "https://api.spotify.com/v1/playlists/0to8WTlKzUQOyWUO9Htdyz/tracks?offset=0\u0026limit=100",
+    "limit": 100,
+    "offset": 0,
+    "total": 1,
+    "next": "",
+    "previous": "",
+    "items": [
+      {
+        "added_at": "2016-08-13T18:35:27Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Paul van Dyk",
+              "id": "7wU1naftD3lNq7rNsiDvOR",
+              "uri": "spotify:artist:7wU1naftD3lNq7rNsiDvOR",
+              "href": "https://api.spotify.com/v1/artists/7wU1naftD3lNq7rNsiDvOR",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/7wU1naftD3lNq7rNsiDvOR"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 1,
+          "duration_ms": 231706,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/4CkQiW6QKUFbcuWKuIc3mx"
+          },
+          "href": "https://api.spotify.com/v1/tracks/4CkQiW6QKUFbcuWKuIc3mx",
+          "id": "4CkQiW6QKUFbcuWKuIc3mx",
+          "name": "For An Angel - Radio Edit",
+          "preview_url": "https://p.scdn.co/mp3-preview/f4fb035f101dc981a6fd7001221ea5f9475a5eb7?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 6,
+          "uri": "spotify:track:4CkQiW6QKUFbcuWKuIc3mx",
+          "album": {
+            "name": "Trance Anthems Top 60",
+            "artists": [
+              {
+                "name": "Various Artists",
+                "id": "0LyfQWJT6nXafLPZqxe9Of",
+                "uri": "spotify:artist:0LyfQWJT6nXafLPZqxe9Of",
+                "href": "https://api.spotify.com/v1/artists/0LyfQWJT6nXafLPZqxe9Of",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/0LyfQWJT6nXafLPZqxe9Of"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "compilation",
+            "id": "2kUuPkL4CiQSBbLkTUmbhq",
+            "uri": "spotify:album:2kUuPkL4CiQSBbLkTUmbhq",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/2kUuPkL4CiQSBbLkTUmbhq",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/bc712e28827166a9ccb87f8c672be25b27ee2184"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/384310be5bbbd00cc3a77087f65226f08a62ca06"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/563341084df36996bfb8ca77ccbbdb65af95212e"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/2kUuPkL4CiQSBbLkTUmbhq"
+            },
+            "release_date": "2013-06-28",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "NLF711102692"
+          },
+          "popularity": 50
+        }
+      }
+    ]
+  }
+}

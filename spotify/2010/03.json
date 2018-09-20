@@ -1,0 +1,1218 @@
+{
+  "collaborative": false,
+  "external_urls": {
+    "spotify": "https://open.spotify.com/playlist/3MTZmuk6EHU6XaAzat0Qgk"
+  },
+  "href": "https://api.spotify.com/v1/playlists/3MTZmuk6EHU6XaAzat0Qgk",
+  "id": "3MTZmuk6EHU6XaAzat0Qgk",
+  "images": [
+    {
+      "height": 640,
+      "width": 640,
+      "url": "https://mosaic.scdn.co/640/2c3bd037bfe2642967f418644dc7fd82b34d33673728e48c44b26cb6c997c75d266ef25a34d582069d2ef2bdffdbb2dcb011039ba9140135b71377e2ab90631b2d78ff197dfec5d01b7c588a9ec5ebed"
+    },
+    {
+      "height": 300,
+      "width": 300,
+      "url": "https://mosaic.scdn.co/300/2c3bd037bfe2642967f418644dc7fd82b34d33673728e48c44b26cb6c997c75d266ef25a34d582069d2ef2bdffdbb2dcb011039ba9140135b71377e2ab90631b2d78ff197dfec5d01b7c588a9ec5ebed"
+    },
+    {
+      "height": 60,
+      "width": 60,
+      "url": "https://mosaic.scdn.co/60/2c3bd037bfe2642967f418644dc7fd82b34d33673728e48c44b26cb6c997c75d266ef25a34d582069d2ef2bdffdbb2dcb011039ba9140135b71377e2ab90631b2d78ff197dfec5d01b7c588a9ec5ebed"
+    }
+  ],
+  "name": "2010 03",
+  "owner": {
+    "display_name": "",
+    "external_urls": {
+      "spotify": "https://open.spotify.com/user/charlieegan3"
+    },
+    "followers": {
+      "total": 0,
+      "href": ""
+    },
+    "href": "https://api.spotify.com/v1/users/charlieegan3",
+    "id": "charlieegan3",
+    "images": null,
+    "uri": "spotify:user:charlieegan3"
+  },
+  "public": false,
+  "snapshot_id": "NCw4NmU0NWFmNzQyZWFlMzUzNWNiOWM2ZmI4OWVlMGRjNzFiOWYzYWQx",
+  "uri": "spotify:user:charlieegan3:playlist:3MTZmuk6EHU6XaAzat0Qgk",
+  "description": "",
+  "followers": {
+    "total": 0,
+    "href": ""
+  },
+  "tracks": {
+    "href": "https://api.spotify.com/v1/playlists/3MTZmuk6EHU6XaAzat0Qgk/tracks?offset=0\u0026limit=100",
+    "limit": 100,
+    "offset": 0,
+    "total": 7,
+    "next": "",
+    "previous": "",
+    "items": [
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Scatman John",
+              "id": "4omQQTNN7ILiMsSB2k9eqX",
+              "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+              "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 1,
+          "duration_ms": 205693,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/39IN1XormOXgLz9EHrF4SQ"
+          },
+          "href": "https://api.spotify.com/v1/tracks/39IN1XormOXgLz9EHrF4SQ",
+          "id": "39IN1XormOXgLz9EHrF4SQ",
+          "name": "Scatman's Dance",
+          "preview_url": "https://p.scdn.co/mp3-preview/e13758c19787177face7b67517b5d9efb64ea1ed?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 2,
+          "uri": "spotify:track:39IN1XormOXgLz9EHrF4SQ",
+          "album": {
+            "name": "Take Your Time",
+            "artists": [
+              {
+                "name": "Scatman John",
+                "id": "4omQQTNN7ILiMsSB2k9eqX",
+                "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+                "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "album",
+            "id": "1M51hE8xdxUD88XviOFSnL",
+            "uri": "spotify:album:1M51hE8xdxUD88XviOFSnL",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/1M51hE8xdxUD88XviOFSnL",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/2c3bd037bfe2642967f418644dc7fd82b34d3367"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/af1226974a39ea2f8690854e10636b5092869479"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/125b5bbcf803128e93aeead0736e05159f554544"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/1M51hE8xdxUD88XviOFSnL"
+            },
+            "release_date": "1999-06-01",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "DKELA9901202"
+          },
+          "popularity": 18
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Scatman John",
+              "id": "4omQQTNN7ILiMsSB2k9eqX",
+              "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+              "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+              }
+            }
+          ],
+          "available_markets": [],
+          "disc_number": 1,
+          "duration_ms": 213826,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/1A6SHOaalcz1ps43PBImoa"
+          },
+          "href": "https://api.spotify.com/v1/tracks/1A6SHOaalcz1ps43PBImoa",
+          "id": "1A6SHOaalcz1ps43PBImoa",
+          "name": "Scatman (Ski-Ba-Bop-Ba-Dop-Bop) - Basic Radio",
+          "preview_url": "",
+          "track_number": 1,
+          "uri": "spotify:track:1A6SHOaalcz1ps43PBImoa",
+          "album": {
+            "name": "Scatman",
+            "artists": [
+              {
+                "name": "Scatman John",
+                "id": "4omQQTNN7ILiMsSB2k9eqX",
+                "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+                "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "album",
+            "id": "2TIaBaOzebu6dyF3vH17pQ",
+            "uri": "spotify:album:2TIaBaOzebu6dyF3vH17pQ",
+            "available_markets": [],
+            "href": "https://api.spotify.com/v1/albums/2TIaBaOzebu6dyF3vH17pQ",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/064e6c7baae847941b503e6b7c91021372ef51f3"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/03d597d0f32ccc7b8cdbc7c997fc31d89ecfeb83"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/ceedc504102a95b24a3cbe303f0d7f529e9a9836"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/2TIaBaOzebu6dyF3vH17pQ"
+            },
+            "release_date": "1999",
+            "release_date_precision": "year"
+          },
+          "external_ids": {
+            "isrc": "DEC769400262"
+          },
+          "popularity": 3
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Daryl Hall \u0026 John Oates",
+              "id": "77tT1kLj6mCWtFNqiOmP9H",
+              "uri": "spotify:artist:77tT1kLj6mCWtFNqiOmP9H",
+              "href": "https://api.spotify.com/v1/artists/77tT1kLj6mCWtFNqiOmP9H",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/77tT1kLj6mCWtFNqiOmP9H"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 2,
+          "duration_ms": 247160,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/169oHBed4Nj1Q073yu9bFB"
+          },
+          "href": "https://api.spotify.com/v1/tracks/169oHBed4Nj1Q073yu9bFB",
+          "id": "169oHBed4Nj1Q073yu9bFB",
+          "name": "Out of Touch - Remastered",
+          "preview_url": "https://p.scdn.co/mp3-preview/4f67fe24b9a6c3eec0e7a9fe6f8fa2348dc11d24?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 6,
+          "uri": "spotify:track:169oHBed4Nj1Q073yu9bFB",
+          "album": {
+            "name": "The Essential Daryl Hall \u0026 John Oates",
+            "artists": [
+              {
+                "name": "Daryl Hall \u0026 John Oates",
+                "id": "77tT1kLj6mCWtFNqiOmP9H",
+                "uri": "spotify:artist:77tT1kLj6mCWtFNqiOmP9H",
+                "href": "https://api.spotify.com/v1/artists/77tT1kLj6mCWtFNqiOmP9H",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/77tT1kLj6mCWtFNqiOmP9H"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "compilation",
+            "id": "0gCDvloPR42pZRZhmbGYVI",
+            "uri": "spotify:album:0gCDvloPR42pZRZhmbGYVI",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/0gCDvloPR42pZRZhmbGYVI",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/9d2ef2bdffdbb2dcb011039ba9140135b71377e2"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/83b16f32034ec7e9d449379352fad28fca102608"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/1c8febc08fab13d36f15ea0de931859fcfafbdcd"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/0gCDvloPR42pZRZhmbGYVI"
+            },
+            "release_date": "2005-04-25",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "USRC10301824"
+          },
+          "popularity": 58
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Scatman John",
+              "id": "4omQQTNN7ILiMsSB2k9eqX",
+              "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+              "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+              }
+            }
+          ],
+          "available_markets": [],
+          "disc_number": 1,
+          "duration_ms": 222573,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/3r6tMtQt48Xo4PH2Ocw2E0"
+          },
+          "href": "https://api.spotify.com/v1/tracks/3r6tMtQt48Xo4PH2Ocw2E0",
+          "id": "3r6tMtQt48Xo4PH2Ocw2E0",
+          "name": "Only You",
+          "preview_url": "",
+          "track_number": 3,
+          "uri": "spotify:track:3r6tMtQt48Xo4PH2Ocw2E0",
+          "album": {
+            "name": "Scatman's World",
+            "artists": [
+              {
+                "name": "Scatman John",
+                "id": "4omQQTNN7ILiMsSB2k9eqX",
+                "uri": "spotify:artist:4omQQTNN7ILiMsSB2k9eqX",
+                "href": "https://api.spotify.com/v1/artists/4omQQTNN7ILiMsSB2k9eqX",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/4omQQTNN7ILiMsSB2k9eqX"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "album",
+            "id": "2l7lvvfH01FIlAWA4BYzNk",
+            "uri": "spotify:album:2l7lvvfH01FIlAWA4BYzNk",
+            "available_markets": [],
+            "href": "https://api.spotify.com/v1/albums/2l7lvvfH01FIlAWA4BYzNk",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/7618eb0bbaae810cda9b0a03b12b003feb0663ac"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/361f998db4a0aa9182dfdc942dc4e0827857665d"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/2b1f1170a2a542d8c3397dc6874dfd3cc7c4aa49"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/2l7lvvfH01FIlAWA4BYzNk"
+            },
+            "release_date": "1995",
+            "release_date_precision": "year"
+          },
+          "external_ids": {
+            "isrc": "DEC769500164"
+          },
+          "popularity": 0
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "Y-Traxx",
+              "id": "5s2mMsZZjqenfPaKVW4bpT",
+              "uri": "spotify:artist:5s2mMsZZjqenfPaKVW4bpT",
+              "href": "https://api.spotify.com/v1/artists/5s2mMsZZjqenfPaKVW4bpT",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/5s2mMsZZjqenfPaKVW4bpT"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 1,
+          "duration_ms": 241346,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/1fwmpaKObFM51Nw1g5uJyt"
+          },
+          "href": "https://api.spotify.com/v1/tracks/1fwmpaKObFM51Nw1g5uJyt",
+          "id": "1fwmpaKObFM51Nw1g5uJyt",
+          "name": "Mystery Land",
+          "preview_url": "https://p.scdn.co/mp3-preview/c2b30b5b157db5e98a52f0f98fd726236992cb91?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 2,
+          "uri": "spotify:track:1fwmpaKObFM51Nw1g5uJyt",
+          "album": {
+            "name": "Clubbin'spirit 2",
+            "artists": [
+              {
+                "name": "Various Artists",
+                "id": "0LyfQWJT6nXafLPZqxe9Of",
+                "uri": "spotify:artist:0LyfQWJT6nXafLPZqxe9Of",
+                "href": "https://api.spotify.com/v1/artists/0LyfQWJT6nXafLPZqxe9Of",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/0LyfQWJT6nXafLPZqxe9Of"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "compilation",
+            "id": "1YJ8Bo9MWNOHh1BImavPht",
+            "uri": "spotify:album:1YJ8Bo9MWNOHh1BImavPht",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/1YJ8Bo9MWNOHh1BImavPht",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/ab90631b2d78ff197dfec5d01b7c588a9ec5ebed"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/9745590be4868f4e9d89725bdfb6a11c2763386e"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/110d151e1ce541bbc6663d0162f70958e200e3fe"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/1YJ8Bo9MWNOHh1BImavPht"
+            },
+            "release_date": "2009-04-15",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "FR6V80917560"
+          },
+          "popularity": 41
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "009 Sound System",
+              "id": "0BjppA384A5QT9kRKCJOyb",
+              "uri": "spotify:artist:0BjppA384A5QT9kRKCJOyb",
+              "href": "https://api.spotify.com/v1/artists/0BjppA384A5QT9kRKCJOyb",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/0BjppA384A5QT9kRKCJOyb"
+              }
+            }
+          ],
+          "available_markets": [],
+          "disc_number": 1,
+          "duration_ms": 277489,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/5O4d1xtEJ86pzswzOzQAWm"
+          },
+          "href": "https://api.spotify.com/v1/tracks/5O4d1xtEJ86pzswzOzQAWm",
+          "id": "5O4d1xtEJ86pzswzOzQAWm",
+          "name": "Dreamscape",
+          "preview_url": "",
+          "track_number": 2,
+          "uri": "spotify:track:5O4d1xtEJ86pzswzOzQAWm",
+          "album": {
+            "name": "Track One Recordings Vol. 1",
+            "artists": [
+              {
+                "name": "Various Artists",
+                "id": "0LyfQWJT6nXafLPZqxe9Of",
+                "uri": "spotify:artist:0LyfQWJT6nXafLPZqxe9Of",
+                "href": "https://api.spotify.com/v1/artists/0LyfQWJT6nXafLPZqxe9Of",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/0LyfQWJT6nXafLPZqxe9Of"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "compilation",
+            "id": "5Ld0ajH8zKNlyx0lyje64j",
+            "uri": "spotify:album:5Ld0ajH8zKNlyx0lyje64j",
+            "available_markets": [],
+            "href": "https://api.spotify.com/v1/albums/5Ld0ajH8zKNlyx0lyje64j",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/699792a8cf0457fc7b10b6c807c8f141901e9734"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/10d555340d45387c40236db26ce1b8a8456b3450"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/519f1112c2f8e6d1ce296f0778f02908ce3591b8"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/5Ld0ajH8zKNlyx0lyje64j"
+            },
+            "release_date": "2008-11-18",
+            "release_date_precision": "day"
+          },
+          "external_ids": {
+            "isrc": "US-TC7-08-35197"
+          },
+          "popularity": 0
+        }
+      },
+      {
+        "added_at": "2016-08-13T18:11:00Z",
+        "added_by": {
+          "display_name": "",
+          "external_urls": {
+            "spotify": "https://open.spotify.com/user/charlieegan3"
+          },
+          "followers": {
+            "total": 0,
+            "href": ""
+          },
+          "href": "https://api.spotify.com/v1/users/charlieegan3",
+          "id": "charlieegan3",
+          "images": null,
+          "uri": "spotify:user:charlieegan3"
+        },
+        "track": {
+          "artists": [
+            {
+              "name": "York",
+              "id": "20L5MecnuNujUE6imrfK0Q",
+              "uri": "spotify:artist:20L5MecnuNujUE6imrfK0Q",
+              "href": "https://api.spotify.com/v1/artists/20L5MecnuNujUE6imrfK0Q",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/20L5MecnuNujUE6imrfK0Q"
+              }
+            },
+            {
+              "name": "Quake",
+              "id": "6PytpCLLu3iY5kXYQq6Dxd",
+              "uri": "spotify:artist:6PytpCLLu3iY5kXYQq6Dxd",
+              "href": "https://api.spotify.com/v1/artists/6PytpCLLu3iY5kXYQq6Dxd",
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/6PytpCLLu3iY5kXYQq6Dxd"
+              }
+            }
+          ],
+          "available_markets": [
+            "AD",
+            "AR",
+            "AT",
+            "AU",
+            "BE",
+            "BG",
+            "BO",
+            "BR",
+            "CA",
+            "CH",
+            "CL",
+            "CO",
+            "CR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "DO",
+            "EC",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GB",
+            "GR",
+            "GT",
+            "HK",
+            "HN",
+            "HU",
+            "ID",
+            "IE",
+            "IL",
+            "IS",
+            "IT",
+            "JP",
+            "LI",
+            "LT",
+            "LU",
+            "LV",
+            "MC",
+            "MT",
+            "MX",
+            "MY",
+            "NI",
+            "NL",
+            "NO",
+            "NZ",
+            "PA",
+            "PE",
+            "PH",
+            "PL",
+            "PT",
+            "PY",
+            "RO",
+            "SE",
+            "SG",
+            "SK",
+            "SV",
+            "TH",
+            "TR",
+            "TW",
+            "US",
+            "UY",
+            "VN",
+            "ZA"
+          ],
+          "disc_number": 1,
+          "duration_ms": 213793,
+          "explicit": false,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/track/5da8yR2UWxZcRC1Eh2Zk4d"
+          },
+          "href": "https://api.spotify.com/v1/tracks/5da8yR2UWxZcRC1Eh2Zk4d",
+          "id": "5da8yR2UWxZcRC1Eh2Zk4d",
+          "name": "The Awakening - Quake Radio Edit",
+          "preview_url": "https://p.scdn.co/mp3-preview/ef7508fc841d3e23ae382c5fc99cc762d51287f0?cid=abdf0a10e7ca45d68337d1a39383b689",
+          "track_number": 3,
+          "uri": "spotify:track:5da8yR2UWxZcRC1Eh2Zk4d",
+          "album": {
+            "name": "The Awakening (Part 1)",
+            "artists": [
+              {
+                "name": "York",
+                "id": "20L5MecnuNujUE6imrfK0Q",
+                "uri": "spotify:artist:20L5MecnuNujUE6imrfK0Q",
+                "href": "https://api.spotify.com/v1/artists/20L5MecnuNujUE6imrfK0Q",
+                "external_urls": {
+                  "spotify": "https://open.spotify.com/artist/20L5MecnuNujUE6imrfK0Q"
+                }
+              }
+            ],
+            "album_group": "",
+            "album_type": "single",
+            "id": "7naYpLtycgqKS809tmtK3s",
+            "uri": "spotify:album:7naYpLtycgqKS809tmtK3s",
+            "available_markets": [
+              "AD",
+              "AR",
+              "AT",
+              "AU",
+              "BE",
+              "BG",
+              "BO",
+              "BR",
+              "CA",
+              "CH",
+              "CL",
+              "CO",
+              "CR",
+              "CY",
+              "CZ",
+              "DE",
+              "DK",
+              "DO",
+              "EC",
+              "EE",
+              "ES",
+              "FI",
+              "FR",
+              "GB",
+              "GR",
+              "GT",
+              "HK",
+              "HN",
+              "HU",
+              "ID",
+              "IE",
+              "IL",
+              "IS",
+              "IT",
+              "JP",
+              "LI",
+              "LT",
+              "LU",
+              "LV",
+              "MC",
+              "MT",
+              "MX",
+              "MY",
+              "NI",
+              "NL",
+              "NO",
+              "NZ",
+              "PA",
+              "PE",
+              "PH",
+              "PL",
+              "PT",
+              "PY",
+              "RO",
+              "SE",
+              "SG",
+              "SK",
+              "SV",
+              "TH",
+              "TR",
+              "TW",
+              "US",
+              "UY",
+              "VN",
+              "ZA"
+            ],
+            "href": "https://api.spotify.com/v1/albums/7naYpLtycgqKS809tmtK3s",
+            "images": [
+              {
+                "height": 640,
+                "width": 640,
+                "url": "https://i.scdn.co/image/2fe7b14940bf2a3f8e96bf533fb91698a352b26a"
+              },
+              {
+                "height": 300,
+                "width": 300,
+                "url": "https://i.scdn.co/image/e5d9c840f67fa0a6b79f04f30053581c3d35dcef"
+              },
+              {
+                "height": 64,
+                "width": 64,
+                "url": "https://i.scdn.co/image/9659297fdead736a2bb91ba83871e1db538bb96b"
+              }
+            ],
+            "external_urls": {
+              "spotify": "https://open.spotify.com/album/7naYpLtycgqKS809tmtK3s"
+            },
+            "release_date": "1998",
+            "release_date_precision": "year"
+          },
+          "external_ids": {
+            "isrc": "DEPN61100007"
+          },
+          "popularity": 19
+        }
+      }
+    ]
+  }
+}
