@@ -13,7 +13,7 @@ var auth spotify.Authenticator
 
 // Token gives a URL to get a new token and listens for the callback from spotify
 func Token() {
-	auth = spotify.NewAuthenticator("http://localhost:8080", spotify.ScopeUserReadPrivate, spotify.ScopePlaylistReadPrivate)
+	auth = spotify.NewAuthenticator("http://localhost:8080", spotify.ScopeUserReadPrivate, spotify.ScopePlaylistReadPrivate, spotify.ScopeUserReadRecentlyPlayed)
 	auth.SetAuthInfo(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"))
 
 	fmt.Println(auth.AuthURL(os.Getenv("SPOTIFY_AUTH_STATE")))

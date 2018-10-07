@@ -7,11 +7,9 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gosimple/slug"
 	"github.com/zmb3/spotify"
-	"golang.org/x/oauth2"
 )
 
 // Download saves all playlists from Spotify
@@ -114,17 +112,4 @@ func fetchAllPLaylists(client spotify.Client) []spotify.SimplePlaylist {
 	}
 
 	return playlists
-}
-
-func buildClient() spotify.Client {
-	token := &oauth2.Token{
-		AccessToken:  os.Getenv("SPOTIFY_ACCESS_TOKEN"),
-		TokenType:    "Bearer",
-		RefreshToken: os.Getenv("SPOTIFY_REFRESH_TOKEN"),
-		Expiry:       time.Now(),
-	}
-
-	auth := spotify.NewAuthenticator("http://localhost:8080", spotify.ScopeUserReadPrivate)
-	auth.SetAuthInfo(os.Getenv("SPOTIFY_CLIENT_ID"), os.Getenv("SPOTIFY_CLIENT_SECRET"))
-	return auth.NewClient(token)
 }
