@@ -82,7 +82,6 @@ func LastFM() {
 				},
 			})
 		}
-		// Sets the name for the new dataset.
 		if err := u.Put(ctx, vss); err != nil {
 			fmt.Println(err)
 			os.Exit(1)

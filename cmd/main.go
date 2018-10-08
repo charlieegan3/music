@@ -26,6 +26,10 @@ func main() {
 		LastFM()
 		os.Exit(0)
 	}
+	if os.Args[1] == "latest" {
+		Latest()
+		os.Exit(0)
+	}
 
 	fmt.Println("please pass either token or download")
 	os.Exit(1)
