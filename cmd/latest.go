@@ -11,7 +11,9 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/zmb3/spotify"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 )
 
 // Latest gets a list of recently played tracks
@@ -21,19 +23,28 @@ func Latest() {
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
+	accountJSON := os.Getenv("GOOGLE_JSON")
 
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
+	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
+		os.Exit(1)
 	}
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {
 		log.Fatalf("Failed to create schema: %v", err)
+		os.Exit(1)
 	}
 	schema, err := bigquery.SchemaFromJSON(jsonSchema)
 	if err != nil {
 		log.Fatalf("Failed to parse schema: %v", err)
+		os.Exit(1)
 	}
 	u := bigqueryClient.Dataset("music").Table("plays").Uploader()
 	mostRecentTimestamp := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
