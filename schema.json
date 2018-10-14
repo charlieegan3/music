@@ -31,5 +31,9 @@
   {
     "name": "album_cover",
     "type": "STRING"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP"
   }
 ]

@@ -85,6 +85,7 @@ func Latest() {
 					bigquery.NullInt64{Int64: int64(item.Track.Duration), Valid: true},
 					fmt.Sprintf("%s", item.Track.ID),
 					image,
+					fmt.Sprintf("%d", time.Now().Unix()),
 				},
 			})
 			// upload the items
