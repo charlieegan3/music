@@ -30,8 +30,9 @@ type resultArtistFromPeriod struct {
 }
 
 type resultCountForMonth struct {
-	Month string
-	Count int
+	Month  string
+	Count  int
+	Pretty string
 }
 
 // Summary gets a list of recently played tracks
@@ -55,6 +56,8 @@ func Summary() {
 	}
 
 	output := struct {
+		PlaysByMonth []resultCountForMonth
+
 		PlaysYear  []resultPlayFromPeriod
 		PlaysMonth []resultPlayFromPeriod
 		PlaysWeek  []resultPlayFromPeriod
@@ -62,16 +65,14 @@ func Summary() {
 		ArtistsYear  []resultArtistFromPeriod
 		ArtistsMonth []resultArtistFromPeriod
 		ArtistsWeek  []resultArtistFromPeriod
-
-		PlaysByMonth []resultCountForMonth
 	}{
+		countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName),
 		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
 		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30),
 		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30),
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
-		countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName),
 	}
 
 	bytes, err := json.MarshalIndent(output, "", "  ")
@@ -84,9 +85,9 @@ func Summary() {
 
 func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []resultCountForMonth {
 	queryString :=
-		"SELECT FORMAT_DATE(\"%Y-%m\", DATE(timestamp)) as month, count(track) as count\n" +
+		"SELECT FORMAT_DATE(\"%Y-%m\", DATE(timestamp)) as month, FORMAT_DATE(\"%B %Y\", DATE(timestamp)) as pretty, count(track) as count\n" +
 			"FROM " + fmt.Sprintf("`%s.%s.%s`\n", projectID, datasetName, tableName) +
-			`GROUP BY month
+			`GROUP BY month, pretty
 			ORDER BY month DESC
 			LIMIT 12`
 
