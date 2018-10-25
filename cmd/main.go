@@ -14,25 +14,22 @@ func main() {
 		fmt.Println("pass only one argument")
 		os.Exit(1)
 	}
-	if os.Args[1] == "token" {
-		Token()
-		os.Exit(0)
-	}
-	if os.Args[1] == "download" {
-		Download()
-		os.Exit(0)
-	}
-	if os.Args[1] == "lastfm" {
-		LastFM()
-		os.Exit(0)
-	}
-	if os.Args[1] == "latest" {
-		Latest()
-		os.Exit(0)
-	}
 
-	fmt.Println("please pass either token or download")
-	os.Exit(1)
+	switch os.Args[1] {
+	case "token":
+		Token()
+	case "download":
+		Download()
+	case "lastfm":
+		LastFM()
+	case "latest":
+		Latest()
+	case "summary":
+		Summary()
+	default:
+		fmt.Println("enter a valid command")
+		os.Exit(1)
+	}
 }
 
 func buildClient() spotify.Client {
