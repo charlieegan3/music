@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
@@ -72,6 +73,8 @@ func Summary() {
 		ArtistsYear  []resultArtistFromPeriod
 		ArtistsMonth []resultArtistFromPeriod
 		ArtistsWeek  []resultArtistFromPeriod
+
+		LastUpdated string
 	}{
 		countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName),
 		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
@@ -80,6 +83,8 @@ func Summary() {
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30),
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
+
+		time.Now().UTC().Format(time.RFC3339),
 	}
 
 	// format data as json
