@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
@@ -37,24 +38,30 @@ type resultCountForMonth struct {
 
 // Summary gets a list of recently played tracks
 func Summary() {
-	// Creates a bq client.
-	ctx := context.Background()
+	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
 	accountJSON := os.Getenv("GOOGLE_JSON")
+	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
+	objectName := "stats.json"
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
+	// get the credentials from json
+	ctx := context.Background()
+	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("Creds parse failed: %v", err)
 		os.Exit(1)
 	}
+
+	// create a big query client to query for the music stats
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 		os.Exit(1)
 	}
 
+	// fetch and format data
 	output := struct {
 		PlaysByMonth []resultCountForMonth
 
@@ -75,12 +82,34 @@ func Summary() {
 		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
 	}
 
+	// format data as json
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Println(string(bytes))
+
+	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
+	if err != nil {
+		log.Fatalf("Client create Failed: %v", err)
+		os.Exit(1)
+	}
+
+	bkt := storageClient.Bucket(bucketName)
+	obj := bkt.Object(objectName)
+
+	w := obj.NewWriter(ctx)
+	w.ContentType = "application/json"
+	w.ObjectAttrs.CacheControl = "no-cache"
+
+	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
+		log.Fatalf("Write Failed: %v", err)
+		os.Exit(1)
+	}
+	if err := w.Close(); err != nil {
+		log.Fatalf("Close Failed: %v", err)
+		os.Exit(1)
+	}
 }
 
 func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []resultCountForMonth {

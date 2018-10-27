@@ -7,12 +7,14 @@
     "bigquery",
     "civil",
     "compute/metadata",
+    "iam",
     "internal",
     "internal/atomiccache",
     "internal/fields",
     "internal/optional",
     "internal/trace",
-    "internal/version"
+    "internal/version",
+    "storage"
   ]
   revision = "dfffe386c33fb24c34ee501e5723df5b97b98514"
   version = "v0.30.0"
@@ -21,6 +23,7 @@
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
+    "protoc-gen-go/descriptor",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -139,6 +142,7 @@
     "internal",
     "iterator",
     "option",
+    "storage/v1",
     "transport/http",
     "transport/http/internal/propagation"
   ]
@@ -165,6 +169,8 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = [
+    "googleapis/api/annotations",
+    "googleapis/iam/v1",
     "googleapis/rpc/code",
     "googleapis/rpc/status"
   ]
@@ -206,6 +212,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ea39b0921cc2a5fff0f5d0b5319ba74b5cdb0e4138e9ce33eebffaf5c26a174e"
+  inputs-digest = "a2bc4c585d8de1a1b9c995808cde52f0ef94cdb987cf009783309ceed0e8b606"
   solver-name = "gps-cdcl"
   solver-version = 1
