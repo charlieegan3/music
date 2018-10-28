@@ -52,7 +52,7 @@ func SummaryRecent() {
 	// fetch and format data
 	output := struct {
 		LastUpdated string
-		RecentPLays []recentPlay
+		RecentPlays []recentPlay
 	}{
 		time.Now().UTC().Format(time.RFC3339),
 		mostRecentPlays(ctx, bigqueryClient, projectID, datasetName, tableName),
