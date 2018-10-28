@@ -18,11 +18,15 @@ function renderPlays(plays, tableID) {
 		row.appendChild(image);
 
 		var track = document.createElement("td");
-		var link = document.createElement("a");
-		link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
-		link.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
-		link.className = "no-underline dark-gray";
-		track.appendChild(link);
+		if (play.Spotify != "") {
+			var link = document.createElement("a");
+			link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
+			link.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
+			link.className = "no-underline dark-gray";
+			track.appendChild(link);
+		} else {
+			track.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
+		}
 		row.appendChild(track);
 
 		if (typeof play.Count != "undefined") {
