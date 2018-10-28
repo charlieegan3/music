@@ -9,10 +9,15 @@ function renderPlays(plays, tableID) {
 		var link = document.createElement("a");
 		link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
 		link.className = "no-underline dark-gray";
-		img.setAttribute("data-src", play.Artwork);
 		img.setAttribute("width", 30);
 		img.setAttribute("height", 30);
 		img.className = "ba lazy";
+		if (play.Artwork != "") {
+			img.setAttribute("data-src", play.Artwork);
+		} else {
+			img.setAttribute("data-src", "https://upload.wikimedia.org/wikipedia/commons/1/1a/1x1_placeholder.png");
+			img.className = "lazy o-0";
+		}
 		link.appendChild(img);
 		image.appendChild(link);
 		row.appendChild(image);
