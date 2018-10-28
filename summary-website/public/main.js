@@ -9,8 +9,10 @@ function renderPlays(plays, tableID) {
 		var link = document.createElement("a");
 		link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
 		link.className = "no-underline dark-gray";
-		img.setAttribute("src", play.Artwork);
-		img.className = "w2 ba"
+		img.setAttribute("data-src", play.Artwork);
+		img.setAttribute("width", 30);
+		img.setAttribute("height", 30);
+		img.className = "ba lazy";
 		link.appendChild(img);
 		image.appendChild(link);
 		row.appendChild(image);
@@ -26,12 +28,14 @@ function renderPlays(plays, tableID) {
 		if (typeof play.Count != "undefined") {
 			var count = document.createElement("td");
 			count.innerHTML = "<strong>" + play.Count.toString() + "</strong> plays";
+			count.className = "light-silver";
 			row.appendChild(count);
 		}
 
 		if (typeof play.Timestamp != "undefined") {
 			var ts = document.createElement("td");
 			ts.innerHTML = timeago().format(play.Timestamp);
+			ts.className = "light-silver";
 			row.appendChild(ts);
 		}
 
