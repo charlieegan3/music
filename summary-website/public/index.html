@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>charlieegan3 Music</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+		<script>
+			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
+				var playsWeekTable = document.getElementById("PlaysWeek");
+				for (var i = 0; i < response.PlaysWeek.length; i++) {
+					var play = response.PlaysWeek[i];
+					var row = document.createElement("tr");
+
+					var image = document.createElement("td");
+					var img = document.createElement("img");
+					var link = document.createElement("a");
+					link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
+					link.className = "no-underline dark-gray";
+					img.setAttribute("src", play.Artwork);
+					img.className = "w2 ba"
+					link.appendChild(img);
+					image.appendChild(link);
+					row.appendChild(image);
+
+					var track = document.createElement("td");
+					var link = document.createElement("a");
+					link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
+					link.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
+					link.className = "no-underline dark-gray";
+					track.appendChild(link);
+					row.appendChild(track);
+
+					var count = document.createElement("td");
+					count.innerHTML = play.Count.toString() + " plays";
+					row.appendChild(count);
+
+					playsWeekTable.appendChild(row);
+				}
+			})
+		</script>
+	</head>
+
+	<body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">charlieegan3 <span class="f2-ns f4 dark-blue display">music</span></h1>
+			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this week</h2>
+			<table id="PlaysWeek" class="f6-ns f7 w-100"></table>
+		</div>
+	</body>
+</html>
