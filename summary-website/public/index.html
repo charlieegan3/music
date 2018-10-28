@@ -22,7 +22,6 @@
 		<script>
 
 			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
-				renderPlays(response.PlaysWeek, "PlaysWeek");
 				renderPlays(response.PlaysMonth, "PlaysMonth");
 				renderPlays(response.PlaysYear, "PlaysYear");
 
@@ -51,20 +50,16 @@
 				<a href="/recent.html" class="orange no-underline">recent</a>
 			</p>
 
-
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this week</h2>
-			<table id="PlaysWeek" class="f6-ns f7 w-100"></table>
-
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this month</h2>
 			<table id="PlaysMonth" class="f6-ns f7 w-100"></table>
 			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsMonth"></span></p>
 
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
-			<canvas id="PlaysByMonth"></canvas>
-
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this year</h2>
 			<table id="PlaysYear" class="f6-ns f7 w-100"></table>
 			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsYear"></span></p>
+
+			<h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+			<canvas id="PlaysByMonth"></canvas>
 		</div>
 	</body>
 </html>
