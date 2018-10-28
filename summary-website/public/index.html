@@ -48,10 +48,23 @@
 					playsWeekTable.appendChild(row);
 				}
 			}
+			function renderArtists(artists, messageID, count) {
+				var list = [];
+				for (var i = 0; i < artists.length; i++) {
+					list.push(artists[i].Artist)
+					if (i >= (count - 1)) {
+						break;
+					}
+				}
+				document.getElementById(messageID).innerHTML = list.join(", ");
+			}
 			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
 				renderPlays(response.PlaysWeek, "PlaysWeek");
 				renderPlays(response.PlaysMonth, "PlaysMonth");
 				renderPlays(response.PlaysYear, "PlaysYear");
+
+				renderArtists(response.ArtistsMonth, "ArtistsMonth", 5);
+				renderArtists(response.ArtistsYear, "ArtistsYear", 5);
 			})
 		</script>
 	</head>
@@ -59,12 +72,17 @@
 	<body>
 		<div class="mw7 center ph1 ph2-ns">
 			<h1 class="mb2 f2-ns f4">charlieegan3 <span class="f2-ns f4 dark-blue display">music</span></h1>
+
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this week</h2>
 			<table id="PlaysWeek" class="f6-ns f7 w-100"></table>
+
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this month</h2>
 			<table id="PlaysMonth" class="f6-ns f7 w-100"></table>
+			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsMonth"></span></p>
+
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this year</h2>
 			<table id="PlaysYear" class="f6-ns f7 w-100"></table>
+			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsYear"></span></p>
 		</div>
 	</body>
 </html>
