@@ -52,6 +52,27 @@ function renderPlays(plays, tableID) {
 	}
 }
 
+function renderArtistsWithTracks(artists, trackCount, containerID) {
+	var artistsContainer = document.getElementById(containerID);
+	artistsContainer.innerHTML = "";
+
+	for (var i = 0; i < artists.length; i++) {
+		var header = document.createElement("h3");
+		header.innerHTML = artists[i].Name;
+		header.className = "f5-ns f6";
+		artistsContainer.appendChild(header);
+
+		var trackTable = document.createElement("table");
+		trackTable.id = artists[i].Name.replace(/[^\x00-\x7F]/g, "").replace(/ /g, "");
+		trackTable.className = "f6-ns f7 w-100";
+		artistsContainer.appendChild(trackTable);
+
+		renderPlays(artists[i].Tracks.slice(0, trackCount), trackTable.id);
+	}
+
+	new LazyLoad({ elements_selector: ".lazy" });
+}
+
 function renderArtists(artists, messageID, count) {
 	var list = [];
 	for (var i = 0; i < artists.length; i++) {

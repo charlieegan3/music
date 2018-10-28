@@ -20,20 +20,36 @@
 			}
 		</style>
 		<script>
+			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-tracks.json").then(function (response, xhr) {
+				var artists = response.Artists;
+				renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
 
-			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
-				renderPlays(response.PlaysMonth, "PlaysMonth");
-				renderPlays(response.PlaysYear, "PlaysYear");
+				var spinner = document.getElementById("spinner");
+				spinner.className = "dn";
 
-				renderArtists(response.ArtistsMonth, "ArtistsMonth", 5);
-				renderArtists(response.ArtistsYear, "ArtistsYear", 5);
+				document.getElementById("ArtistFilterBox").oninput = function() {
+					var term = document.getElementById("ArtistFilterBox").value;
+					if (term.length < 2) {
+						renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
+						return
+					}
 
-				renderPlaysByMonth(response.PlaysByMonth);
+					var artistsContainer = document.getElementById("Artists");
+					artistsContainer.innerHTML = "";
 
-				new LazyLoad({
-					elements_selector: ".lazy"
-				});
-			})
+					var matching = [];
+					for (var i = 0; i < artists.length; i++) {
+						if (artists[i].Name.toLowerCase().indexOf(term) !== -1) {
+							matching.push(artists[i]);
+						}
+					}
+					if (matching.length > 10) {
+						return
+					}
+
+					renderArtistsWithTracks(matching, 1000, "Artists");
+				};
+			});
 		</script>
 	</head>
 
@@ -51,16 +67,11 @@
 				<a href="/artists.html" class="orange no-underline">artists</a>
 			</p>
 
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this month</h2>
-			<table id="PlaysMonth" class="f6-ns f7 w-100"></table>
-			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsMonth"></span></p>
-
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this year</h2>
-			<table id="PlaysYear" class="f6-ns f7 w-100"></table>
-			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsYear"></span></p>
-
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
-			<canvas id="PlaysByMonth"></canvas>
+			<h2 class="f4-ns f5 bt pt3 b--light-gray">top artists</h2>
+			<input id="ArtistFilterBox" placeholder="filter artists..."/>
+			<p id="spinner"><img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Ajax-loader.gif"></p>
+			<div id="Artists">
+			</div>
 		</div>
 	</body>
 </html>
