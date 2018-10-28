@@ -26,6 +26,8 @@ func main() {
 		Latest()
 	case "summary":
 		Summary()
+	case "summary_recent":
+		SummaryRecent()
 	default:
 		fmt.Println("enter a valid command")
 		os.Exit(1)
