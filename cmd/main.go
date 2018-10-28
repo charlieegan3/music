@@ -28,6 +28,8 @@ func main() {
 		Summary()
 	case "summary_recent":
 		SummaryRecent()
+	case "backup_plays_table":
+		BackupPlaysTable()
 	default:
 		fmt.Println("enter a valid command")
 		os.Exit(1)
