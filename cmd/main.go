@@ -28,6 +28,8 @@ func main() {
 		Summary()
 	case "summary_recent":
 		SummaryRecent()
+	case "summary_tracks":
+		SummaryTracks()
 	case "backup_plays_table":
 		BackupPlaysTable()
 	default:
