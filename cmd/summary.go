@@ -105,7 +105,7 @@ func Summary() {
 
 	w := obj.NewWriter(ctx)
 	w.ContentType = "application/json"
-	w.ObjectAttrs.CacheControl = "no-cache"
+	w.ObjectAttrs.CacheControl = "max-age=3600"
 
 	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
 		log.Fatalf("Write Failed: %v", err)
