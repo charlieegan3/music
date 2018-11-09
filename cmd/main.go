@@ -32,6 +32,8 @@ func main() {
 		SummaryTracks()
 	case "backup_plays_table":
 		BackupPlaysTable()
+	case "youtube":
+		Youtube()
 	default:
 		fmt.Println("enter a valid command")
 		os.Exit(1)
