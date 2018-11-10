@@ -89,13 +89,15 @@ func Youtube() {
 		return
 	}
 
-	cutoff := len(videoIDs) - 1
+	cutoff := len(videoIDs)
 
 	// find where the logged plays and new plays meet
-	for i, v := range videoIDs {
-		if v == loggedPlays[0] {
-			cutoff = i
-			break
+	if len(loggedPlays) > 0 {
+		for i, v := range videoIDs {
+			if v == loggedPlays[0] {
+				cutoff = i
+				break
+			}
 		}
 	}
 
@@ -130,6 +132,7 @@ func Youtube() {
 				video.Album,
 				time.Now().UTC(),
 				video.ID,
+				video.CategoryID,
 				video.Duration,
 				video.Artwork,
 			},

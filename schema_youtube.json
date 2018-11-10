@@ -25,6 +25,11 @@
     "mode": "REQUIRED"
   },
   {
+    "name": "category_id",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
     "name": "duration",
     "type": "INTEGER",
     "mode": "NULLABLE"
