@@ -136,7 +136,7 @@ func Youtube() {
 				video.Artist,
 				video.Album,
 				time.Now().UTC(),
-				video.Duration,
+				video.Duration * 1000,
 				"",
 				video.Artwork,
 				time.Now().UTC(),
