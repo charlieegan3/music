@@ -86,8 +86,12 @@ func Latest() {
 					fmt.Sprintf("%s", item.Track.ID),
 					image,
 					fmt.Sprintf("%d", time.Now().Unix()),
+					"spotify",
+					"",
+					"",
 				},
 			})
+
 			// upload the items
 			err = u.Put(ctx, vss)
 			if err != nil {

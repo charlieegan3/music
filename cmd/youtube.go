@@ -49,7 +49,7 @@ func Youtube() {
 	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE_YOUTUBE")
+	tableName := os.Getenv("GOOGLE_TABLE")
 	accountJSON := os.Getenv("GOOGLE_JSON")
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
@@ -63,7 +63,7 @@ func Youtube() {
 		os.Exit(1)
 	}
 	// loads in the table schema from file
-	jsonSchema, err := ioutil.ReadFile("schema_youtube.json")
+	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {
 		log.Fatalf("Failed to create schema: %v", err)
 		os.Exit(1)
@@ -136,14 +136,17 @@ func Youtube() {
 				video.Artist,
 				video.Album,
 				time.Now().UTC(),
+				video.Duration,
+				"",
+				video.Artwork,
+				time.Now().UTC(),
+				"youtube",
 				video.ID,
 				video.CategoryID,
-				video.Duration,
-				video.Artwork,
 			},
 		})
 
-		fmt.Println("upload", video.Track)
+		fmt.Println("upload", video.Track, "-", video.Artist)
 
 		// upload the items
 		err = u.Put(ctx, vss)
@@ -165,7 +168,7 @@ func Youtube() {
 
 func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []string {
 	queryString := fmt.Sprintf(
-		"SELECT video_id as ID FROM `%s.%s.%s` ORDER BY timestamp DESC LIMIT 20",
+		"SELECT * FROM `%s.%s.%s` WHERE youtube_id != \"\" ORDER BY timestamp DESC LIMIT 20",
 		projectID,
 		datasetName,
 		tableName,

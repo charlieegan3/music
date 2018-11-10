@@ -35,5 +35,17 @@
   {
     "name": "created_at",
     "type": "TIMESTAMP"
+  },
+  {
+    "name": "source",
+    "type": "STRING"
+  },
+  {
+    "name": "youtube_id",
+    "type": "STRING"
+  },
+  {
+    "name": "youtube_category_id",
+    "type": "STRING"
   }
 ]
