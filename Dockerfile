@@ -11,5 +11,6 @@ FROM scratch
 ADD ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/src/github.com/charlieegan3/music/musicPlayTracker /
 COPY --from=build /go/src/github.com/charlieegan3/music/schema.json /
+COPY --from=build /go/src/github.com/charlieegan3/music/schema_youtube.json /
 
 CMD ["/musicPlayTracker", "latest"]
