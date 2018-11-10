@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -12,9 +13,13 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/bigquery"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 	youtube "google.golang.org/api/youtube/v3"
 )
 
@@ -40,17 +45,185 @@ type Video struct {
 
 // Youtube downloads data from youtube
 func Youtube() {
-	video, err := fetchDataForVideo("awX9XkPG5oY")
+	// Creates a bq client.
+	ctx := context.Background()
+	projectID := os.Getenv("GOOGLE_PROJECT")
+	datasetName := os.Getenv("GOOGLE_DATASET")
+	tableName := os.Getenv("GOOGLE_TABLE_YOUTUBE")
+	accountJSON := os.Getenv("GOOGLE_JSON")
+
+	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
 	if err != nil {
 		fmt.Println(err)
+		os.Exit(1)
+	}
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+		os.Exit(1)
+	}
+	// loads in the table schema from file
+	jsonSchema, err := ioutil.ReadFile("schema_youtube.json")
+	if err != nil {
+		log.Fatalf("Failed to create schema: %v", err)
+		os.Exit(1)
+	}
+	schema, err := bigquery.SchemaFromJSON(jsonSchema)
+	if err != nil {
+		log.Fatalf("Failed to parse schema: %v", err)
+		os.Exit(1)
+	}
+	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
+
+	// fetch the two most recent plays that can be matched against the historic data to find a progress point
+	loggedPlays := mostRecentlyLogged(ctx, bigqueryClient, projectID, datasetName, tableName)
+
+	// get recent plays
+	videoIDs, err := fetchRecentPlays()
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Println(video.ID)
-	fmt.Println(video.Track)
-	fmt.Println(video.Artist)
-	fmt.Println(video.Album)
-	fmt.Println(video.Artwork)
-	fmt.Println(video.Duration)
+	if len(videoIDs) < 1 {
+		fmt.Println("no videoIDs found")
+		return
+	}
+
+	cutoff := len(videoIDs) - 1
+
+	// find where the logged plays and new plays meet
+	for i, v := range videoIDs {
+		if v == loggedPlays[0] {
+			cutoff = i
+			break
+		}
+	}
+
+	videoIDs = videoIDs[0:cutoff]
+	if len(videoIDs) < 1 {
+		fmt.Println("No new plays to import")
+		return
+	}
+	fmt.Println("importing", len(videoIDs), "plays")
+
+	var recentPlays []Video
+	for _, v := range videoIDs {
+		video, err := fetchDataForVideo(v)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		// reverse to import in order
+		recentPlays = append([]Video{video}, recentPlays...)
+	}
+
+	for _, video := range recentPlays {
+		// creates items to be saved in bigquery
+		var vss []*bigquery.ValuesSaver
+		vss = append(vss, &bigquery.ValuesSaver{
+			Schema:   schema,
+			InsertID: fmt.Sprintf("%v%v", time.Now().UTC(), video.ID),
+			Row: []bigquery.Value{
+				video.Track,
+				video.Artist,
+				video.Album,
+				time.Now().UTC(),
+				video.ID,
+				video.Duration,
+				video.Artwork,
+			},
+		})
+
+		fmt.Println("upload", video.Track)
+
+		// upload the items
+		err = u.Put(ctx, vss)
+		if err != nil {
+			if pmErr, ok := err.(bigquery.PutMultiError); ok {
+				for _, rowInsertionError := range pmErr {
+					log.Println(rowInsertionError.Errors)
+				}
+				return
+			}
+
+			log.Println(err)
+		}
+
+		// to make sure that the play timestamps are correctly ordered
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []string {
+	queryString := fmt.Sprintf(
+		"SELECT video_id as ID FROM `%s.%s.%s` ORDER BY timestamp DESC LIMIT 20",
+		projectID,
+		datasetName,
+		tableName,
+	)
+
+	q := client.Query(queryString)
+	it, err := q.Read(ctx)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	var videos []string
+	for {
+		var v Video
+		err := it.Next(&v)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		videos = append(videos, v.ID)
+	}
+
+	return videos
+}
+
+func fetchRecentPlays() ([]string, error) {
+	var videoIDs []string
+
+	req, err := http.NewRequest("GET", "https://www.youtube.com/feed/history", nil)
+	if err != nil {
+		return videoIDs, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0")
+	req.Header.Set("Cookie", os.Getenv("YOUTUBE_COOKIE"))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return videoIDs, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return videoIDs, err
+	}
+
+	videoIDRegex := regexp.MustCompile(`videoId":"([^"]+)"`)
+
+	for _, v := range videoIDRegex.FindAllSubmatch(body, -1) {
+		existing := false
+		for _, v2 := range videoIDs {
+			if string(v[1]) == v2 {
+				existing = true
+			}
+		}
+
+		if existing == false {
+			videoIDs = append(videoIDs, string(v[1]))
+		}
+	}
+
+	return videoIDs, nil
 }
 
 func fetchDataForVideo(videoID string) (Video, error) {
@@ -140,7 +313,7 @@ func getClient() *http.Client {
 func parse8601Duration(duration string) int {
 	seconds := 0
 
-	r := regexp.MustCompile(`PT((?P<Hours>\d+)H)?((?P<Minutes>\d+)M)?(?P<Seconds>\d+)S`)
+	r := regexp.MustCompile(`PT((?P<Hours>\d+)H)?((?P<Minutes>\d+)M)?((?P<Seconds>\d+)S)?`)
 
 	matches := r.FindStringSubmatch(duration)
 	parts := r.SubexpNames()

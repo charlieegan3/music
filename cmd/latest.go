@@ -46,7 +46,7 @@ func Latest() {
 		log.Fatalf("Failed to parse schema: %v", err)
 		os.Exit(1)
 	}
-	u := bigqueryClient.Dataset("music").Table("plays").Uploader()
+	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
 	mostRecentTimestamp := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
 
 	// Creates a spotify client
