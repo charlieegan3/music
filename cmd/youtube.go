@@ -116,8 +116,13 @@ func Youtube() {
 			continue
 		}
 
-		// reverse to import in order
-		recentPlays = append([]Video{video}, recentPlays...)
+		// Music or entertainment
+		if video.CategoryID == "10" || video.CategoryID == "24" {
+			// reverse to import in order
+			recentPlays = append([]Video{video}, recentPlays...)
+		} else {
+			fmt.Println("skipping:", v, "(not music)")
+		}
 	}
 
 	for _, video := range recentPlays {
