@@ -168,7 +168,7 @@ func Youtube() {
 
 func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []string {
 	queryString := fmt.Sprintf(
-		"SELECT * FROM `%s.%s.%s` WHERE youtube_id != \"\" ORDER BY timestamp DESC LIMIT 20",
+		"SELECT youtube_id as ID FROM `%s.%s.%s` WHERE youtube_id IS NOT NULL AND youtube_id != \"\" ORDER BY timestamp DESC LIMIT 20",
 		projectID,
 		datasetName,
 		tableName,
