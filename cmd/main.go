@@ -36,6 +36,8 @@ func main() {
 		Youtube()
 	case "soundcloud":
 		Soundcloud()
+	case "shazam":
+		Shazam()
 	default:
 		fmt.Println("enter a valid command")
 		os.Exit(1)
