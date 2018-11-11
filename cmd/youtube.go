@@ -137,12 +137,14 @@ func Youtube() {
 				video.Album,
 				time.Now().UTC(),
 				video.Duration * 1000,
-				"",
+				"", // spotify_id
 				video.Artwork,
 				time.Now().UTC(),
-				"youtube",
-				video.ID,
-				video.CategoryID,
+				"youtube",        // source
+				video.ID,         // youtube_id
+				video.CategoryID, // youtube_category_id
+				"",               // soundcloud_id
+				"",               // soundcloud_permalink
 			},
 		})
 

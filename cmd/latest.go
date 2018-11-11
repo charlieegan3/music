@@ -87,8 +87,10 @@ func Latest() {
 					image,
 					fmt.Sprintf("%d", time.Now().Unix()),
 					"spotify",
-					"",
-					"",
+					"", // youtube_id
+					"", // youtube_category_id
+					"", // soundcloud_id
+					"", // soundcloud_permalink
 				},
 			})
 

@@ -34,6 +34,8 @@ func main() {
 		BackupPlaysTable()
 	case "youtube":
 		Youtube()
+	case "soundcloud":
+		Soundcloud()
 	default:
 		fmt.Println("enter a valid command")
 		os.Exit(1)

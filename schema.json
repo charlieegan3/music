@@ -47,5 +47,13 @@
   {
     "name": "youtube_category_id",
     "type": "STRING"
+  },
+  {
+    "name": "soundcloud_id",
+    "type": "STRING"
+  },
+  {
+    "name": "soundcloud_permalink",
+    "type": "STRING"
   }
 ]
