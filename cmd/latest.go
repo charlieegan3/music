@@ -112,7 +112,7 @@ func Latest() {
 
 func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) time.Time {
 	queryString := fmt.Sprintf(
-		"SELECT timestamp FROM `%s.%s.%s` ORDER BY timestamp DESC LIMIT 1",
+		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"spotify\" OR source IS NULL ORDER BY timestamp DESC LIMIT 1",
 		projectID,
 		datasetName,
 		tableName,
