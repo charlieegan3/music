@@ -91,6 +91,8 @@ func Latest() {
 					"", // youtube_category_id
 					"", // soundcloud_id
 					"", // soundcloud_permalink
+					"", // shazam_id
+					"", // shazam_permalink
 				},
 			})
 

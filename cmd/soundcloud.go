@@ -134,6 +134,8 @@ func Soundcloud() {
 				"",                                   // youtube_category_id
 				item.ID,                              // soundcloud_id
 				item.PermalinkURL,                    // soundcloud_permalink
+				"",                                   // shazam_id
+				"",                                   // shazam_permalink
 			},
 		})
 
