@@ -50,7 +50,7 @@ type shazamPlay struct {
 }
 
 // Shazam downloads plays from sound cloud
-func Shazam() {
+func Shazam() error {
 	content, err := fetchRecentShazamJSON()
 	if err != nil {
 		log.Fatal(err)
@@ -101,13 +101,11 @@ func Shazam() {
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to load creds from json: %v", err)
 	}
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
@@ -121,7 +119,10 @@ func Shazam() {
 		os.Exit(1)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp := mostRecentShazamTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	mostRecentTimestamp, err := mostRecentShazamTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	if err != nil {
+		return fmt.Errorf("Failed to get most recently played: %v", err)
+	}
 
 	for _, item := range recentlyPlayed {
 		if mostRecentTimestamp.Unix() > (item.PlayedAt.Unix() - 1) {
@@ -160,14 +161,15 @@ func Shazam() {
 				for _, rowInsertionError := range pmErr {
 					log.Println(rowInsertionError.Errors)
 				}
-				return
 			}
 
-			log.Println(err)
+			return fmt.Errorf("Failed to put items: %v", err)
 		}
 
 		fmt.Println("uploaded", item.Artist, " | ", item.Track)
 	}
+
+	return nil
 }
 
 func fetchRecentShazamJSON() ([]byte, error) {
@@ -193,7 +195,7 @@ func fetchRecentShazamJSON() ([]byte, error) {
 	return body, nil
 }
 
-func mostRecentShazamTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) time.Time {
+func mostRecentShazamTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) (time.Time, error) {
 	queryString := fmt.Sprintf(
 		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"shazam\" ORDER BY timestamp DESC LIMIT 1",
 		projectID,
@@ -203,8 +205,7 @@ func mostRecentShazamTimestamp(ctx context.Context, client *bigquery.Client, pro
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return time.Now(), fmt.Errorf("Failed to get most recent play: %v", err)
 	}
 	var l struct {
 		Timestamp time.Time
@@ -215,10 +216,9 @@ func mostRecentShazamTimestamp(ctx context.Context, client *bigquery.Client, pro
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return time.Now(), fmt.Errorf("Failed to parse timestamp data: %v", err)
 		}
 		break
 	}
-	return l.Timestamp
+	return l.Timestamp, nil
 }

@@ -44,7 +44,7 @@ type Video struct {
 }
 
 // Youtube downloads data from youtube
-func Youtube() {
+func Youtube() error {
 	// Creates a bq client.
 	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")
@@ -54,29 +54,28 @@ func Youtube() {
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to load json creds %v", err)
 	}
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {
-		log.Fatalf("Failed to create schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create schema: %v", err)
 	}
 	schema, err := bigquery.SchemaFromJSON(jsonSchema)
 	if err != nil {
-		log.Fatalf("Failed to parse schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
 
 	// fetch the two most recent plays that can be matched against the historic data to find a progress point
-	loggedPlays := mostRecentlyLogged(ctx, bigqueryClient, projectID, datasetName, tableName)
+	loggedPlays, err := mostRecentlyLogged(ctx, bigqueryClient, projectID, datasetName, tableName)
+	if err != nil {
+		return fmt.Errorf("Failed to get the most recent videos: %v", err)
+	}
 
 	// get recent plays
 	videoIDs, err := fetchRecentPlays()
@@ -86,7 +85,7 @@ func Youtube() {
 
 	if len(videoIDs) < 1 {
 		fmt.Println("no videoIDs found")
-		return
+		return nil
 	}
 
 	cutoff := len(videoIDs)
@@ -104,7 +103,7 @@ func Youtube() {
 	videoIDs = videoIDs[0:cutoff]
 	if len(videoIDs) < 1 {
 		fmt.Println("No new plays to import")
-		return
+		return nil
 	}
 	fmt.Println("importing", len(videoIDs), "plays")
 
@@ -159,18 +158,18 @@ func Youtube() {
 				for _, rowInsertionError := range pmErr {
 					log.Println(rowInsertionError.Errors)
 				}
-				return
 			}
 
-			log.Println(err)
+			return fmt.Errorf("Failed to upload item %v", err)
 		}
 
 		// to make sure that the play timestamps are correctly ordered
 		time.Sleep(500 * time.Millisecond)
 	}
+	return nil
 }
 
-func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []string {
+func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]string, error) {
 	queryString := fmt.Sprintf(
 		"SELECT youtube_id as ID FROM `%s.%s.%s` WHERE youtube_id IS NOT NULL AND youtube_id != \"\" ORDER BY timestamp DESC LIMIT 20",
 		projectID,
@@ -181,8 +180,7 @@ func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID 
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return []string{}, fmt.Errorf("Failed to get most recently logged videos %v", err)
 	}
 
 	var videos []string
@@ -193,13 +191,12 @@ func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID 
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return []string{}, fmt.Errorf("Failed parse video %v", err)
 		}
 		videos = append(videos, v.ID)
 	}
 
-	return videos
+	return videos, nil
 }
 
 func fetchRecentPlays() ([]string, error) {

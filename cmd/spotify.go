@@ -17,7 +17,7 @@ import (
 )
 
 // Spotify gets a list of recently played tracks
-func Spotify() {
+func Spotify() error {
 	// Creates a bq client.
 	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")
@@ -27,41 +27,38 @@ func Spotify() {
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to get creds from json: %v", err)
 	}
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {
-		log.Fatalf("Failed to create schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create schema: %v", err)
 	}
 	schema, err := bigquery.SchemaFromJSON(jsonSchema)
 	if err != nil {
-		log.Fatalf("Failed to parse schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	if err != nil {
+		return fmt.Errorf("Failed to get most recent timestamp: %v", err)
+	}
 
 	// Creates a spotify client
 	spotifyClient := buildClient()
 	recentlyPlayed, err := spotifyClient.PlayerRecentlyPlayedOpt(&spotify.RecentlyPlayedOptions{Limit: 50})
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to get recent plays: %v", err)
 	}
 	for _, item := range recentlyPlayed {
 		if mostRecentTimestamp.Unix() < item.PlayedAt.Unix() {
 			fullTrack, err := spotifyClient.GetTrack(item.Track.ID)
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				return fmt.Errorf("Failed to get full track: %v", err)
 			}
 
 			var artists []string
@@ -103,18 +100,19 @@ func Spotify() {
 					for _, rowInsertionError := range pmErr {
 						log.Println(rowInsertionError.Errors)
 					}
-					return
 				}
 
-				log.Println(err)
+				return fmt.Errorf("Failed to insert row: %v", err)
 			}
 			fmt.Printf("%v %s\n", item.PlayedAt, item.Track.Name)
 		}
 	}
 
+	return nil
 }
 
-func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) time.Time {
+func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) (time.Time, error) {
+	var t time.Time
 	queryString := fmt.Sprintf(
 		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"spotify\" OR source IS NULL ORDER BY timestamp DESC LIMIT 1",
 		projectID,
@@ -124,8 +122,7 @@ func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return t, fmt.Errorf("Failed query for recent timestamp: %v", err)
 	}
 	var l struct {
 		Timestamp time.Time
@@ -137,9 +134,10 @@ func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID
 		}
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			return t, fmt.Errorf("Failed reading results for time: %v", err)
 		}
 		break
 	}
-	return l.Timestamp
+
+	return l.Timestamp, nil
 }

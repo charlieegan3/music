@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -25,7 +24,7 @@ type recentPlay struct {
 }
 
 // SummaryRecent gets a list of recently played tracks
-func SummaryRecent() {
+func SummaryRecent() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
@@ -38,37 +37,37 @@ func SummaryRecent() {
 	ctx := context.Background()
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
 	if err != nil {
-		log.Fatalf("Creds parse failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Creds parse failed: %v", err)
 	}
 
 	// create a big query client to query for the music stats
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
+	plays, err := mostRecentPlays(ctx, bigqueryClient, projectID, datasetName, tableName)
+	if err != nil {
+		return fmt.Errorf("Failed to get most recent plays: %v", err)
+	}
 	// fetch and format data
 	output := struct {
 		LastUpdated string
 		RecentPlays []recentPlay
 	}{
 		time.Now().UTC().Format(time.RFC3339),
-		mostRecentPlays(ctx, bigqueryClient, projectID, datasetName, tableName),
+		plays,
 	}
 
 	// format data as json
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("JSON MarshalIndent failed: %v", err)
 	}
 
 	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Client create Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	bkt := storageClient.Bucket(bucketName)
@@ -79,16 +78,16 @@ func SummaryRecent() {
 	w.ObjectAttrs.CacheControl = "max-age=300"
 
 	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
-		log.Fatalf("Write Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Write Failed: %v", err)
 	}
 	if err := w.Close(); err != nil {
-		log.Fatalf("Close Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Close Failed: %v", err)
 	}
+	return nil
 }
 
-func mostRecentPlays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []recentPlay {
+func mostRecentPlays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]recentPlay, error) {
+	var results []recentPlay
 	queryString :=
 		"SELECT track, artist, album, timestamp, duration, spotify_id as spotify, album_cover as artwork\n" +
 			"FROM " + fmt.Sprintf("`%s.%s.%s`\n", projectID, datasetName, tableName) +
@@ -98,11 +97,9 @@ func mostRecentPlays(ctx context.Context, client *bigquery.Client, projectID str
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return results, fmt.Errorf("Failed to get recent plays: %v", err)
 	}
 
-	var results []recentPlay
 	var result recentPlay
 	for {
 		err := it.Next(&result)
@@ -110,11 +107,10 @@ func mostRecentPlays(ctx context.Context, client *bigquery.Client, projectID str
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return results, fmt.Errorf("Failed to parse recent plays: %v", err)
 		}
 		results = append(results, result)
 	}
 
-	return results
+	return results, nil
 }

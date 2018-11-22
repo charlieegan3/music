@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -15,31 +17,36 @@ func main() {
 		os.Exit(1)
 	}
 
+	var err error
 	switch os.Args[1] {
 	case "token":
 		Token()
 	case "download":
 		Download()
 	case "lastfm":
-		LastFM()
+		err = LastFM()
 	case "spotify":
-		Spotify()
+		err = Spotify()
 	case "summary":
-		Summary()
+		err = Summary()
 	case "summary_recent":
-		SummaryRecent()
+		err = SummaryRecent()
 	case "summary_tracks":
-		SummaryTracks()
+		err = SummaryTracks()
 	case "backup_plays_table":
-		BackupPlaysTable()
+		err = BackupPlaysTable()
 	case "youtube":
-		Youtube()
+		err = Youtube()
 	case "soundcloud":
-		Soundcloud()
+		err = Soundcloud()
 	case "shazam":
-		Shazam()
+		err = Shazam()
 	default:
-		fmt.Println("enter a valid command")
+		err = errors.New("enter a valid command")
+	}
+
+	if err != nil {
+		log.Fatalf("Failed due to error: %v", err)
 		os.Exit(1)
 	}
 }

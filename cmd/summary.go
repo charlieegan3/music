@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -38,7 +37,7 @@ type resultCountForMonth struct {
 }
 
 // Summary gets a list of recently played tracks
-func Summary() {
+func Summary() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
@@ -51,15 +50,42 @@ func Summary() {
 	ctx := context.Background()
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
 	if err != nil {
-		log.Fatalf("Creds parse failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Creds parse failed: %v", err)
 	}
 
 	// create a big query client to query for the music stats
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
+	}
+
+	cly, err := countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName)
+	if err != nil {
+		return fmt.Errorf("Failed to get counts for last year %v", err)
+	}
+	pfly, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365)
+	if err != nil {
+		return fmt.Errorf("Failed to get plays for last year %v", err)
+	}
+	pflm, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30)
+	if err != nil {
+		return fmt.Errorf("Failed to get plays for last month %v", err)
+	}
+	pflw, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7)
+	if err != nil {
+		return fmt.Errorf("Failed to get plays for last week %v", err)
+	}
+	afly, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365)
+	if err != nil {
+		return fmt.Errorf("Failed to get artists for last year %v", err)
+	}
+	aflm, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30)
+	if err != nil {
+		return fmt.Errorf("Failed to get artists for last month %v", err)
+	}
+	aflw, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7)
+	if err != nil {
+		return fmt.Errorf("Failed to get artists for last week %v", err)
 	}
 
 	// fetch and format data
@@ -76,13 +102,13 @@ func Summary() {
 
 		LastUpdated string
 	}{
-		countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName),
-		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
-		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30),
-		playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
-		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365),
-		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30),
-		artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7),
+		cly,
+		pfly,
+		pflm,
+		pflw,
+		afly,
+		aflm,
+		aflw,
 
 		time.Now().UTC().Format(time.RFC3339),
 	}
@@ -90,14 +116,12 @@ func Summary() {
 	// format data as json
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("JSON MarshalIndent failed: %v", err)
 	}
 
 	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Client create Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	bkt := storageClient.Bucket(bucketName)
@@ -108,16 +132,16 @@ func Summary() {
 	w.ObjectAttrs.CacheControl = "max-age=3600"
 
 	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
-		log.Fatalf("Write Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Write Failed: %v", err)
 	}
 	if err := w.Close(); err != nil {
-		log.Fatalf("Close Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Close Failed: %v", err)
 	}
+	return nil
 }
 
-func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []resultCountForMonth {
+func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]resultCountForMonth, error) {
+	var results []resultCountForMonth
 	queryString :=
 		"SELECT FORMAT_DATE(\"%Y-%m\", DATE(timestamp)) as month, FORMAT_DATE(\"%B %Y\", DATE(timestamp)) as pretty, count(track) as count\n" +
 			"FROM " + fmt.Sprintf("`%s.%s.%s`\n", projectID, datasetName, tableName) +
@@ -128,10 +152,8 @@ func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID s
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return results, fmt.Errorf("Failed to get counts for year %v", err)
 	}
-	var results []resultCountForMonth
 	var result resultCountForMonth
 	for {
 		err := it.Next(&result)
@@ -139,15 +161,14 @@ func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID s
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return results, fmt.Errorf("Failed to extract count for response %v", err)
 		}
 		results = append(results, result)
 	}
-	return results
+	return results, nil
 }
 
-func playsFromLastNDays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string, days int) []resultPlayFromPeriod {
+func playsFromLastNDays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string, days int) ([]resultPlayFromPeriod, error) {
 	queryString := fmt.Sprintf(
 		`SELECT
 		  track,
@@ -182,15 +203,16 @@ func playsFromLastNDays(ctx context.Context, client *bigquery.Client, projectID 
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return results, fmt.Errorf("Failed to get parse play result %v", err)
 		}
 		results = append(results, result)
 	}
-	return results
+
+	return results, nil
 }
 
-func artistsForLastNDays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string, days int) []resultArtistFromPeriod {
+func artistsForLastNDays(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string, days int) ([]resultArtistFromPeriod, error) {
+	var results []resultArtistFromPeriod
 	queryString := fmt.Sprintf(
 		`SELECT
 		  artist,
@@ -209,10 +231,8 @@ func artistsForLastNDays(ctx context.Context, client *bigquery.Client, projectID
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return results, fmt.Errorf("Failed to get artists for last %d days %v", days, err)
 	}
-	var results []resultArtistFromPeriod
 	var result resultArtistFromPeriod
 	for {
 		err := it.Next(&result)
@@ -220,10 +240,9 @@ func artistsForLastNDays(ctx context.Context, client *bigquery.Client, projectID
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return results, fmt.Errorf("Failed to get parse artist result %v", err)
 		}
 		results = append(results, result)
 	}
-	return results
+	return results, nil
 }

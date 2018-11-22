@@ -29,5 +29,4 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Printf("Access:\n%v\n\nRefresh:\n%v\n", token.AccessToken, token.RefreshToken)
-	os.Exit(0)
 }

@@ -47,16 +47,16 @@ type soundcloudPlay struct {
 }
 
 // Soundcloud downloads plays from sound cloud
-func Soundcloud() {
+func Soundcloud() error {
 	content, err := fetchRecentPlayJSON()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Failed to get recent plays: %v", err)
 	}
 
 	var response soundcloudResponse
 	err = json.Unmarshal(content, &response)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Failed to parse JSON response: %v", err)
 	}
 
 	var recentlyPlayed []soundcloudPlay
@@ -87,24 +87,20 @@ func Soundcloud() {
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to load creds from json: %v", err)
 	}
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {
-		log.Fatalf("Failed to create schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create schema: %v", err)
 	}
 	schema, err := bigquery.SchemaFromJSON(jsonSchema)
 	if err != nil {
-		log.Fatalf("Failed to parse schema: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
 	mostRecentTimestamp := mostRecentSoundCloudTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
@@ -146,14 +142,15 @@ func Soundcloud() {
 				for _, rowInsertionError := range pmErr {
 					log.Println(rowInsertionError.Errors)
 				}
-				return
 			}
 
-			log.Println(err)
+			return fmt.Errorf("Failed to upload items: %v", err)
 		}
 
 		fmt.Println("uploaded", item.Artist, " | ", item.Title)
 	}
+
+	return nil
 }
 
 func fetchRecentPlayJSON() ([]byte, error) {

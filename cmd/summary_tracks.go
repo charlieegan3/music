@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"time"
@@ -46,7 +45,7 @@ func (a byPlays) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byPlays) Less(i, j int) bool { return a[i].TotalPlays() > a[j].TotalPlays() }
 
 // SummaryTracks returns a list of all tracks and the number of plays for them
-func SummaryTracks() {
+func SummaryTracks() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
@@ -59,15 +58,13 @@ func SummaryTracks() {
 	ctx := context.Background()
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
 	if err != nil {
-		log.Fatalf("Creds parse failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Creds parse failed: %v", err)
 	}
 
 	// create a big query client to query for the music stats
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
 	// fetch and format data
@@ -85,14 +82,12 @@ func SummaryTracks() {
 	// format data as json
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to indent JSON: %v", err)
 	}
 
 	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Client create Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	bkt := storageClient.Bucket(bucketName)
@@ -103,13 +98,13 @@ func SummaryTracks() {
 	w.ObjectAttrs.CacheControl = "max-age=3600"
 
 	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
-		log.Fatalf("Write Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Write Failed: %v", err)
 	}
 	if err := w.Close(); err != nil {
-		log.Fatalf("Close Failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Close Failed: %v", err)
 	}
+
+	return nil
 }
 
 func tracksWithCounts(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) []trackWithCount {

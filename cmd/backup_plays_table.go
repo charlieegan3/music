@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 )
 
 // BackupPlaysTable gets a list of recently played tracks
-func BackupPlaysTable() {
+func BackupPlaysTable() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
@@ -25,15 +25,13 @@ func BackupPlaysTable() {
 	ctx := context.Background()
 	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
 	if err != nil {
-		log.Fatalf("Creds parse failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Creds parse failed: %v", err)
 	}
 
 	// create a big query client to query for the music stats
 	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
 	// create handles to the dataset and table
@@ -52,12 +50,12 @@ func BackupPlaysTable() {
 
 	job, err := extractor.Run(ctx)
 	if err != nil {
-		log.Fatalf("Create backup job failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Create backup job failed: %v", err)
 	}
 	_, err = job.Wait(ctx)
 	if err != nil {
-		log.Fatalf("Job failed: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("Job failed: %v", err)
 	}
+
+	return nil
 }

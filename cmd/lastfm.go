@@ -28,7 +28,7 @@ type lastFMDataPage []struct {
 }
 
 // LastFM gets a list of recently played tracks
-func LastFM() {
+func LastFM() error {
 	// loads in the data from file (https://mainstream.ghan.nl/export.html)
 	jsonPages, err := ioutil.ReadFile("lastfm_data.json")
 	if err != nil {
@@ -84,10 +84,12 @@ func LastFM() {
 		}
 		if err := u.Put(ctx, vss); err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 		fmt.Printf("%v/%v\n", i, len(pages))
 	}
 
 	fmt.Println("done")
+
+	return nil
 }
