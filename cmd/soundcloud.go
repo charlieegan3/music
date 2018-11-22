@@ -15,7 +15,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -103,7 +102,10 @@ func Soundcloud() error {
 		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp := mostRecentSoundCloudTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "soundcloud")
+	if err != nil {
+		return fmt.Errorf("Failed to get most recent entry: %v", err)
+	}
 
 	for _, item := range recentlyPlayed {
 		if mostRecentTimestamp.Unix() > (item.PlayedAt.Unix() - 1) {
@@ -177,40 +179,6 @@ func fetchRecentPlayJSON() ([]byte, error) {
 	}
 
 	return body, nil
-}
-
-func mostRecentSoundCloudTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) time.Time {
-	queryString := fmt.Sprintf(
-		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"soundcloud\" ORDER BY timestamp DESC LIMIT 1",
-		projectID,
-		datasetName,
-		tableName,
-	)
-	q := client.Query(queryString)
-	it, err := q.Read(ctx)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	if err == iterator.Done {
-		fmt.Println("no soundcloud tracks found, returning early time")
-		return time.Unix(0, 0)
-	}
-	var l struct {
-		Timestamp time.Time
-	}
-	for {
-		err := it.Next(&l)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		break
-	}
-	return l.Timestamp
 }
 
 func compressTitle(title string, artist string) string {

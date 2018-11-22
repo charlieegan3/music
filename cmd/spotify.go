@@ -12,7 +12,6 @@ import (
 	"github.com/zmb3/spotify"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -43,7 +42,7 @@ func Spotify() error {
 		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "spotify")
 	if err != nil {
 		return fmt.Errorf("Failed to get most recent timestamp: %v", err)
 	}
@@ -109,35 +108,4 @@ func Spotify() error {
 	}
 
 	return nil
-}
-
-func mostRecentTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) (time.Time, error) {
-	var t time.Time
-	queryString := fmt.Sprintf(
-		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"spotify\" OR source IS NULL ORDER BY timestamp DESC LIMIT 1",
-		projectID,
-		datasetName,
-		tableName,
-	)
-	q := client.Query(queryString)
-	it, err := q.Read(ctx)
-	if err != nil {
-		return t, fmt.Errorf("Failed query for recent timestamp: %v", err)
-	}
-	var l struct {
-		Timestamp time.Time
-	}
-	for {
-		err := it.Next(&l)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			fmt.Println(err)
-			return t, fmt.Errorf("Failed reading results for time: %v", err)
-		}
-		break
-	}
-
-	return l.Timestamp, nil
 }

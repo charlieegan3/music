@@ -12,7 +12,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -119,7 +118,7 @@ func Shazam() error {
 		os.Exit(1)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp, err := mostRecentShazamTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName)
+	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "shazam")
 	if err != nil {
 		return fmt.Errorf("Failed to get most recently played: %v", err)
 	}
@@ -193,32 +192,4 @@ func fetchRecentShazamJSON() ([]byte, error) {
 	}
 
 	return body, nil
-}
-
-func mostRecentShazamTimestamp(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) (time.Time, error) {
-	queryString := fmt.Sprintf(
-		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"shazam\" ORDER BY timestamp DESC LIMIT 1",
-		projectID,
-		datasetName,
-		tableName,
-	)
-	q := client.Query(queryString)
-	it, err := q.Read(ctx)
-	if err != nil {
-		return time.Now(), fmt.Errorf("Failed to get most recent play: %v", err)
-	}
-	var l struct {
-		Timestamp time.Time
-	}
-	for {
-		err := it.Next(&l)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return time.Now(), fmt.Errorf("Failed to parse timestamp data: %v", err)
-		}
-		break
-	}
-	return l.Timestamp, nil
 }
