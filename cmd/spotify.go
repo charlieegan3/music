@@ -16,8 +16,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Latest gets a list of recently played tracks
-func Latest() {
+// Spotify gets a list of recently played tracks
+func Spotify() {
 	// Creates a bq client.
 	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")

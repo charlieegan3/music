@@ -22,8 +22,8 @@ func main() {
 		Download()
 	case "lastfm":
 		LastFM()
-	case "latest":
-		Latest()
+	case "spotify":
+		Spotify()
 	case "summary":
 		Summary()
 	case "summary_recent":
