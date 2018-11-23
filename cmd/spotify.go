@@ -3,10 +3,8 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
-	"time"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/zmb3/spotify"
@@ -68,41 +66,30 @@ func Spotify() error {
 			if len(fullTrack.Album.Images) > 0 {
 				image = fullTrack.Album.Images[0].URL
 			}
-			// creates items to be saved in big query
-			var vss []*bigquery.ValuesSaver
-			vss = append(vss, &bigquery.ValuesSaver{
-				Schema:   schema,
-				InsertID: fmt.Sprintf("%v", item.PlayedAt.Unix()),
-				Row: []bigquery.Value{
-					item.Track.Name,
-					strings.Join(artists, ", "),
-					fullTrack.Album.Name,
-					fmt.Sprintf("%d", item.PlayedAt.Unix()),
-					bigquery.NullInt64{Int64: int64(item.Track.Duration), Valid: true},
-					fmt.Sprintf("%s", item.Track.ID),
-					image,
-					fmt.Sprintf("%d", time.Now().Unix()),
-					"spotify",
-					"", // youtube_id
-					"", // youtube_category_id
-					"", // soundcloud_id
-					"", // soundcloud_permalink
-					"", // shazam_id
-					"", // shazam_permalink
-				},
-			})
 
-			// upload the items
-			err = u.Put(ctx, vss)
+			err = savePlay(ctx,
+				schema,
+				*u,
+				item.Track.Name,
+				strings.Join(artists, ", "),
+				fullTrack.Album.Name,
+				fmt.Sprintf("%d", item.PlayedAt.Unix()),
+				int64(item.Track.Duration),
+				fmt.Sprintf("%s", item.Track.ID),
+				image,
+				"spotify",
+				"", // youtube_id
+				"", // youtube_category_id
+				"", // soundcloud_id
+				"", // soundcloud_permalink
+				"", // shazam_id
+				"", // shazam_permalink
+			)
+
 			if err != nil {
-				if pmErr, ok := err.(bigquery.PutMultiError); ok {
-					for _, rowInsertionError := range pmErr {
-						log.Println(rowInsertionError.Errors)
-					}
-				}
-
-				return fmt.Errorf("Failed to insert row: %v", err)
+				return fmt.Errorf("Failed to upload item: %v", err)
 			}
+
 			fmt.Printf("%v %s\n", item.PlayedAt, item.Track.Name)
 		}
 	}

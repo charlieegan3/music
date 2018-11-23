@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -125,43 +124,30 @@ func Youtube() error {
 	}
 
 	for _, video := range recentPlays {
-		// creates items to be saved in bigquery
-		var vss []*bigquery.ValuesSaver
-		vss = append(vss, &bigquery.ValuesSaver{
-			Schema:   schema,
-			InsertID: fmt.Sprintf("%v%v", time.Now().UTC(), video.ID),
-			Row: []bigquery.Value{
-				video.Track,
-				video.Artist,
-				video.Album,
-				time.Now().UTC(),
-				video.Duration * 1000,
-				"", // spotify_id
-				video.Artwork,
-				time.Now().UTC(),
-				"youtube",        // source
-				video.ID,         // youtube_id
-				video.CategoryID, // youtube_category_id
-				"",               // soundcloud_id
-				"",               // soundcloud_permalink
-				"",               // shazam_id
-				"",               // shazam_permalink
-			},
-		})
+		err = savePlay(ctx,
+			schema,
+			*u,
+			video.Track,
+			video.Artist,
+			video.Album,
+			fmt.Sprintf("%d", time.Now().UTC().Unix()),
+			int64(video.Duration*1000),
+			"", // spotify_id
+			video.Artwork,
+			"youtube",        // source
+			video.ID,         // youtube_id
+			video.CategoryID, // youtube_category_id
+			"",               // soundcloud_id
+			"",               // soundcloud_permalink
+			"",               // shazam_id
+			"",               // shazam_permalink
+		)
+
+		if err != nil {
+			return fmt.Errorf("Failed to upload item: %v", err)
+		}
 
 		fmt.Println("upload", video.Track, "-", video.Artist)
-
-		// upload the items
-		err = u.Put(ctx, vss)
-		if err != nil {
-			if pmErr, ok := err.(bigquery.PutMultiError); ok {
-				for _, rowInsertionError := range pmErr {
-					log.Println(rowInsertionError.Errors)
-				}
-			}
-
-			return fmt.Errorf("Failed to upload item %v", err)
-		}
 
 		// to make sure that the play timestamps are correctly ordered
 		time.Sleep(500 * time.Millisecond)

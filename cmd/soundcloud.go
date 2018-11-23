@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -113,40 +112,27 @@ func Soundcloud() error {
 			continue
 		}
 
-		// creates items to be saved in big query
-		var vss []*bigquery.ValuesSaver
-		vss = append(vss, &bigquery.ValuesSaver{
-			Schema:   schema,
-			InsertID: fmt.Sprintf("%v", item.PlayedAt.Unix()),
-			Row: []bigquery.Value{
-				item.Title,
-				item.Artist,
-				"", // album
-				fmt.Sprintf("%d", item.PlayedAt.Unix()),
-				bigquery.NullInt64{Int64: int64(item.Duration), Valid: true},
-				"", // spotify_id
-				item.Artwork,
-				fmt.Sprintf("%d", time.Now().Unix()), // created_at
-				"soundcloud",                         // source
-				"",                                   // youtube_id
-				"",                                   // youtube_category_id
-				item.ID,                              // soundcloud_id
-				item.PermalinkURL,                    // soundcloud_permalink
-				"",                                   // shazam_id
-				"",                                   // shazam_permalink
-			},
-		})
+		err = savePlay(ctx,
+			schema,
+			*u,
+			item.Title,
+			item.Artist,
+			"", // album
+			fmt.Sprintf("%d", item.PlayedAt.Unix()),
+			item.Duration,
+			"", // spotify_id
+			item.Artwork,
+			"soundcloud",      // source
+			"",                // youtube_id
+			"",                // youtube_category_id
+			item.ID,           // soundcloud_id
+			item.PermalinkURL, // soundcloud_permalink
+			"",                // shazam_id
+			"",                // shazam_permalink
+		)
 
-		// upload the items
-		err = u.Put(ctx, vss)
 		if err != nil {
-			if pmErr, ok := err.(bigquery.PutMultiError); ok {
-				for _, rowInsertionError := range pmErr {
-					log.Println(rowInsertionError.Errors)
-				}
-			}
-
-			return fmt.Errorf("Failed to upload items: %v", err)
+			return fmt.Errorf("Failed to upload item: %v", err)
 		}
 
 		fmt.Println("uploaded", item.Artist, " | ", item.Title)
