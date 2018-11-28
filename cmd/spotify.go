@@ -51,6 +51,10 @@ func Spotify() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get recent plays: %v", err)
 	}
+	// reverse to import in order in case of failure
+	for i, j := 0, len(recentlyPlayed)-1; i < j; i, j = i+1, j-1 {
+		recentlyPlayed[i], recentlyPlayed[j] = recentlyPlayed[j], recentlyPlayed[i]
+	}
 	for _, item := range recentlyPlayed {
 		if mostRecentTimestamp.Unix() < item.PlayedAt.Unix() {
 			fullTrack, err := spotifyClient.GetTrack(item.Track.ID)
