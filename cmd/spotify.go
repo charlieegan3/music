@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/zmb3/spotify"
@@ -40,10 +41,6 @@ func Spotify() error {
 		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "spotify")
-	if err != nil {
-		return fmt.Errorf("Failed to get most recent timestamp: %v", err)
-	}
 
 	// Creates a spotify client
 	spotifyClient := buildClient()
@@ -51,12 +48,27 @@ func Spotify() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get recent plays: %v", err)
 	}
+
+	timestamps, err := nMostRecentTimestamps(ctx, bigqueryClient, projectID, datasetName, tableName, "spotify", 100)
+	if err != nil {
+		return fmt.Errorf("Failed to get most recent timestamps: %v", err)
+	}
+
 	// reverse to import in order in case of failure
 	for i, j := 0, len(recentlyPlayed)-1; i < j; i, j = i+1, j-1 {
 		recentlyPlayed[i], recentlyPlayed[j] = recentlyPlayed[j], recentlyPlayed[i]
 	}
 	for _, item := range recentlyPlayed {
-		if mostRecentTimestamp.Unix() < item.PlayedAt.Unix() {
+		// look for songs that arrive in recently played too late out of order
+		found := false
+		for _, v := range timestamps {
+			if v.Truncate(time.Second) == item.PlayedAt.Truncate(time.Second) {
+				found = true
+				break
+			}
+		}
+
+		if found == false {
 			fullTrack, err := spotifyClient.GetTrack(item.Track.ID)
 			if err != nil {
 				return fmt.Errorf("Failed to get full track: %v", err)
