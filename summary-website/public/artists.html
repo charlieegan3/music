@@ -22,14 +22,15 @@
 		<script>
 			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-tracks.json").then(function (response, xhr) {
 				var artists = response.Artists;
+				console.log(artists.length);
 				renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
 
 				var spinner = document.getElementById("spinner");
 				spinner.className = "dn";
 
 				document.getElementById("ArtistFilterBox").oninput = function() {
-					var term = document.getElementById("ArtistFilterBox").value;
-					if (term.length < 2) {
+					var term = document.getElementById("ArtistFilterBox").value.toLowerCase();
+					if (term.length == 0) {
 						renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
 						return
 					}
@@ -43,7 +44,8 @@
 							matching.push(artists[i]);
 						}
 					}
-					if (matching.length > 10) {
+					if (matching.length > 30) {
+						artistsContainer.innerHTML = "...keep going, " + matching.length + " matching artists";
 						return
 					}
 
@@ -70,8 +72,7 @@
 			<h2 class="f4-ns f5 bt pt3 b--light-gray">top artists</h2>
 			<input id="ArtistFilterBox" placeholder="filter artists..."/>
 			<p id="spinner"><img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Ajax-loader.gif"></p>
-			<div id="Artists">
-			</div>
+			<div id="Artists"></div>
 		</div>
 	</body>
 </html>
