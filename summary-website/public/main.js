@@ -6,9 +6,6 @@ function renderPlays(plays, tableID) {
 
 		var image = document.createElement("td");
 		var img = document.createElement("img");
-		var link = document.createElement("a");
-		link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
-		link.className = "no-underline dark-gray";
 		img.setAttribute("width", 30);
 		img.setAttribute("height", 30);
 		img.className = "ba lazy";
@@ -18,20 +15,11 @@ function renderPlays(plays, tableID) {
 			img.setAttribute("data-src", "https://upload.wikimedia.org/wikipedia/commons/1/1a/1x1_placeholder.png");
 			img.className = "lazy o-0";
 		}
-		link.appendChild(img);
-		image.appendChild(link);
+		image.appendChild(img);
 		row.appendChild(image);
 
 		var track = document.createElement("td");
-		if (play.Spotify != "") {
-			var link = document.createElement("a");
-			link.setAttribute("href", "https://open.spotify.com/track/" + play.Spotify);
-			link.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
-			link.className = "no-underline dark-gray";
-			track.appendChild(link);
-		} else {
-			track.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
-		}
+		track.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
 		row.appendChild(track);
 
 		if (typeof play.Count != "undefined") {
