@@ -6,9 +6,8 @@ function renderPlays(plays, tableID) {
 
 		var image = document.createElement("td");
 		var img = document.createElement("img");
-		img.setAttribute("width", 30);
-		img.setAttribute("height", 30);
 		img.className = "ba lazy";
+		img.setAttribute("style", "min-width: 25px; width: 25px;");
 		if (play.Artwork != "") {
 			img.setAttribute("data-src", play.Artwork);
 		} else {
