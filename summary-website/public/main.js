@@ -1,7 +1,20 @@
 function renderPlays(plays, tableID) {
 	var table = document.getElementById(tableID);
+	var repeatedPlayCount = 1;
+	var renderRepeatedPlayCount = 1;
 	for (var i = 0; i < plays.length; i++) {
 		var play = plays[i];
+		var nextPlay = plays[i+1];
+		if (nextPlay != undefined) {
+			if (nextPlay.Artist+nextPlay.Track == play.Artist+play.Track) {
+				repeatedPlayCount += 1;
+				continue
+			} else {
+				renderRepeatedPlayCount = repeatedPlayCount;
+				repeatedPlayCount = 1;
+			}
+		}
+
 		var row = document.createElement("tr");
 
 		var image = document.createElement("td");
@@ -31,6 +44,10 @@ function renderPlays(plays, tableID) {
 		if (typeof play.Timestamp != "undefined") {
 			var ts = document.createElement("td");
 			ts.innerHTML = timeago().format(play.Timestamp);
+			if (renderRepeatedPlayCount > 1) {
+				ts.innerHTML += ' <span class="o-80 red">(' + renderRepeatedPlayCount + 'x)</span>';
+				renderRepeatedPlayCount = 1;
+			}
 			ts.className = "light-silver";
 			row.appendChild(ts);
 		}
