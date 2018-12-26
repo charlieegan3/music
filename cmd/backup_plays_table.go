@@ -57,5 +57,24 @@ func BackupPlaysTable() error {
 		return fmt.Errorf("Job failed: %v", err)
 	}
 
+	// create a handle to a gcs location
+	// latest
+	name = "/plays-backup-latest.json"
+	gcsRef = &bigquery.GCSReference{
+		URIs:              []string{"gs://" + backupBucketName + name},
+		DestinationFormat: bigquery.JSON,
+	}
+
+	extractor = table.ExtractorTo(gcsRef)
+
+	job, err = extractor.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("Create backup job failed: %v", err)
+	}
+	_, err = job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("Job failed: %v", err)
+	}
+
 	return nil
 }
