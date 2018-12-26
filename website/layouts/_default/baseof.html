@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<title>
+			{{- block "title" . -}}
+				{{- $.Site.Title -}}
+			{{- end -}}
+		</title>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>charlieegan3 Music</title>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
 		<script src="/main.js"></script>
 		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
@@ -19,25 +24,9 @@
 				font-family: 'Londrina Solid', cursive;
 			}
 		</style>
-		<script>
-
-			ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
-				renderPlays(response.PlaysMonth, "PlaysMonth");
-				renderPlays(response.PlaysYear, "PlaysYear");
-
-				renderArtists(response.ArtistsMonth, "ArtistsMonth", 5);
-				renderArtists(response.ArtistsYear, "ArtistsYear", 5);
-
-				renderPlaysByMonth(response.PlaysByMonth);
-
-				new LazyLoad({
-					elements_selector: ".lazy"
-				});
-			})
-		</script>
+    {{- block "head" . -}}{{- end -}}
 	</head>
-
-	<body>
+  <body>
 		<div class="mw7 center ph1 ph2-ns">
 			<h1 class="mb2 f2-ns f4">
 				<a href="/" class="no-underline dark-gray">
@@ -47,20 +36,11 @@
 
 			<p class="display f4-ns f3">
 				<a href="/" class="orange no-underline">home</a> |
-				<a href="/recent.html" class="orange no-underline">recent</a> |
-				<a href="/artists.html" class="orange no-underline">artists</a>
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a>
 			</p>
 
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this month</h2>
-			<table id="PlaysMonth" class="f6-ns f7 w-100"></table>
-			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsMonth"></span></p>
-
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">top this year</h2>
-			<table id="PlaysYear" class="f6-ns f7 w-100"></table>
-			<p class="f7 f6-ns"><strong>Artists:</strong> <span id="ArtistsYear"></span></p>
-
-			<h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
-			<canvas id="PlaysByMonth"></canvas>
+      {{- block "main" . -}}{{- end -}}
 		</div>
 	</body>
 </html>

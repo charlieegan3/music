@@ -1,5 +1,5 @@
-PROJECT := music-summary-website
 TAG := $(shell tar -cf - . | md5sum | cut -f 1 -d " ")
+PROJECT := music-hugo-rebuilder
 
 build:
 	docker build -t charlieegan3/$(PROJECT):latest -t charlieegan3/$(PROJECT):${TAG} .

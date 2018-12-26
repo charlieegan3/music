@@ -1,0 +1,22 @@
+{{ define "title" }}
+	Recent - {{ $.Site.Title -}}
+{{ end }}
+
+{{ define "head" }}
+<script>
+ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-recent.json").then(function (response, xhr) {
+  renderPlays(response.RecentPlays, "RecentPlays");
+  document.getElementById("LastUpdated").innerHTML = "Updated <strong>" + timeago().format(response.LastUpdated) + "</strong>";
+
+  var myLazyLoad = new LazyLoad({
+    elements_selector: ".lazy"
+  });
+})
+</script>
+{{ end }}
+
+{{ define "main" }}
+<h2 class="f4-ns f5 bt pt3 b--light-gray">recent plays</h2>
+<p id="LastUpdated" class="light-silver f7">Updated at </p>
+<table id="RecentPlays" class="f6-ns f7 w-100"></table>
+{{ end }}
