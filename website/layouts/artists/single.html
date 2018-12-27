@@ -141,14 +141,14 @@
 
 		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
 		var timestamps = [];
-		var sortedPlays = plays.sort(function(a, b){
-		  return a.Timestamp > b.Timestamp;
-		});
-		for (var i = 0; i < sortedPlays.length; i++) {
-			if (sortedPlays[i].Track == track) {
-				timestamps.push(getTime(sortedPlays[i].Timestamp.slice(0, -4)))
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
 			}
 		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
 
 		var width = 500;
 		var height = 300;
