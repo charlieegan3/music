@@ -3,6 +3,7 @@
 {{ end }}
 
 {{ define "head" }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
 {{ end }}
 
 {{ define "main" }}
@@ -15,6 +16,10 @@
 
   <h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
   <canvas id="PlaysByMonth"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime</h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
 
   <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
   <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
@@ -61,6 +66,7 @@
         } else {
           playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
           delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
           playCounts[plays[i].Track]["Count"] = 1;
         }
       }
@@ -125,6 +131,66 @@
         }
       });
     }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		var sortedPlays = plays.sort(function(a, b){
+		  return a.Timestamp > b.Timestamp;
+		});
+		for (var i = 0; i < sortedPlays.length; i++) {
+			if (sortedPlays[i].Track == track) {
+				timestamps.push(getTime(sortedPlays[i].Timestamp.slice(0, -4)))
+			}
+		}
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
     var plays = {{ .Params.plays | jsonify | safeJS }};
 
     document.getElementById("TotalPlays").innerHTML = plays.length;
