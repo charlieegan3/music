@@ -58,6 +58,7 @@ func Spotify() error {
 	for i, j := 0, len(recentlyPlayed)-1; i < j; i, j = i+1, j-1 {
 		recentlyPlayed[i], recentlyPlayed[j] = recentlyPlayed[j], recentlyPlayed[i]
 	}
+	failures := 0
 	for _, item := range recentlyPlayed {
 		// look for songs that arrive in recently played too late out of order
 		found := false
@@ -71,7 +72,9 @@ func Spotify() error {
 		if found == false {
 			fullTrack, err := spotifyClient.GetTrack(item.Track.ID)
 			if err != nil {
-				return fmt.Errorf("Failed to get full track: %v", err)
+				fmt.Println(err)
+				failures++
+				continue
 			}
 
 			var artists []string
@@ -108,6 +111,10 @@ func Spotify() error {
 
 			fmt.Printf("%v %s\n", item.PlayedAt, item.Track.Name)
 		}
+	}
+
+	if failures > 0 {
+		return fmt.Errorf("Some tracks failed (%d failures)", failures)
 	}
 
 	return nil
