@@ -41,6 +41,8 @@ func main() {
 		err = Soundcloud()
 	case "shazam":
 		err = Shazam()
+	case "uploader":
+		err = Uploader()
 	default:
 		err = errors.New("enter a valid command")
 	}
