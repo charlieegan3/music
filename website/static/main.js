@@ -50,7 +50,7 @@ function renderPlays(plays, tableID) {
 		if (typeof play.Count != "undefined") {
 			var count = document.createElement("td");
 			count.innerHTML = "<strong>" + play.Count.toString() + "</strong> plays";
-			count.className = "light-silver";
+			count.className = "light-silver tr";
 			row.appendChild(count);
 		}
 
@@ -84,23 +84,29 @@ function renderArtistsWithTracks(artists, trackCount, containerID) {
 	var artistsContainer = document.getElementById(containerID);
 	artistsContainer.innerHTML = "";
 
+	var artistTable = document.createElement("table");
+	artistTable.id = "artists-list";
+	artistTable.className = "f6-ns f7 w-100";
+	artistsContainer.appendChild(artistTable);
+
 	for (var i = 0; i < artists.length; i++) {
+		var row = document.createElement("tr");
+		var td = document.createElement("td");
+		td.setAttribute("colspan", "3")
 		var header = document.createElement("h3");
 		header.innerHTML = artists[i].Name;
 		header.className = "f5-ns f6";
-    var detailsLink = document.createElement("a");
-    detailsLink.className = "pl2 no-underline orange display"
-    detailsLink.href = "/artists/" + MD5(artists[i].Name);
-    detailsLink.innerHTML = "view &rarr;"
+		var detailsLink = document.createElement("a");
+		detailsLink.className = "pl2 no-underline orange display"
+		detailsLink.href = "/artists/" + MD5(artists[i].Name);
+		detailsLink.innerHTML = "view &rarr;"
 		header.appendChild(detailsLink);
-		artistsContainer.appendChild(header);
+		td.appendChild(header);
+		row.appendChild(td);
 
-		var trackTable = document.createElement("table");
-		trackTable.id = artists[i].Name.replace(/[^\x00-\x7F]/g, "").replace(/ /g, "");
-		trackTable.className = "f6-ns f7 w-100";
-		artistsContainer.appendChild(trackTable);
+		artistTable.appendChild(row);
 
-		renderPlays(artists[i].Tracks.slice(0, trackCount), trackTable.id);
+		renderPlays(artists[i].Tracks.slice(0, trackCount), artistTable.id);
 	}
 
 	new LazyLoad({ elements_selector: ".lazy" });
