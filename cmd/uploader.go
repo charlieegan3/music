@@ -74,7 +74,7 @@ func parseMessage(message string) (submission, error) {
 		parts = []string{strings.Join(parts[0:len(parts)-1], " by "), parts[len(parts)-1]}
 	}
 
-	s.Artist, s.Track = parts[len(parts)-1], parts[0]
+	s.Artist, s.Track = strings.TrimSpace(parts[len(parts)-1]), strings.TrimSpace(parts[0])
 
 	return s, nil
 }
