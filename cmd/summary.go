@@ -36,7 +36,7 @@ type resultCountForMonth struct {
 	Pretty string
 }
 
-// Summary gets a list of recently played tracks
+// Summary saves a number of top track lists as well as the counts per month
 func Summary() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
@@ -59,7 +59,7 @@ func Summary() error {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
-	cly, err := countsForLastYear(ctx, bigqueryClient, projectID, datasetName, tableName)
+	cly, err := countsForMonths(ctx, bigqueryClient, projectID, datasetName, tableName)
 	if err != nil {
 		return fmt.Errorf("Failed to get counts for last year %v", err)
 	}
@@ -140,14 +140,14 @@ func Summary() error {
 	return nil
 }
 
-func countsForLastYear(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]resultCountForMonth, error) {
+func countsForMonths(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]resultCountForMonth, error) {
 	var results []resultCountForMonth
 	queryString :=
 		"SELECT FORMAT_DATE(\"%Y-%m\", DATE(timestamp)) as month, FORMAT_DATE(\"%B %Y\", DATE(timestamp)) as pretty, count(track) as count\n" +
 			"FROM " + fmt.Sprintf("`%s.%s.%s`\n", projectID, datasetName, tableName) +
-			`GROUP BY month, pretty
-			ORDER BY month DESC
-			LIMIT 12`
+			`WHERE timestamp > TIMESTAMP("2000-01-01 00:00:00")
+			GROUP BY month, pretty
+			ORDER BY month ASC`
 
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
