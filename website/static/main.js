@@ -36,7 +36,7 @@ function renderPlays(plays, tableID) {
 		img.className = "ba lazy";
 		img.setAttribute("style", "min-width: 25px; width: 25px;");
 		img.setAttribute("data-src", play.AlbumCover || play.Artwork);
-		if (play.AlbumCover == "" && play.AlbumCover == "") {
+		if (play.Artist == "" || play.AlbumCover == "") {
 			img.setAttribute("data-src", "https://upload.wikimedia.org/wikipedia/commons/1/1a/1x1_placeholder.png");
 			img.className = "lazy o-0";
 		}
