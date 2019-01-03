@@ -90,7 +90,7 @@
       for (var i = 0; i < sortedPlays.length; i++) {
         var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
         if (date.getFullYear() > 1970) {
-          var monthString = date.getFullYear() + "-" + date.getMonth();
+          var monthString = date.getFullYear() + "-" + (date.getMonth() + 1);
           if (months[monthString] == undefined) {
             months[monthString] = 1
           } else {
