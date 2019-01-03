@@ -11,6 +11,8 @@ cd /hugo
 mkdir $DESTINATION || true
 
 while [ 1 ]; do
+	touch /tmp/working
+
 	curl -LO $BACKUP_LOCATION
 
 	ruby generate.rb
@@ -20,5 +22,6 @@ while [ 1 ]; do
 	rm -rf $DESTINATION/*
 	mv public/* $DESTINATION/
 
+	rm /tmp/working
 	echo "Sleeping for $INTERVAL seconds..." && sleep $INTERVAL
 done
