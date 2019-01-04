@@ -12,7 +12,7 @@ function addListener(element, eventName, handler) {
   }
 }
 
-function renderPlays(plays, tableID) {
+function renderPlays(plays, tableID, showArtist) {
 	var table = document.getElementById(tableID);
 	var repeatedPlayCount = 1;
 	var renderRepeatedPlayCount = 1;
@@ -36,7 +36,7 @@ function renderPlays(plays, tableID) {
 		img.className = "ba lazy";
 		img.setAttribute("style", "min-width: 25px; width: 25px;");
 		img.setAttribute("data-src", play.AlbumCover || play.Artwork);
-		if (play.Artist == "" || play.AlbumCover == "") {
+		if (play.Artwork == "" || play.AlbumCover == "") {
 			img.setAttribute("data-src", "https://upload.wikimedia.org/wikipedia/commons/1/1a/1x1_placeholder.png");
 			img.className = "lazy o-0";
 		}
@@ -44,7 +44,10 @@ function renderPlays(plays, tableID) {
 		row.appendChild(image);
 
 		var track = document.createElement("td");
-		track.innerHTML = "<strong>" + play.Track + "</strong> <span class=\"mid-gray\">by</span> " + play.Artist;
+		track.innerHTML = "<strong>" + play.Track + "</strong>";
+		if (showArtist == true) {
+			track.innerHTML += " <span class=\"mid-gray\">by</span> " + play.Artist;
+		}
 		row.appendChild(track);
 
 		if (typeof play.Count != "undefined") {
@@ -106,7 +109,7 @@ function renderArtistsWithTracks(artists, trackCount, containerID) {
 
 		artistTable.appendChild(row);
 
-		renderPlays(artists[i].Tracks.slice(0, trackCount), artistTable.id);
+		renderPlays(artists[i].Tracks.slice(0, trackCount), artistTable.id, false);
 	}
 
 	new LazyLoad({ elements_selector: ".lazy" });

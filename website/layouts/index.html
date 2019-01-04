@@ -5,8 +5,8 @@
 {{ define "head" }}
 <script>
   ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
-    renderPlays(response.PlaysMonth, "PlaysMonth");
-    renderPlays(response.PlaysYear, "PlaysYear");
+    renderPlays(response.PlaysMonth, "PlaysMonth", true);
+    renderPlays(response.PlaysYear, "PlaysYear", true);
 
     renderArtists(response.ArtistsMonth, "ArtistsMonth", 5);
     renderArtists(response.ArtistsYear, "ArtistsYear", 5);
