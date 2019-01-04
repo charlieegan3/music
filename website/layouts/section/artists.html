@@ -4,14 +4,8 @@
 
 {{ define "head" }}
 <script>
-ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-tracks.json").then(function (response, xhr) {
-  var artists = response.Artists;
-  renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
 
-  var spinner = document.getElementById("spinner");
-  spinner.className = "dn";
-
-  document.getElementById("ArtistFilterBox").oninput = function() {
+function filterArtists(artists) {
     var term = document.getElementById("ArtistFilterBox").value.toLowerCase();
     if (term.length == 0) {
       renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
@@ -33,6 +27,23 @@ ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-trac
     }
 
     renderArtistsWithTracks(matching, 1000, "Artists");
+}
+
+ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-tracks.json").then(function (response, xhr) {
+  var artists = response.Artists;
+  renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
+
+  var spinner = document.getElementById("spinner");
+  spinner.className = "dn";
+
+  var query = parse_query_string(window.location.search.substring(1));
+  if (query.artist != null) {
+    document.getElementById("ArtistFilterBox").value = query.artist;
+    filterArtists(artists);
+  }
+
+  document.getElementById("ArtistFilterBox").oninput = function() {
+    filterArtists(artists);
   };
 });
 </script>

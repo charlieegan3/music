@@ -46,7 +46,7 @@ function renderPlays(plays, tableID, showArtist) {
 		var track = document.createElement("td");
 		track.innerHTML = "<strong>" + play.Track + "</strong>";
 		if (showArtist == true) {
-			track.innerHTML += " <span class=\"mid-gray\">by</span> " + play.Artist;
+			track.innerHTML += " <span class=\"mid-gray\">by</span> <a class=\"no-underline black\" href=\"/artists/" + MD5(play.Artist) + "\">" + play.Artist + "</a>";
 		}
 		row.appendChild(track);
 
@@ -118,7 +118,9 @@ function renderArtistsWithTracks(artists, trackCount, containerID) {
 function renderArtists(artists, messageID, count) {
 	var list = [];
 	for (var i = 0; i < artists.length; i++) {
-		list.push(artists[i].Artist)
+		var link = "<a class=\"no-underline black\" href=\"/artists/" + MD5(artists[i].Artist) + "\">" + artists[i].Artist + "</a>";
+		list.push(link);
+
 		if (i >= (count - 1)) {
 			break;
 		}
@@ -164,4 +166,27 @@ function renderPlaysByMonth(playsByMonth) {
 			}
 		}
 	});
+}
+
+// https://stackoverflow.com/a/979995/1510063
+function parse_query_string(query) {
+  var vars = query.split("&");
+  var query_string = {};
+  for (var i = 0; i < vars.length; i++) {
+    var pair = vars[i].split("=");
+    var key = decodeURIComponent(pair[0]);
+    var value = decodeURIComponent(pair[1]);
+    // If first entry with this name
+    if (typeof query_string[key] === "undefined") {
+      query_string[key] = decodeURIComponent(value);
+      // If second entry with this name
+    } else if (typeof query_string[key] === "string") {
+      var arr = [query_string[key], decodeURIComponent(value)];
+      query_string[key] = arr;
+      // If third or later entry with this name
+    } else {
+      query_string[key].push(decodeURIComponent(value));
+    }
+  }
+  return query_string;
 }
