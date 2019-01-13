@@ -43,6 +43,8 @@ func main() {
 		err = Shazam()
 	case "uploader":
 		err = Uploader()
+	case "enrich":
+		err = Enrich()
 	default:
 		err = errors.New("enter a valid command")
 	}
