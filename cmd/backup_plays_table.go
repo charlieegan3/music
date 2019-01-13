@@ -18,6 +18,7 @@ func BackupPlaysTable() error {
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
+	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	accountJSON := os.Getenv("GOOGLE_JSON")
 	backupBucketName := os.Getenv("GOOGLE_BACKUP_BUCKET")
 
@@ -66,6 +67,25 @@ func BackupPlaysTable() error {
 	}
 
 	extractor = table.ExtractorTo(gcsRef)
+
+	job, err = extractor.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("Create backup job failed: %v", err)
+	}
+	_, err = job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("Job failed: %v", err)
+	}
+
+	// create a handle to a gcs location
+	// enriched latest
+	name = "/enriched-backup-latest.json"
+	gcsRef = &bigquery.GCSReference{
+		URIs:              []string{"gs://" + backupBucketName + name},
+		DestinationFormat: bigquery.JSON,
+	}
+
+	extractor = dataset.Table(enrichedTableName).ExtractorTo(gcsRef)
 
 	job, err = extractor.Run(ctx)
 	if err != nil {
