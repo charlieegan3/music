@@ -41,7 +41,7 @@ func Summary() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	accountJSON := os.Getenv("GOOGLE_JSON")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats.json"
@@ -59,31 +59,31 @@ func Summary() error {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
-	cly, err := countsForMonths(ctx, bigqueryClient, projectID, datasetName, tableName)
+	cly, err := countsForMonths(ctx, bigqueryClient, projectID, datasetName, enrichedTableName)
 	if err != nil {
 		return fmt.Errorf("Failed to get counts for last year %v", err)
 	}
-	pfly, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365)
+	pfly, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 365)
 	if err != nil {
 		return fmt.Errorf("Failed to get plays for last year %v", err)
 	}
-	pflm, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30)
+	pflm, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 30)
 	if err != nil {
 		return fmt.Errorf("Failed to get plays for last month %v", err)
 	}
-	pflw, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7)
+	pflw, err := playsFromLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 7)
 	if err != nil {
 		return fmt.Errorf("Failed to get plays for last week %v", err)
 	}
-	afly, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 365)
+	afly, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 365)
 	if err != nil {
 		return fmt.Errorf("Failed to get artists for last year %v", err)
 	}
-	aflm, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 30)
+	aflm, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 30)
 	if err != nil {
 		return fmt.Errorf("Failed to get artists for last month %v", err)
 	}
-	aflw, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, tableName, 7)
+	aflw, err := artistsForLastNDays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName, 7)
 	if err != nil {
 		return fmt.Errorf("Failed to get artists for last week %v", err)
 	}

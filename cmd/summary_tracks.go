@@ -49,7 +49,7 @@ func SummaryTracks() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	enirchedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	accountJSON := os.Getenv("GOOGLE_JSON")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats-tracks.json"
@@ -68,7 +68,7 @@ func SummaryTracks() error {
 	}
 
 	// fetch and format data
-	tracks := tracksWithCounts(ctx, bigqueryClient, projectID, datasetName, tableName)
+	tracks := tracksWithCounts(ctx, bigqueryClient, projectID, datasetName, enirchedTableName)
 	artists := groupByArtist(tracks)
 
 	output := struct {

@@ -28,7 +28,7 @@ func SummaryRecent() error {
 	// Gather env config values
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	accountJSON := os.Getenv("GOOGLE_JSON")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats-recent.json"
@@ -46,7 +46,7 @@ func SummaryRecent() error {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
 
-	plays, err := mostRecentPlays(ctx, bigqueryClient, projectID, datasetName, tableName)
+	plays, err := mostRecentPlays(ctx, bigqueryClient, projectID, datasetName, enrichedTableName)
 	if err != nil {
 		return fmt.Errorf("Failed to get most recent plays: %v", err)
 	}
