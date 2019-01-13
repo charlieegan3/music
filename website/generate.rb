@@ -8,7 +8,7 @@ system("mkdir -p content/artists")
 system("rm -rf content/artists/*")
 
 # load in plays by artist
-raw_data = File.readlines("plays-backup-latest.json")
+raw_data = File.readlines("enriched-backup-latest.json")
 play_data = raw_data.map { |l| JSON.parse(l) }
 plays_grouped_by_artist = play_data.group_by { |play| play["artist"] }
 
