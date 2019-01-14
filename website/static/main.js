@@ -27,6 +27,9 @@ function renderPlays(plays, tableID, showArtist) {
 				renderRepeatedPlayCount = repeatedPlayCount;
 				repeatedPlayCount = 1;
 			}
+		} else {
+			renderRepeatedPlayCount = repeatedPlayCount;
+			repeatedPlayCount = 1;
 		}
 
 		var row = document.createElement("tr");
