@@ -115,6 +115,12 @@
         }
       }
 
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
       var color = Chart.helpers.color;
       var barChartData = {
         labels: Object.keys(bins),
