@@ -14,8 +14,8 @@
     <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
   </p>
 
-  <h2 class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
-  <canvas id="PlaysByMonth"></canvas>
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
 
   <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
   <p id="TrackLifetimeNote"></p>
@@ -82,28 +82,44 @@
       renderPlays(countedPlays, "PlaysByTrack", false);
     }
 
-    function renderPlaysByMonth(plays) {
+    function renderPlaysByBin(plays) {
       var sortedPlays = plays.sort(function(a, b){
         return a.Timestamp > b.Timestamp;
       });
-      var months = {};
+      var bins = {};
       for (var i = 0; i < sortedPlays.length; i++) {
         var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
         if (date.getFullYear() > 1970) {
-          var monthString = date.getFullYear() + "-" + (date.getMonth() + 1);
-          if (months[monthString] == undefined) {
-            months[monthString] = 1
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
           } else {
-            months[monthString] += 1
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
           }
         }
       }
 
       var color = Chart.helpers.color;
       var barChartData = {
-        labels: Object.keys(months),
+        labels: Object.keys(bins),
         datasets: [{
-          data: Object.values(months),
+          data: Object.values(bins),
           label: "Plays",
           backgroundColor: color("lightgray").alpha(0.5).rgbString(),
           borderColor: "lightgray",
@@ -111,7 +127,7 @@
         }]
       };
 
-      var ctx = document.getElementById("PlaysByMonth").getContext("2d");
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
       window.myBar = new Chart(ctx, {
         type: "bar",
         data: barChartData,
@@ -197,7 +213,7 @@
     document.getElementById("TotalTracks").innerHTML = countTracks(plays);
     document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
     playsByCount(plays);
-    renderPlaysByMonth(plays);
+    renderPlaysByBin(plays);
 
     plays = plays.sort(function(a, b){
       return a.Timestamp < b.Timestamp;
