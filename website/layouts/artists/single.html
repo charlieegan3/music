@@ -4,6 +4,7 @@
 
 {{ define "head" }}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
 {{ end }}
 
 {{ define "main" }}
@@ -82,10 +83,7 @@
       renderPlays(countedPlays, "PlaysByTrack", false);
     }
 
-    function renderPlaysByBin(plays) {
-      var sortedPlays = plays.sort(function(a, b){
-        return a.Timestamp > b.Timestamp;
-      });
+    function renderPlaysByBin(sortedPlays) {
       var bins = {};
       for (var i = 0; i < sortedPlays.length; i++) {
         var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
@@ -214,17 +212,27 @@
 	}
 
     var plays = {{ .Params.plays | jsonify | safeJS }};
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
 
     document.getElementById("TotalPlays").innerHTML = plays.length;
     document.getElementById("TotalTracks").innerHTML = countTracks(plays);
     document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
     playsByCount(plays);
     renderPlaysByBin(plays);
-
-    plays = plays.sort(function(a, b){
-      return a.Timestamp < b.Timestamp;
-    });
-    renderPlays(plays, "AllPlays");
+    renderPlays(plays.reverse(), "AllPlays");
 
     var myLazyLoad = new LazyLoad({
       elements_selector: ".lazy"
