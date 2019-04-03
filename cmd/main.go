@@ -31,6 +31,8 @@ func main() {
 		err = Summary()
 	case "summary_recent":
 		err = SummaryRecent()
+	case "summary_months":
+		err = SummaryMonths()
 	case "summary_tracks":
 		err = SummaryTracks()
 	case "backup_plays_table":
