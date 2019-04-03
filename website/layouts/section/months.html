@@ -1,0 +1,33 @@
+{{ define "title" }}
+	Months - {{ $.Site.Title -}}
+{{ end }}
+
+{{ define "head" }}
+<script>
+ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-months.json").then(function (response, xhr) {
+  const monthList = document.getElementById("monthList");
+  for (var index = 0; index < response.Months.length; index++) {
+	var month = response.Months[index];
+	var title = document.createElement("h3")
+	title.innerHTML = month.Pretty;
+	title.classList = "f5-ns f5 bb pb2 b--light-gray"
+	monthList.appendChild(title)
+
+	var table = document.createElement("table");
+	table.id = month.Month;
+	table.classList = "f6-ns f7 w-100";
+	monthList.appendChild(table)
+	renderPlays(month.Top, table.id, true);
+  }
+
+  var myLazyLoad = new LazyLoad({
+    elements_selector: ".lazy"
+  });
+})
+</script>
+{{ end }}
+
+{{ define "main" }}
+<h2 class="f4-ns f5 bt pt3 b--light-gray">top plays by month</h2>
+<div id="monthList"></div>
+{{ end }}
