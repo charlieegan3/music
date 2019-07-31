@@ -12,7 +12,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
@@ -48,20 +47,22 @@ func (r *row) Hash() string {
 func Enrich() error {
 	// Creates a bq client.
 	ctx := context.Background()
-	accountJSON := os.Getenv("GOOGLE_JSON")
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	sourceTableName := os.Getenv("GOOGLE_TABLE")
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("failed to get creds from json: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
-	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+
+	// create a big query client to query for the music stats
+	client, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
-		return fmt.Errorf("failed to create client: %v", err)
+		return fmt.Errorf("Failed to create client: %v", err)
 	}
+
 	dataset := client.Dataset(datasetName)
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")

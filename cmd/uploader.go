@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -85,13 +84,14 @@ func uploadTrack(s submission) error {
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
-	accountJSON := os.Getenv("GOOGLE_JSON")
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("Failed to get creds from json: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+
+	// create a big query client to query for the music stats
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}

@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -19,18 +17,16 @@ func BackupPlaysTable() error {
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	accountJSON := os.Getenv("GOOGLE_JSON")
 	backupBucketName := os.Getenv("GOOGLE_BACKUP_BUCKET")
-
-	// get the credentials from json
 	ctx := context.Background()
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
+
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("Creds parse failed: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
 
 	// create a big query client to query for the music stats
-	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+	client, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}

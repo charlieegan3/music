@@ -10,7 +10,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
@@ -50,19 +49,17 @@ func SummaryTracks() error {
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	enirchedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	accountJSON := os.Getenv("GOOGLE_JSON")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats-tracks.json"
-
-	// get the credentials from json
 	ctx := context.Background()
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
+
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("Creds parse failed: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
 
 	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
@@ -85,7 +82,7 @@ func SummaryTracks() error {
 		return fmt.Errorf("Failed to indent JSON: %v", err)
 	}
 
-	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
+	storageClient, err := storage.NewClient(ctx, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Client create Failed: %v", err)
 	}

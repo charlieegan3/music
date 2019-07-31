@@ -13,7 +13,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -77,20 +76,22 @@ func Soundcloud() error {
 	}
 
 	// Creates a bq client.
-	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
-	accountJSON := os.Getenv("GOOGLE_JSON")
+	ctx := context.Background()
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope)
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("Failed to load creds from json: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+
+	// create a big query client to query for the music stats
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
+
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {

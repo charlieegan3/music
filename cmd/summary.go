@@ -9,7 +9,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
@@ -42,21 +41,23 @@ func Summary() error {
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	accountJSON := os.Getenv("GOOGLE_JSON")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats.json"
-
-	// get the credentials from json
 	ctx := context.Background()
-	creds, err := google.CredentialsFromJSON(ctx, []byte(accountJSON), bigquery.Scope, storage.ScopeReadWrite)
+
+	httpClient, err := getGoogleHTTPClient()
 	if err != nil {
-		return fmt.Errorf("Creds parse failed: %v", err)
+		return fmt.Errorf("Failed to get auth %s", err)
 	}
 
 	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithCredentials(creds))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
+	}
+	storageClient, err := storage.NewClient(ctx, option.WithHTTPClient(&httpClient))
+	if err != nil {
+		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	cly, err := countsForMonths(ctx, bigqueryClient, projectID, datasetName, enrichedTableName)
@@ -117,11 +118,6 @@ func Summary() error {
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return fmt.Errorf("JSON MarshalIndent failed: %v", err)
-	}
-
-	storageClient, err := storage.NewClient(ctx, option.WithCredentials(creds))
-	if err != nil {
-		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	bkt := storageClient.Bucket(bucketName)
