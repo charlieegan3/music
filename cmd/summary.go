@@ -185,14 +185,13 @@ func playsFromLastNDays(ctx context.Context, client *bigquery.Client, projectID 
 		days,
 	)
 
+	var results []resultPlayFromPeriod
+	var result resultPlayFromPeriod
 	q := client.Query(queryString)
 	it, err := q.Read(ctx)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return results, fmt.Errorf("failed to read results for query %v", err)
 	}
-	var results []resultPlayFromPeriod
-	var result resultPlayFromPeriod
 	for {
 		err := it.Next(&result)
 		if err == iterator.Done {

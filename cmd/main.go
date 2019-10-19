@@ -7,17 +7,29 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/zmb3/spotify"
 	"golang.org/x/oauth2"
 )
 
 func main() {
+	var err error
+	env := os.Getenv("GO_ENV")
+	if "dev" == env {
+		err = godotenv.Load("env")
+	} else if "prod" == env {
+		err = godotenv.Load("/etc/env")
+	}
+	if err != nil {
+		log.Fatalf("Error loading .env file %v", err)
+		os.Exit(1)
+	}
+
 	if len(os.Args) != 2 {
 		fmt.Println("pass only one argument")
 		os.Exit(1)
 	}
 
-	var err error
 	switch os.Args[1] {
 	case "token":
 		Token()

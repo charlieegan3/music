@@ -18,13 +18,13 @@ import (
 func getGoogleHTTPClient() (http.Client, error) {
 	file, err := os.Open(os.Getenv("GOOGLE_ACCESS_TOKEN_PATH"))
 	if err != nil {
-		log.Fatal(err)
+		return http.Client{}, fmt.Errorf("failed to open google token file %v", err)
 	}
 	defer file.Close()
 
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
-		log.Fatal(err)
+		return http.Client{}, fmt.Errorf("failed to read google token file %v", err)
 	}
 	var token oauth2.Token
 	if err := json.Unmarshal(b, &token); err != nil {
