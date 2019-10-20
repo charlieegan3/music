@@ -18,7 +18,7 @@ func main() {
 	if "dev" == env {
 		err = godotenv.Load("env")
 	} else if "prod" == env {
-		err = godotenv.Load("/etc/env")
+		err = godotenv.Load("/etc/config/env")
 	}
 	if err != nil {
 		log.Fatalf("Error loading .env file %v", err)
