@@ -10,7 +10,6 @@ import (
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 )
 
 type resultPlayFromPeriod struct {
@@ -43,21 +42,14 @@ func Summary() error {
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats.json"
+
+	// get the credentials from json
 	ctx := context.Background()
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
 	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
-	}
-	storageClient, err := storage.NewClient(ctx, option.WithHTTPClient(&httpClient))
-	if err != nil {
-		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	cly, err := countsForMonths(ctx, bigqueryClient, projectID, datasetName, enrichedTableName)
@@ -118,6 +110,11 @@ func Summary() error {
 	bytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return fmt.Errorf("JSON MarshalIndent failed: %v", err)
+	}
+
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("Client create Failed: %v", err)
 	}
 
 	bkt := storageClient.Bucket(bucketName)

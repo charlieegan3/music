@@ -10,7 +10,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/zmb3/spotify"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
 )
 
 // Spotify gets a list of recently played tracks
@@ -21,13 +20,7 @@ func Spotify() error {
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
-	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}

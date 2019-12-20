@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
 )
 
 type shazamResponse struct {
@@ -91,22 +90,15 @@ func Shazam() error {
 	}
 
 	// Creates a bq client.
+	ctx := context.Background()
 	projectID := os.Getenv("GOOGLE_PROJECT")
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
-	ctx := context.Background()
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
-	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
-
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")
 	if err != nil {

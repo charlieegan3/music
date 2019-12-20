@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
 )
 
 type submission struct {
@@ -85,13 +84,7 @@ func uploadTrack(s submission) error {
 	datasetName := os.Getenv("GOOGLE_DATASET")
 	tableName := os.Getenv("GOOGLE_TABLE")
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
-	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}

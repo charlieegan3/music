@@ -11,7 +11,6 @@ import (
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 )
 
 type trackWithCount struct {
@@ -51,15 +50,12 @@ func SummaryTracks() error {
 	enirchedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
 	objectName := "stats-tracks.json"
+
+	// get the credentials from json
 	ctx := context.Background()
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
 	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}
@@ -82,7 +78,7 @@ func SummaryTracks() error {
 		return fmt.Errorf("Failed to indent JSON: %v", err)
 	}
 
-	storageClient, err := storage.NewClient(ctx, option.WithHTTPClient(&httpClient))
+	storageClient, err := storage.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("Client create Failed: %v", err)
 	}

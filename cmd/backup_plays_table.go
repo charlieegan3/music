@@ -7,7 +7,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
 )
 
 // BackupPlaysTable gets a list of recently played tracks
@@ -18,15 +17,12 @@ func BackupPlaysTable() error {
 	tableName := os.Getenv("GOOGLE_TABLE")
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 	backupBucketName := os.Getenv("GOOGLE_BACKUP_BUCKET")
+
+	// get the credentials from json
 	ctx := context.Background()
 
-	httpClient, err := getGoogleHTTPClient()
-	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
-	}
-
 	// create a big query client to query for the music stats
-	client, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
+	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
 	}

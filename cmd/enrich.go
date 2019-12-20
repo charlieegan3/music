@@ -13,7 +13,6 @@ import (
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 )
 
 type rowBQ = map[string]bigquery.Value
@@ -52,17 +51,10 @@ func Enrich() error {
 	sourceTableName := os.Getenv("GOOGLE_TABLE")
 	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
 
-	httpClient, err := getGoogleHTTPClient()
+	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("Failed to get auth %s", err)
+		return fmt.Errorf("failed to create client: %v", err)
 	}
-
-	// create a big query client to query for the music stats
-	client, err := bigquery.NewClient(ctx, projectID, option.WithHTTPClient(&httpClient))
-	if err != nil {
-		return fmt.Errorf("Failed to create client: %v", err)
-	}
-
 	dataset := client.Dataset(datasetName)
 	// loads in the table schema from file
 	jsonSchema, err := ioutil.ReadFile("schema.json")

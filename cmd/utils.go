@@ -1,40 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"os"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
 )
-
-func getGoogleHTTPClient() (http.Client, error) {
-	file, err := os.Open(os.Getenv("GOOGLE_ACCESS_TOKEN_PATH"))
-	if err != nil {
-		return http.Client{}, fmt.Errorf("failed to open google token file %v", err)
-	}
-	defer file.Close()
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return http.Client{}, fmt.Errorf("failed to read google token file %v", err)
-	}
-	var token oauth2.Token
-	if err := json.Unmarshal(b, &token); err != nil {
-		return http.Client{}, fmt.Errorf("Failed to load token from file")
-	}
-
-	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{})
-	oauthConfig := &oauth2.Config{}
-	return *oauthConfig.Client(ctx, &token), nil
-}
 
 func savePlay(ctx context.Context,
 	schema bigquery.Schema,
