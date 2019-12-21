@@ -14,12 +14,7 @@ import (
 
 func main() {
 	var err error
-	env := os.Getenv("GO_ENV")
-	if "prod" == env {
-		err = godotenv.Load("/etc/config/env")
-	} else {
-		err = godotenv.Load("env")
-	}
+	err = godotenv.Load(os.Getenv("ENV_PATH"))
 	if err != nil {
 		log.Fatalf("Error loading .env file %v", err)
 		os.Exit(1)
