@@ -70,7 +70,7 @@ func SummaryRecent() error {
 	w.ContentType = "application/json"
 	w.ObjectAttrs.CacheControl = "max-age=300"
 
-	if _, err := fmt.Fprintf(w, string(bytes)); err != nil {
+	if _, err := w.Write(bytes); err != nil {
 		return fmt.Errorf("Write Failed: %v", err)
 	}
 	if err := w.Close(); err != nil {
