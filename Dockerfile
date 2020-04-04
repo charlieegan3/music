@@ -1,4 +1,5 @@
-FROM golang:1.14 as build
+ARG base_image_sha
+FROM golang@${base_image_sha} as build
 
 ENV GOPROXY=https://proxy.golang.org
 
@@ -6,7 +7,8 @@ WORKDIR /go/src/github.com/charlieegan3/music
 
 COPY go.mod go.sum cmd ./
 
-RUN go build -o=musicPlayTracker ./...
+ARG go_arch
+RUN GOARCH=${go_arch} GOOS=linux go build -o=musicPlayTracker ./...
 
 
 FROM scratch
