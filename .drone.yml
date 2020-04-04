@@ -6,10 +6,7 @@ platform:
 
 steps:
 - name: deploy
-  image: docker:19
-  volumes:
-  - name: docker_sock
-    path: /var/run/docker.sock
+  image: plugins/docker
   environment:
     DOCKER_PASSWORD:
       from_secret: DOCKER_PASSWORD
@@ -27,10 +24,7 @@ platform:
 
 steps:
 - name: deploy
-  image: docker:19
-  volumes:
-  - name: docker_sock
-    path: /var/run/docker.sock
+  image: plugins/docker
   environment:
     DOCKER_PASSWORD:
       from_secret: DOCKER_PASSWORD
