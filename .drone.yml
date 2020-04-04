@@ -25,6 +25,11 @@ kind: pipeline
 type: docker
 name: tracker-arm
 
+# this should work but doesn't - it seems to create invalid images
+# using the go cross compilation instead
+# platform:
+#   arch: arm
+
 steps:
 - name: set-tags
   image: busybox
