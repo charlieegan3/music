@@ -54,7 +54,7 @@ steps:
 - name: deploy
   image: plugins/docker
   settings:
-    repo: charlieegan3/music-play-tracker
+    repo: charlieegan3/music-hugo-rebuilder
     username: charlieegan3
     password:
       from_secret: DOCKER_PASSWORD
@@ -79,7 +79,7 @@ steps:
 - name: deploy
   image: plugins/docker
   settings:
-    repo: charlieegan3/music-play-tracker
+    repo: charlieegan3/music-hugo-rebuilder
     username: charlieegan3
     password:
       from_secret: DOCKER_PASSWORD
