@@ -1,0 +1,31 @@
+kind: pipeline
+name: amd64
+
+platform:
+  arch: amd64
+
+steps:
+- name: deploy
+  image: plugins/docker
+  environment:
+    DOCKER_PASSWORD:
+      from_secret: DOCKER_PASSWORD
+  commands:
+  - make push
+
+---
+kind: pipeline
+type: docker
+name: arm
+
+platform:
+  arch: arm32
+
+steps:
+- name: deploy
+  image: plugins/docker
+  environment:
+    DOCKER_PASSWORD:
+      from_secret: DOCKER_PASSWORD
+  commands:
+  - make push
