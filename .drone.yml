@@ -6,11 +6,12 @@ platform:
 
 steps:
 - name: deploy
-  image: plugins/docker
+  image: docker:19
   environment:
     DOCKER_PASSWORD:
       from_secret: DOCKER_PASSWORD
   commands:
+  - apk add make
   - make push
 
 ---
@@ -23,9 +24,10 @@ platform:
 
 steps:
 - name: deploy
-  image: plugins/docker
+  image: docker:19
   environment:
     DOCKER_PASSWORD:
       from_secret: DOCKER_PASSWORD
   commands:
+  - apk add make
   - make push
