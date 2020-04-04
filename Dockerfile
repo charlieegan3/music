@@ -1,15 +1,17 @@
-FROM golang:1.10 as build
+FROM golang:1.14 as build
+
+ENV GOPROXY=https://proxy.golang.org
 
 WORKDIR /go/src/github.com/charlieegan3/music
 
-COPY . .
+COPY go.mod go.sum cmd ./
 
-RUN CGO_ENABLED=0 go build -o musicPlayTracker cmd/*.go
+RUN go build -o=musicPlayTracker ./...
 
 
 FROM scratch
-ADD ca-certificates.crt /etc/ssl/certs/
+COPY ca-certificates.crt /etc/ssl/certs/
+COPY schema.json /
 COPY --from=build /go/src/github.com/charlieegan3/music/musicPlayTracker /
-COPY --from=build /go/src/github.com/charlieegan3/music/schema.json /
 
 CMD ["/musicPlayTracker", "latest"]
