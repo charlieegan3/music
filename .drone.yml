@@ -6,7 +6,7 @@ platform:
   arch: amd64
 
 steps:
-- name: build
+- name: set-tags
   image: busybox
   commands:
   - echo -n "amd64-$DRONE_COMMIT" > .tags
@@ -27,7 +27,7 @@ platform:
   arch: arm
 
 steps:
-- name: build
+- name: set-tags
   image: busybox
   commands:
   - echo -n "arm-$DRONE_COMMIT" > .tags
@@ -47,7 +47,7 @@ platform:
   arch: amd64
 
 steps:
-- name: build
+- name: set-tags
   image: busybox
   commands:
   - echo -n "amd64-$DRONE_COMMIT" > .tags
@@ -71,7 +71,7 @@ platform:
   arch: arm
 
 steps:
-- name: build
+- name: set-tags
   image: busybox
   commands:
   - echo -n "arm-$DRONE_COMMIT" > .tags
