@@ -5,14 +5,17 @@ platform:
   arch: amd64
 
 steps:
+- name: build
+  image: busybox
+  commands:
+  - echo -n "$DRONE_COMMIT" > .tags
 - name: deploy
   image: plugins/docker
-  environment:
-    DOCKER_PASSWORD:
+  settings:
+    repo: charlieegan3/music
+    username: charlieegan3
+    password:
       from_secret: DOCKER_PASSWORD
-  commands:
-  - apk add make
-  - make push
 
 ---
 kind: pipeline
@@ -23,11 +26,14 @@ platform:
   arch: arm
 
 steps:
+- name: build
+  image: busybox
+  commands:
+  - echo -n "$DRONE_COMMIT" > .tags
 - name: deploy
   image: plugins/docker
-  environment:
-    DOCKER_PASSWORD:
+  settings:
+    repo: charlieegan3/music
+    username: charlieegan3
+    password:
       from_secret: DOCKER_PASSWORD
-  commands:
-  - apk add make
-  - make push
