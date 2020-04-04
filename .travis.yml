@@ -1,0 +1,6 @@
+language: go
+services:
+- docker
+
+script:
+- make TAG=$TRAVIS_COMMIT push
