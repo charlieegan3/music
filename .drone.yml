@@ -1,5 +1,6 @@
+---
 kind: pipeline
-name: amd64
+name: tracker-amd64
 
 platform:
   arch: amd64
@@ -20,7 +21,7 @@ steps:
 ---
 kind: pipeline
 type: docker
-name: arm
+name: tracker-arm
 
 platform:
   arch: arm
@@ -37,3 +38,50 @@ steps:
     username: charlieegan3
     password:
       from_secret: DOCKER_PASSWORD
+
+---
+kind: pipeline
+name: site-amd64
+
+platform:
+  arch: amd64
+
+steps:
+- name: build
+  image: busybox
+  commands:
+  - echo -n "amd64-$DRONE_COMMIT" > .tags
+- name: deploy
+  image: plugins/docker
+  settings:
+    repo: charlieegan3/music-play-tracker
+    username: charlieegan3
+    password:
+      from_secret: DOCKER_PASSWORD
+    build_args:
+      arch: 64bit
+    dockerfile: website/Dockerfile
+
+---
+kind: pipeline
+type: docker
+name: site-arm
+
+platform:
+  arch: arm
+
+steps:
+- name: build
+  image: busybox
+  commands:
+  - echo -n "arm-$DRONE_COMMIT" > .tags
+- name: deploy
+  image: plugins/docker
+  settings:
+    repo: charlieegan3/music-play-tracker
+    username: charlieegan3
+    password:
+      from_secret: DOCKER_PASSWORD
+    build_args:
+      arch: ARM
+    dockerfile: website/Dockerfile
