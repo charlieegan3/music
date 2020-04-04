@@ -59,7 +59,7 @@ steps:
     password:
       from_secret: DOCKER_PASSWORD
     build_args:
-      arch: 64bit
+    - arch=64bit
     dockerfile: website/Dockerfile
 
 ---
@@ -83,5 +83,5 @@ steps:
     password:
       from_secret: DOCKER_PASSWORD
     build_args:
-      arch: ARM
+    - arch=ARM
     dockerfile: website/Dockerfile
