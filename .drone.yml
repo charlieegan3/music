@@ -19,7 +19,7 @@ type: docker
 name: arm
 
 platform:
-  arch: arm32
+  arch: arm
 
 steps:
 - name: deploy
