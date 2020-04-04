@@ -8,11 +8,11 @@ steps:
 - name: build
   image: busybox
   commands:
-  - echo -n "$DRONE_COMMIT" > .tags
+  - echo -n "amd64-$DRONE_COMMIT" > .tags
 - name: deploy
   image: plugins/docker
   settings:
-    repo: charlieegan3/music
+    repo: charlieegan3/music-play-tracker
     username: charlieegan3
     password:
       from_secret: DOCKER_PASSWORD
@@ -29,11 +29,11 @@ steps:
 - name: build
   image: busybox
   commands:
-  - echo -n "$DRONE_COMMIT" > .tags
+  - echo -n "arm-$DRONE_COMMIT" > .tags
 - name: deploy
   image: plugins/docker
   settings:
-    repo: charlieegan3/music
+    repo: charlieegan3/music-play-tracker
     username: charlieegan3
     password:
       from_secret: DOCKER_PASSWORD
