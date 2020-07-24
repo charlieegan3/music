@@ -1,6 +1,7 @@
-package main
+package summary
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +10,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"google.golang.org/api/iterator"
 )
 
@@ -42,13 +43,12 @@ func (a byPlays) Len() int           { return len(a) }
 func (a byPlays) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byPlays) Less(i, j int) bool { return a[i].TotalPlays() > a[j].TotalPlays() }
 
-// SummaryTracks returns a list of all tracks and the number of plays for them
-func SummaryTracks() error {
-	// Gather env config values
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	enirchedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
+// Tracks saves a list of all tracks and the number of plays for them
+func Tracks(cfg config.Config) error {
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	enrichedTableName := cfg.Google.TableEnrich
+	bucketName := cfg.Google.BucketSummary
 	objectName := "stats-tracks.json"
 
 	// get the credentials from json
@@ -61,7 +61,7 @@ func SummaryTracks() error {
 	}
 
 	// fetch and format data
-	tracks := tracksWithCounts(ctx, bigqueryClient, projectID, datasetName, enirchedTableName)
+	tracks := tracksWithCounts(ctx, bigqueryClient, projectID, datasetName, enrichedTableName)
 	artists := groupByArtist(tracks)
 
 	output := struct {

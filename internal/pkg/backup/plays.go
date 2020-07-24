@@ -1,22 +1,22 @@
-package main
+package backup
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"golang.org/x/net/context"
+	"github.com/charlieegan3/music/internal/pkg/config"
 )
 
-// BackupPlaysTable gets a list of recently played tracks
-func BackupPlaysTable() error {
+// Plays backs up the bigquery table data to GCS
+func Plays(cfg config.Config) error {
 	// Gather env config values
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
-	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	backupBucketName := os.Getenv("GOOGLE_BACKUP_BUCKET")
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	tableName := cfg.Google.Table
+	enrichedTableName := cfg.Google.TableEnrich
+	backupBucketName := cfg.Google.BucketBackup
 
 	// get the credentials from json
 	ctx := context.Background()

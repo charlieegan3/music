@@ -1,24 +1,22 @@
-package main
+package spotify
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/charlieegan3/music/internal/pkg/bigquery"
 	"github.com/zmb3/spotify"
-	"golang.org/x/net/context"
+	"google.golang.org/api/iterator"
 )
 
-// Spotify gets a list of recently played tracks
-func Spotify() error {
+// Sync gets a list of recently played tracks and uploads to bigquery
+func Sync(accessToken, refreshToken, clientID, clientSecret, projectID, datasetName, tableName string) error {
 	// Creates a bq client.
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
 
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
@@ -36,7 +34,7 @@ func Spotify() error {
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
 
 	// Creates a spotify client
-	spotifyClient := buildClient()
+	spotifyClient := buildClient(accessToken, refreshToken, clientID, clientSecret)
 	recentlyPlayed, err := spotifyClient.PlayerRecentlyPlayedOpt(&spotify.RecentlyPlayedOptions{Limit: 50})
 	if err != nil {
 		return fmt.Errorf("Failed to get recent plays: %v", err)
@@ -79,7 +77,7 @@ func Spotify() error {
 				image = fullTrack.Album.Images[0].URL
 			}
 
-			err = savePlay(ctx,
+			err = bq.SavePlay(ctx,
 				schema,
 				*u,
 				item.Track.Name,
@@ -111,4 +109,37 @@ func Spotify() error {
 	}
 
 	return nil
+}
+
+func nMostRecentTimestamps(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string, source string, count int) ([]time.Time, error) {
+	var t []time.Time
+	queryString := fmt.Sprintf(
+		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"%s\" ORDER BY timestamp DESC LIMIT %d",
+		projectID,
+		datasetName,
+		tableName,
+		source,
+		count,
+	)
+	q := client.Query(queryString)
+	it, err := q.Read(ctx)
+	if err != nil {
+		return t, fmt.Errorf("Failed query for recent timestamps: %v", err)
+	}
+	var l struct {
+		Timestamp time.Time
+	}
+	for {
+		err := it.Next(&l)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			fmt.Println(err)
+			return t, fmt.Errorf("Failed reading results for time: %v", err)
+		}
+		t = append(t, l.Timestamp)
+	}
+
+	return t, nil
 }

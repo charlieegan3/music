@@ -1,14 +1,14 @@
-package main
+package summary
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"google.golang.org/api/iterator"
 )
 
@@ -34,13 +34,13 @@ type resultCountForMonth struct {
 	Pretty string
 }
 
-// Summary saves a number of top track lists as well as the counts per month
-func Summary() error {
-	// Gather env config values
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
+// Overview saves a summary for the music homepage of top tracks for the month
+// and counts by month
+func Overview(cfg config.Config) error {
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	enrichedTableName := cfg.Google.TableEnrich
+	bucketName := cfg.Google.BucketSummary
 	objectName := "stats.json"
 
 	// get the credentials from json

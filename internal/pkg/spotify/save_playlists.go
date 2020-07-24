@@ -1,4 +1,4 @@
-package main
+package spotify
 
 import (
 	"encoding/json"
@@ -12,9 +12,9 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-// Download saves all playlists from Spotify
-func Download() {
-	client := buildClient()
+// SavePlaylists downloads all Spotify platlists
+func SavePlaylists(accessToken, refreshToken, clientID, clientSecret string) error {
+	client := buildClient(accessToken, refreshToken, clientID, clientSecret)
 	playlists := fetchAllPLaylists(client)
 
 	for _, p := range playlists {
@@ -70,6 +70,8 @@ func Download() {
 		fmt.Printf("Saved %v\n", filename)
 	}
 	fmt.Println(len(playlists))
+
+	return nil
 }
 
 func createPlaylistFolder(name string) string {

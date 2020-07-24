@@ -1,17 +1,18 @@
-package main
+package soundcloud
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/charlieegan3/music/internal/pkg/bigquery"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"golang.org/x/net/context"
 )
 
@@ -42,9 +43,9 @@ type soundcloudPlay struct {
 	Artwork      string
 }
 
-// Soundcloud downloads plays from sound cloud
-func Soundcloud() error {
-	content, err := fetchRecentPlayJSON()
+// Sync downloads plays from sound cloud
+func Sync(cfg config.Config) error {
+	content, err := fetchRecentPlayJSON(cfg.Soundcloud.URL, cfg.Soundcloud.Oauth)
 	if err != nil {
 		return fmt.Errorf("Failed to get recent plays: %v", err)
 	}
@@ -76,9 +77,9 @@ func Soundcloud() error {
 
 	// Creates a bq client.
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	tableName := cfg.Google.Table
 
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
@@ -94,7 +95,7 @@ func Soundcloud() error {
 		return fmt.Errorf("Failed to parse schema: %v", err)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "soundcloud")
+	mostRecentTimestamp, err := bq.MostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "soundcloud")
 	if err != nil {
 		return fmt.Errorf("Failed to get most recent entry: %v", err)
 	}
@@ -105,7 +106,7 @@ func Soundcloud() error {
 			continue
 		}
 
-		err = savePlay(ctx,
+		err = bq.SavePlay(ctx,
 			schema,
 			*u,
 			item.Title,
@@ -134,8 +135,8 @@ func Soundcloud() error {
 	return nil
 }
 
-func fetchRecentPlayJSON() ([]byte, error) {
-	req, err := http.NewRequest("GET", os.Getenv("SOUNDCLOUD_URL"), nil)
+func fetchRecentPlayJSON(url, oauth string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -144,7 +145,7 @@ func fetchRecentPlayJSON() ([]byte, error) {
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
 	req.Header.Set("Accept-Language", "en-GB,en;q=0.7,en-US;q=0.3")
 	req.Header.Set("Referer", "https://soundcloud.com/")
-	req.Header.Set("Authorization", os.Getenv("SOUNDCLOUD_OAUTH"))
+	req.Header.Set("Authorization", oauth)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

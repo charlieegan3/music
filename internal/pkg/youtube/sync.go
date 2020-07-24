@@ -1,4 +1,4 @@
-package main
+package youtube
 
 import (
 	"encoding/json"
@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/charlieegan3/music/internal/pkg/bigquery"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -40,13 +42,13 @@ type Video struct {
 	CategoryID string
 }
 
-// Youtube downloads data from youtube
-func Youtube() error {
+// Sync saves the latest plays from youtube in bq
+func Sync(cfg config.Config) error {
 	// Creates a bq client.
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	tableName := cfg.Google.Table
 
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
@@ -117,7 +119,7 @@ func Youtube() error {
 	}
 
 	for _, video := range recentPlays {
-		err = savePlay(ctx,
+		err = bq.SavePlay(ctx,
 			schema,
 			*u,
 			video.Track,

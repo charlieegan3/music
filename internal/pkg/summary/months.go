@@ -1,14 +1,14 @@
-package main
+package summary
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"google.golang.org/api/iterator"
 )
 
@@ -24,13 +24,12 @@ type monthTopPlayed struct {
 	}
 }
 
-// SummaryMonths gets a list of recently played tracks
-func SummaryMonths() error {
-	// Gather env config values
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
+// Months generates the top play list for all months
+func Months(cfg config.Config) error {
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	enrichedTableName := cfg.Google.TableEnrich
+	bucketName := cfg.Google.BucketSummary
 	objectName := "stats-months.json"
 
 	// get the credentials from json

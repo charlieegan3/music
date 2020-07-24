@@ -1,6 +1,7 @@
-package main
+package shazam
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +11,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"golang.org/x/net/context"
+	bq "github.com/charlieegan3/music/internal/pkg/bigquery"
+	"github.com/charlieegan3/music/internal/pkg/config"
 )
 
 type shazamResponse struct {
@@ -46,9 +48,9 @@ type shazamPlay struct {
 	Track        string
 }
 
-// Shazam downloads plays from sound cloud
-func Shazam() error {
-	content, err := fetchRecentShazamJSON()
+// Sync uploads the latest data from shazam
+func Sync(cfg config.Config) error {
+	content, err := fetchRecentShazamJSON(cfg.Shazam.URL, cfg.Shazam.Referrer, cfg.Shazam.Cookie)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,9 +93,9 @@ func Shazam() error {
 
 	// Creates a bq client.
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	tableName := cfg.Google.Table
 
 	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
@@ -111,7 +113,7 @@ func Shazam() error {
 		os.Exit(1)
 	}
 	u := bigqueryClient.Dataset(datasetName).Table(tableName).Uploader()
-	mostRecentTimestamp, err := mostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "shazam")
+	mostRecentTimestamp, err := bq.MostRecentTimestamp(ctx, bigqueryClient, projectID, datasetName, tableName, "shazam")
 	if err != nil {
 		return fmt.Errorf("Failed to get most recently played: %v", err)
 	}
@@ -122,7 +124,7 @@ func Shazam() error {
 			continue
 		}
 
-		err = savePlay(ctx,
+		err = bq.SavePlay(ctx,
 			schema,
 			*u,
 			item.Track,
@@ -151,14 +153,14 @@ func Shazam() error {
 	return nil
 }
 
-func fetchRecentShazamJSON() ([]byte, error) {
-	req, err := http.NewRequest("GET", os.Getenv("SHAZAM_URL"), nil)
+func fetchRecentShazamJSON(url, referrer, cookie string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return []byte{}, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0")
-	req.Header.Set("Referer", os.Getenv("SHAZAM_REFERRER"))
-	req.Header.Set("Cookie", os.Getenv("SHAZAM_COOKIE"))
+	req.Header.Set("Referer", referrer)
+	req.Header.Set("Cookie", cookie)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

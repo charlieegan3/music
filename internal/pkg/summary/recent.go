@@ -1,14 +1,14 @@
-package main
+package summary
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
+	"github.com/charlieegan3/music/internal/pkg/config"
 	"google.golang.org/api/iterator"
 )
 
@@ -21,13 +21,12 @@ type recentPlay struct {
 	Artwork string
 }
 
-// SummaryRecent gets a list of recently played tracks
-func SummaryRecent() error {
-	// Gather env config values
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	enrichedTableName := os.Getenv("GOOGLE_TABLE_ENRICHED")
-	bucketName := os.Getenv("GOOGLE_SUMMARY_BUCKET")
+// Recent gets a list of recently played tracks
+func Recent(cfg config.Config) error {
+	projectID := cfg.Google.Project
+	datasetName := cfg.Google.Dataset
+	enrichedTableName := cfg.Google.TableEnrich
+	bucketName := cfg.Google.BucketSummary
 	objectName := "stats-recent.json"
 
 	// get the credentials from json

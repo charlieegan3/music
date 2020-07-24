@@ -1,18 +1,19 @@
-package main
+package lastfm
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
-	"google.golang.org/api/iterator"
 )
+
+// EnableUpload should be set to false to import data
+var EnableUpload = true
 
 type lastFMDataPage struct {
 	Track []struct {
@@ -33,16 +34,13 @@ type lastFMDataPage struct {
 	} `json:"track"`
 }
 
-// LastFM gets a list of recently played tracks
+// Import gets a list of recently played tracks
 // This can't really work in some generic way as the timestamps don't match
-// with spotify
-func LastFM() error {
+// with spotify. Manually find the start and the end of the gap and set them as
+// flags
+func Import(startTime, endTime time.Time, projectID, datasetName, tableName string, dryrun bool) error {
 	// Creates a client.
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_PROJECT")
-	datasetName := os.Getenv("GOOGLE_DATASET")
-	tableName := os.Getenv("GOOGLE_TABLE")
-
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
@@ -59,11 +57,6 @@ func LastFM() error {
 		log.Fatalf("Failed to parse schema: %v", err)
 	}
 
-	// need to manually find the range of the gap as lastfm and spotify don't
-	// have the same ts
-	startTime := time.Unix(1595028112, 0)
-	endTime := time.Unix(1595500783, 0)
-
 	// loads in the data from file (https://mainstream.ghan.nl/export.html)
 	jsonPages, err := ioutil.ReadFile("lastfm_data.json")
 	if err != nil {
@@ -73,25 +66,6 @@ func LastFM() error {
 	err = json.Unmarshal(jsonPages, &pages)
 	if err != nil {
 		log.Fatalf("unmarshal error: %s", err)
-	}
-
-	// create a big query client to query for the music stats
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return fmt.Errorf("Failed to create client: %v", err)
-	}
-
-	plays, err := allTimestampsAndTracks(ctx, bigqueryClient, projectID, datasetName, tableName)
-	if err != nil {
-		return fmt.Errorf("Failed to get most recent plays: %v", err)
-	}
-
-	// TODO can be used to manually narrow in on the gap
-	var filteredPlays []timestampTrack
-	for _, v := range plays {
-		if v.Timestamp.After(startTime) && v.Timestamp.Before(endTime) {
-			filteredPlays = append(filteredPlays, v)
-		}
 	}
 
 	for i, page := range pages {
@@ -133,46 +107,18 @@ func LastFM() error {
 				})
 			}
 		}
-		if err := u.Put(ctx, vss); err != nil {
-			fmt.Println(err)
-			return err
+
+		if EnableUpload {
+			if err := u.Put(ctx, vss); err != nil {
+				fmt.Println(err)
+				return err
+			}
+		} else {
+			log.Println("skipping upload of page")
 		}
 	}
 
 	fmt.Println("done")
 
 	return nil
-}
-
-type timestampTrack struct {
-	Track     string
-	Timestamp time.Time
-}
-
-func allTimestampsAndTracks(ctx context.Context, client *bigquery.Client, projectID string, datasetName string, tableName string) ([]timestampTrack, error) {
-	var results []timestampTrack
-	queryString :=
-		"SELECT track, timestamp\n" +
-			"FROM " + fmt.Sprintf("`%s.%s.%s`\n", projectID, datasetName, tableName) +
-			`ORDER BY timestamp desc`
-
-	q := client.Query(queryString)
-	it, err := q.Read(ctx)
-	if err != nil {
-		return results, fmt.Errorf("Failed to get timestamps and tracks: %v", err)
-	}
-
-	var result timestampTrack
-	for {
-		err := it.Next(&result)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return results, fmt.Errorf("Failed to parse timestamps and tracks: %v", err)
-		}
-		results = append(results, result)
-	}
-
-	return results, nil
 }
