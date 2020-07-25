@@ -45,6 +45,9 @@ type Config struct {
 		Cookie       string `yaml:"cookie"`
 		RefreshToken string `yaml:"refresh_token"`
 	} `yaml:"youtube"`
+	Uploader struct {
+		Token string `yaml:"token"`
+	} `yaml:"uploader"`
 }
 
 // ValidateAndInit validates config and sets the Google credentials in

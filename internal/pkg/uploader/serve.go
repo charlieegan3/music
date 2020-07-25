@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -23,11 +22,11 @@ type submission struct {
 	Message string
 }
 
+// EnableUpload is set in flag from the command
+var EnableUpload = false
+
 // Serve runs a server capable of uploading play data
 func Serve(cfg config.Config) error {
-	dryrun := os.Getenv("UPLOADER_DRYRUN")
-	key := os.Getenv("UPLOADER_KEY")
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		var s submission
@@ -38,7 +37,7 @@ func Serve(cfg config.Config) error {
 			return
 		}
 
-		if s.Key != key {
+		if s.Key != cfg.Uploader.Token {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
 			return
@@ -52,7 +51,7 @@ func Serve(cfg config.Config) error {
 		}
 
 		fmt.Printf("Saving %s by %s\n", s.Track, s.Artist)
-		if dryrun != "1" {
+		if EnableUpload {
 			if uploadTrack(cfg, s) != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("failed to upload track"))

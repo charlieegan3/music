@@ -19,5 +19,12 @@ var uploaderServeCommand = &cobra.Command{
 }
 
 func init() {
+	uploaderServeCommand.PersistentFlags().BoolVarP(
+		&uploader.EnableUpload,
+		"upload",
+		"",
+		false,
+		"Uploads the posted data",
+	)
 	rootCommand.AddCommand(uploaderServeCommand)
 }

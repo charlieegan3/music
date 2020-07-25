@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,7 +71,7 @@ func Sync(cfg config.Config) error {
 	}
 
 	// get recent plays
-	videoIDs, err := fetchRecentPlays()
+	videoIDs, err := fetchRecentPlays(cfg.Youtube.Cookie)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +102,7 @@ func Sync(cfg config.Config) error {
 
 	var recentPlays []Video
 	for _, v := range videoIDs {
-		video, err := fetchDataForVideo(v)
+		video, err := fetchDataForVideo(cfg, v)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -180,7 +179,7 @@ func mostRecentlyLogged(ctx context.Context, client *bigquery.Client, projectID 
 	return videos, nil
 }
 
-func fetchRecentPlays() ([]string, error) {
+func fetchRecentPlays(cookie string) ([]string, error) {
 	var videoIDs []string
 
 	req, err := http.NewRequest("GET", "https://www.youtube.com/feed/history", nil)
@@ -188,7 +187,7 @@ func fetchRecentPlays() ([]string, error) {
 		return videoIDs, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0")
-	req.Header.Set("Cookie", os.Getenv("YOUTUBE_COOKIE"))
+	req.Header.Set("Cookie", cookie)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -219,9 +218,14 @@ func fetchRecentPlays() ([]string, error) {
 	return videoIDs, nil
 }
 
-func fetchDataForVideo(videoID string) (Video, error) {
+func fetchDataForVideo(cfg config.Config, videoID string) (Video, error) {
 	var result Video
-	client := getClient()
+	client := getClient(
+		cfg.Youtube.ClientID,
+		cfg.Youtube.ClientSecret,
+		cfg.Youtube.AccessToken,
+		cfg.Youtube.RefreshToken,
+	)
 	service, err := youtube.New(client)
 	call := service.Videos.List("snippet,contentDetails,statistics")
 	call.Id(videoID)
@@ -280,12 +284,12 @@ func fetchDataForVideo(videoID string) (Video, error) {
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient() *http.Client {
+func getClient(clientID, clientSecret, accessToken, refreshToken string) *http.Client {
 	ctx := context.Background()
 
 	config := &oauth2.Config{
-		ClientID:     os.Getenv("YOUTUBE_CLIENT_ID"),
-		ClientSecret: os.Getenv("YOUTUBE_CLIENT_SECRET"),
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		RedirectURL:  "https://developers.google.com/oauthplayground",
 		Scopes:       []string{youtube.YoutubeReadonlyScope},
 		Endpoint: oauth2.Endpoint{
@@ -295,8 +299,8 @@ func getClient() *http.Client {
 	}
 
 	tok := oauth2.Token{
-		AccessToken:  os.Getenv("YOUTUBE_ACCESS_TOKEN"),
-		RefreshToken: os.Getenv("YOUTUBE_REFRESH_TOKEN"),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 		Expiry:       time.Now().AddDate(0, 0, -1),
 	}
 
