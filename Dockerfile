@@ -4,16 +4,14 @@ ENV GOPROXY=https://proxy.golang.org
 
 WORKDIR /go/src/github.com/charlieegan3/music
 
-COPY go.mod go.sum cmd ./
+COPY . .
 
-ARG go_arch
-RUN GOARCH=${go_arch} GOOS=linux go build -o=musicPlayTracker ./...
+RUN go build -o=music
 
 
-FROM scratch
+FROM gcr.io/distroless/base-debian10
 
-COPY ca-certificates.crt /etc/ssl/certs/
 COPY schema.json /
-COPY --from=build /go/src/github.com/charlieegan3/music/musicPlayTracker /
+COPY --from=build /go/src/github.com/charlieegan3/music/music /
 
-CMD ["/musicPlayTracker", "latest"]
+ENTRYPOINT ["/music"]
