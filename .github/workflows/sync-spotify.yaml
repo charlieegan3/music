@@ -1,0 +1,25 @@
+name: sync-spotify
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  push:
+    branches: [ master ]
+
+jobs:
+  refresh:
+    name: build-image
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Run
+      env:
+        CONFIG_FILE: ${{ secrets.CONFIG_FILE }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo $CONFIG_FILE | base64 -d > config.yaml
+
+        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync spotify

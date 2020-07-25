@@ -94,7 +94,6 @@ var lastFMImportCommand = &cobra.Command{
 
 func init() {
 	spotifyCommand.AddCommand(spotifyTokenCommand)
-	spotifyCommand.AddCommand(spotifySyncCommand)
 	spotifyCommand.AddCommand(spotifySavePlaylistsCommand)
 	servicesCommand.AddCommand(spotifyCommand)
 
