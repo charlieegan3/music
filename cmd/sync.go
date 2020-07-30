@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 
+	backoff "github.com/cenkalti/backoff/v4"
 	"github.com/charlieegan3/music/internal/pkg/shazam"
 	"github.com/charlieegan3/music/internal/pkg/soundcloud"
 	"github.com/charlieegan3/music/internal/pkg/spotify"
@@ -19,16 +20,21 @@ var spotifySyncCommand = &cobra.Command{
 	Use:   "spotify",
 	Short: "fetch latest plays and saves any new ones",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := spotify.Sync(
-			cfg.Spotify.AccessToken,
-			cfg.Spotify.RefreshToken,
-			cfg.Spotify.ClientID,
-			cfg.Spotify.ClientSecret,
-			cfg.Google.Project,
-			cfg.Google.Dataset,
-			cfg.Google.Table,
-		)
+		operation := func() error {
+			err := spotify.Sync(
+				cfg.Spotify.AccessToken,
+				cfg.Spotify.RefreshToken,
+				cfg.Spotify.ClientID,
+				cfg.Spotify.ClientSecret,
+				cfg.Google.Project,
+				cfg.Google.Dataset,
+				cfg.Google.Table,
+			)
+			log.Printf("sync failed: %v", err)
+			return err
+		}
 
+		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -39,7 +45,12 @@ var youtubeSyncCommand = &cobra.Command{
 	Use:   "youtube",
 	Short: "upload latest plays from Youtube",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := youtube.Sync(cfg)
+		operation := func() error {
+			err := youtube.Sync(cfg)
+			log.Printf("sync failed: %v", err)
+			return err
+		}
+		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -50,7 +61,12 @@ var shazamSyncCommand = &cobra.Command{
 	Use:   "shazam",
 	Short: "upload latest plays from shazam",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := shazam.Sync(cfg)
+		operation := func() error {
+			err := shazam.Sync(cfg)
+			log.Printf("sync failed: %v", err)
+			return err
+		}
+		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -61,7 +77,12 @@ var soundcloudSyncCommand = &cobra.Command{
 	Use:   "soundcloud",
 	Short: "upload latest plays from Soundcloud",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := soundcloud.Sync(cfg)
+		operation := func() error {
+			err := soundcloud.Sync(cfg)
+			log.Printf("sync failed: %v", err)
+			return err
+		}
+		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
