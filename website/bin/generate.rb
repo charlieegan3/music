@@ -30,7 +30,7 @@ end
 
 # remove any previous files
 run("mkdir -p content/artists")
-run("rm -r content/artists/*")
+run("rm -rf content/artists/*")
 
 # load in plays by artist
 puts "loading play data"
