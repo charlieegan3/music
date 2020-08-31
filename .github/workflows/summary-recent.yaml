@@ -19,4 +19,4 @@ jobs:
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
 
-        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync summary_recent
+        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest summarize recent

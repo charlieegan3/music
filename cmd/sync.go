@@ -30,7 +30,9 @@ var spotifySyncCommand = &cobra.Command{
 				cfg.Google.Dataset,
 				cfg.Google.Table,
 			)
-			log.Printf("sync failed: %v", err)
+			if err != nil {
+				log.Printf("sync attempt failed: %v", err)
+			}
 			return err
 		}
 
@@ -47,7 +49,9 @@ var youtubeSyncCommand = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		operation := func() error {
 			err := youtube.Sync(cfg)
-			log.Printf("sync failed: %v", err)
+			if err != nil {
+				log.Printf("sync attempt failed: %v", err)
+			}
 			return err
 		}
 		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
@@ -63,7 +67,9 @@ var shazamSyncCommand = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		operation := func() error {
 			err := shazam.Sync(cfg)
-			log.Printf("sync failed: %v", err)
+			if err != nil {
+				log.Printf("sync attempt failed: %v", err)
+			}
 			return err
 		}
 		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
@@ -79,7 +85,9 @@ var soundcloudSyncCommand = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		operation := func() error {
 			err := soundcloud.Sync(cfg)
-			log.Printf("sync failed: %v", err)
+			if err != nil {
+				log.Printf("sync attempt failed: %v", err)
+			}
 			return err
 		}
 		err := backoff.Retry(operation, backoff.NewExponentialBackOff())

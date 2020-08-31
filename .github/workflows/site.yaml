@@ -12,7 +12,6 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build and push site to netlify branch
       run: |
-
         cd website
 
         ruby ./bin/generate.rb
