@@ -1,0 +1,24 @@
+name: summary-tracks
+
+on:
+  schedule:
+  - cron: "0 4 * * 2,4,6"
+  push:
+    branches: [ master ]
+
+jobs:
+  refresh:
+    name: run
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Run
+      env:
+        CONFIG_FILE: ${{ secrets.CONFIG_FILE }}
+      run: |
+        echo $CONFIG_FILE | base64 -d > config.yaml
+
+        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync summary_tracks
