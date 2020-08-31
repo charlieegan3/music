@@ -55,8 +55,6 @@ puts
 # build the site and move to docs
 puts "build hugo site"
 system("./hugo")
-system("mkdir -p ../docs/")
-system("mv public/* ../docs/")
 
 # commit the result
 email = `git config --global user.email`.chomp
@@ -66,6 +64,7 @@ if name == "" || email == ""
   system('git config --global user.email "githubactions@example.com"')
   system('git config --global user.name "GitHub Actions"')
 end
-system("git add ../docs")
-system("git commit -c commit.gpgsign=false -m generate-site")
-system("git push -f origin master:gh-pages")
+system("git checkout -b netlify")
+system("git add public")
+system("git -c commit.gpgsign=false commit -m generate-site")
+system("git push -f origin netlify")
