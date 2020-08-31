@@ -6,6 +6,11 @@ require "digest"
 require "fileutils"
 require "open-uri"
 
+def run(command)
+  puts "running: #{command}"
+  fail unless system(command)
+end
+
 BACKUP_FILE = "enriched-backup-latest.json"
 BACKUP_LOCATION = "https://storage.googleapis.com/charlieegan3-music-backup/#{BACKUP_FILE}"
 HUGO_RELEASE = "https://github.com/gohugoio/hugo/releases/download/v0.69.2/hugo_0.69.2_Linux-64bit.tar.gz"
@@ -13,8 +18,8 @@ HUGO_RELEASE = "https://github.com/gohugoio/hugo/releases/download/v0.69.2/hugo_
 # install hugo if missing
 unless File.exists?("hugo")
   puts "hugo missing, installing"
-  system("curl -L #{HUGO_RELEASE} > hugo.tar.gz")
-  system("tar -zxf hugo.tar.gz")
+  run("curl -L #{HUGO_RELEASE} > hugo.tar.gz")
+  run("tar -zxf hugo.tar.gz")
 end
 
 # download the play data
@@ -24,8 +29,8 @@ unless File.exists?(BACKUP_FILE)
 end
 
 # remove any previous files
-system("mkdir -p content/artists")
-system("rm -r content/artists/*")
+run("mkdir -p content/artists")
+run("rm -r content/artists/*")
 
 # load in plays by artist
 puts "loading play data"
@@ -54,17 +59,17 @@ puts
 
 # build the site and move to docs
 puts "build hugo site"
-system("./hugo")
+run("./hugo")
 
 # commit the result
 email = `git config --global user.email`.chomp
 name = `git config --global user.name`.chomp
 if name == "" || email == ""
   puts "setting gh actions git identity"
-  system('git config --global user.email "githubactions@example.com"')
-  system('git config --global user.name "GitHub Actions"')
+  run('git config --global user.email "githubactions@example.com"')
+  run('git config --global user.name "GitHub Actions"')
 end
-system("git checkout -b netlify")
-system("git add public")
-system("git -c commit.gpgsign=false commit -m generate-site")
-system("git push -f origin netlify")
+run("git checkout -b netlify")
+run("git add public")
+run("git -c commit.gpgsign=false commit -m generate-site")
+run("git push -f origin netlify")
