@@ -3,8 +3,6 @@ name: summary-top
 on:
   schedule:
   - cron: "0 * * * *"
-  push:
-    branches: [ master ]
 
 jobs:
   refresh:

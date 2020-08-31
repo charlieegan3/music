@@ -3,8 +3,6 @@ name: sync-youtube
 on:
   schedule:
   - cron: "0 */4 * * *"
-  push:
-    branches: [ master ]
 
 jobs:
   refresh:

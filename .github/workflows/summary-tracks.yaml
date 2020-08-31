@@ -3,8 +3,6 @@ name: summary-tracks
 on:
   schedule:
   - cron: "0 4 * * 2,4,6"
-  push:
-    branches: [ master ]
 
 jobs:
   refresh:
