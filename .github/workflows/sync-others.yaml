@@ -1,4 +1,4 @@
-name: sync-youtube
+name: sync-others
 
 on:
   schedule:
