@@ -3,6 +3,8 @@ name: sync-others
 on:
   schedule:
   - cron: "0 */4 * * *"
+  workflow_dispatch:
+    inputs: {}
 
 jobs:
   refresh:
@@ -19,6 +21,8 @@ jobs:
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
 
-        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync shazam
-        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync youtube
-        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync soundcloud
+        image="charlieegan3/music:latest"
+
+        docker run -v $(pwd)/config.yaml:/config.yaml $image sync shazam
+        docker run -v $(pwd)/config.yaml:/config.yaml $image sync youtube
+        docker run -v $(pwd)/config.yaml:/config.yaml $image sync soundcloud
