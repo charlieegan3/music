@@ -14,6 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+    - name: Download Image
+      uses: nick-invision/retry@v1
+      with:
+        timeout_minutes: 3
+        max_attempts: 5
+        command: docker pull charlieegan3/music:latest
+
     - name: Checkout
       uses: actions/checkout@v2
 
