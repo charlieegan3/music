@@ -48,6 +48,10 @@ type Config struct {
 	Uploader struct {
 		Token string `yaml:"token"`
 	} `yaml:"uploader"`
+	Pushover struct {
+		User  string `yaml:"user"`
+		Token string `yaml:"token"`
+	} `yaml:"pushover"`
 }
 
 // ValidateAndInit validates config and sets the Google credentials in

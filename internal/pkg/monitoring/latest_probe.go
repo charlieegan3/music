@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/Jeffail/gabs/v2"
@@ -40,7 +41,25 @@ func LatestProbe(cfg config.Config) error {
 	}
 
 	if time.Since(t).Hours() > 24 {
-		return fmt.Errorf("%v hours since last play", time.Since(t).Hours())
+		URL := "https://api.pushover.net/1/messages.json"
+
+		values := url.Values{}
+		values.Add("token", cfg.Pushover.Token)
+		values.Add("user", cfg.Pushover.User)
+		values.Add("title", "Play Data Warning")
+		values.Add("message", fmt.Sprintf("%.0f hours since last play", time.Since(t).Hours()))
+
+		res, err := http.PostForm(URL, values)
+		if err != nil {
+			return err
+		}
+
+		data, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
 	}
 
 	return nil
