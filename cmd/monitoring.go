@@ -16,7 +16,9 @@ var monitoringLatestProbeCommand = &cobra.Command{
 	Use:   "latest",
 	Short: "fails is last play is over 1 day ago",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := monitoring.LatestProbe(cfg)
+		err := retry(func() error {
+			return monitoring.LatestProbe(cfg)
+		})
 		if err != nil {
 			log.Fatalf("latest probe failed: %v", err)
 		}

@@ -3,7 +3,6 @@ package cmd
 import (
 	"log"
 
-	backoff "github.com/cenkalti/backoff/v4"
 	"github.com/charlieegan3/music/internal/pkg/shazam"
 	"github.com/charlieegan3/music/internal/pkg/soundcloud"
 	"github.com/charlieegan3/music/internal/pkg/spotify"
@@ -36,7 +35,7 @@ var spotifySyncCommand = &cobra.Command{
 			return err
 		}
 
-		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+		err := retry(operation)
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -54,7 +53,7 @@ var youtubeSyncCommand = &cobra.Command{
 			}
 			return err
 		}
-		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+		err := retry(operation)
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -72,7 +71,7 @@ var shazamSyncCommand = &cobra.Command{
 			}
 			return err
 		}
-		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+		err := retry(operation)
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
@@ -90,7 +89,7 @@ var soundcloudSyncCommand = &cobra.Command{
 			}
 			return err
 		}
-		err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+		err := retry(operation)
 		if err != nil {
 			log.Fatalf("sync failed: %v", err)
 		}
