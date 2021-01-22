@@ -1,10 +1,11 @@
 # charlieegan3-music
 
-This is the repo for the projects that manage
+This contains the projects which manage the data and website at
 [music.charlieegan3.com](https://music.charlieegan3.com).
 
-The project is hosted on Netlify and built using a number of GitHub Actions.
+The site is hosted on Netlify, the data which the site presents is stored in
+BigQuery.
 
-This project is really only for my own use and is kind of hacked together. You
-can read all about it in a [blog post
+This project is only for my own use and is kind of hacked together. You can
+read about it in a [blog post
 here](https://charlieegan3.com/blog/2018/11/20/how-i-learned-to-stop-worrying-and-build-my-own-lastfm).
