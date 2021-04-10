@@ -6,10 +6,6 @@ on:
   workflow_dispatch:
     inputs: {}
 
-  push:
-    branches:
-    - master
-
 jobs:
   refresh:
     name: run
@@ -30,8 +26,5 @@ jobs:
         CONFIG_FILE: ${{ secrets.CONFIG_FILE }}
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
-
-        echo $PATH
-        which music
 
         music sync spotify

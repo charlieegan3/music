@@ -12,12 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Download Image
-      uses: nick-invision/retry@v1
+    - name: Download binary
+      uses: charlieegan3/fetch-gh-release-asset@master
       with:
-        timeout_minutes: 3
-        max_attempts: 5
-        command: docker pull charlieegan3/music:latest
+        file: "music"
+        target: "/usr/local/bin/music"
+        chmod_x: true
 
     - name: Checkout
       uses: actions/checkout@v2
@@ -28,8 +28,6 @@ jobs:
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
 
-        image="charlieegan3/music:latest"
-
-        docker run -v $(pwd)/config.yaml:/config.yaml $image sync shazam
-        docker run -v $(pwd)/config.yaml:/config.yaml $image sync youtube
-        docker run -v $(pwd)/config.yaml:/config.yaml $image sync soundcloud
+        music sync shazam
+        music sync youtube
+        music sync soundcloud
