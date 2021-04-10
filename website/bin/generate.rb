@@ -71,5 +71,5 @@ if name == "" || email == ""
 end
 run("git checkout -b netlify")
 run("git add public")
-run("git -c commit.gpgsign=false commit -m generate-site")
+run("git -c commit.gpgsign=false commit -q -m generate-site")
 run("git push -f origin netlify")
