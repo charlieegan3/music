@@ -3,22 +3,27 @@ name: sync-spotify
 on:
   schedule:
   - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs: {}
+
+  push:
+    branches:
+    - master
 
 jobs:
   refresh:
     name: run
     runs-on: ubuntu-latest
     steps:
-
-    - name: Download Image
-      uses: nick-invision/retry@v1
-      with:
-        timeout_minutes: 3
-        max_attempts: 5
-        command: docker pull charlieegan3/music:latest
-
     - name: Checkout
       uses: actions/checkout@v2
+
+    - name: Download binary
+      uses: charlieegan3/fetch-gh-release-asset@master
+      with:
+        file: "music"
+        target: "/usr/local/bin/music"
+        chmod_x: true
 
     - name: Run
       env:
@@ -26,4 +31,7 @@ jobs:
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
 
-        docker run -v $(pwd)/config.yaml:/config.yaml charlieegan3/music:latest sync spotify
+        echo $PATH
+        which music
+
+        music sync spotify
