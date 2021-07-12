@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Paperwhite - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Paperwhite</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-09-23 12:00:54 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-09-23 04:51:28 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-09-09 11:15:12 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-09-09 10:37:11 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-06-27 13:15:10 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-06-27 13:09:58 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-02-07 15:30:10 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-02-07 15:29:15 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-02-06 17:15:12 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-02-06 16:48:40 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-29 08:30:08 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-29 08:21:03 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-22 22:30:15 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-22 22:28:01 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-14 12:00:16 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-14 11:57:28 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-06 21:00:09 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-06 19:25:17 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-04 23:00:13 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-04 21:52:18 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-04 21:45:07 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-04 20:12:07 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-04 15:30:14 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-04 15:04:46 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-04 12:45:07 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-04 12:19:12 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-03 21:45:08 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-03 21:19:49 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/3db8593bc4390b8b598fe9bfe7e4e96086f6dfde","Artist":"Paperwhite","CreatedAt":"2019-01-03 11:45:09 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2019-01-03 11:40:42 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/90a5959194e96020541b1082e153c4dc22cfacff","Artist":"Paperwhite","CreatedAt":"2019-01-03 11:45:10 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2019-01-03 11:44:13 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/90a5959194e96020541b1082e153c4dc22cfacff","Artist":"Paperwhite","CreatedAt":"2018-11-26 08:15:12 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2018-11-26 08:09:15 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Magic","AlbumCover":"https://i.scdn.co/image/9b7d5e8b0c354649165490930211a53aa2bc51c7","Artist":"Paperwhite","CreatedAt":"2019-03-27 18:30:10 UTC","Duration":"262702","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"38mUzp2glbbLwzQVXaakHP","Timestamp":"2019-03-27 17:51:04 UTC","Track":"Galaxy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Magic","AlbumCover":"https://i.scdn.co/image/9b7d5e8b0c354649165490930211a53aa2bc51c7","Artist":"Paperwhite","CreatedAt":"2018-11-16 08:30:10 UTC","Duration":"262702","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"38mUzp2glbbLwzQVXaakHP","Timestamp":"2018-11-16 08:26:15 UTC","Track":"Galaxy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-06-27 15:15:08 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-06-27 15:05:35 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-06-27 11:30:13 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-06-27 11:03:47 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-03-31 16:00:09 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-03-31 14:46:31 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-25 09:15:10 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-25 09:03:37 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-24 18:15:11 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-24 17:55:03 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-21 15:00:09 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-21 14:58:42 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-19 16:15:12 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-19 15:36:51 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-14 21:30:10 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-14 21:23:15 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-14 21:15:13 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-14 19:47:48 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-14 20:30:14 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-14 19:21:56 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-13 23:15:11 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-13 22:16:06 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-13 16:15:10 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-13 16:06:00 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/9dcaff7e46725429f0cfe6cba9dcef042988e980","Artist":"Paperwhite","CreatedAt":"2019-02-13 09:45:06 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-02-13 09:31:53 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-20 14:30:04 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-20 14:21:15 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 17:53:25 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:49:32 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 18:38:42 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:46:05 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 18:55:19 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:42:38 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 19:41:25 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:39:12 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 18:12:02 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:35:45 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 17:53:24 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:32:18 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 19:41:24 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:28:51 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 18:38:41 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:25:24 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 18:12:01 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:21:57 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273263234fd0d4da1044fee2f19","Artist":"Paperwhite","CreatedAt":"2021-03-19 17:21:50 UTC","Duration":"210125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2021-03-19 17:18:30 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732e7cf500d9bd53b12005e06f","Artist":"Paperwhite","CreatedAt":"2019-10-06 11:00:15 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7aqwdLp0chKuF3kP5fNZTW","Timestamp":"2019-10-06 10:34:23 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27337213fe352ef1e553ce64e7c","Artist":"Paperwhite","CreatedAt":"2019-10-19 17:00:21 UTC","Duration":"195973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2019-10-19 16:04:20 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733fd66ad560ac19ca378bc720","Artist":"Paperwhite","CreatedAt":"2021-02-18 22:53:12 UTC","Duration":"194050","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2021-02-18 21:55:59 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-27 17:45:09 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-27 17:09:20 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-18 21:00:08 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-18 20:58:16 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-14 17:45:11 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-14 17:43:04 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-08 12:30:10 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-08 12:06:32 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-08 12:00:09 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-08 10:14:40 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-08 10:15:11 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-08 10:11:14 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-08 08:00:14 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-08 07:03:26 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-07 20:00:12 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-07 19:45:05 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-07 08:15:11 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-07 07:23:16 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 18:30:14 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 18:17:26 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 16:45:08 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 15:38:09 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 14:30:11 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 14:06:41 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 13:00:11 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 12:35:12 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 08:45:12 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 08:41:16 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 07:30:07 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-06 07:00:14 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-06 06:45:08 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-05 23:03:12 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-05 16:30:13 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-05 16:16:57 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-05 15:00:42 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-05 14:45:27 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-05 13:15:14 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-05 13:13:57 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Count On You","AlbumCover":"https://i.scdn.co/image/c3ed2f336ba0db8b17678fab949e2d51cb1d19e3","Artist":"Paperwhite","CreatedAt":"2019-06-05 12:30:06 UTC","Duration":"224073","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MGZhOrOMrpICRdtn1mVcY","Timestamp":"2019-06-05 12:05:05 UTC","Track":"Count On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2018-02-27 13:45:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2018-02-27 13:45:56 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2018-02-15 16:01:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2018-02-15 16:01:02 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-10-17 08:13:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-10-17 08:13:41 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-28 17:27:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-28 17:27:49 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-27 20:14:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-27 20:14:17 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-25 12:25:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-25 12:25:31 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-25 10:54:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-25 10:54:09 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-24 11:29:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-24 11:29:10 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-22 15:00:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-22 15:00:34 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-16 16:50:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-16 16:50:47 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-10 22:17:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-10 22:17:04 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-10 18:21:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-10 18:21:01 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-10 16:46:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-10 16:46:04 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-10 14:54:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-10 14:54:01 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-08 21:15:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-08 21:15:14 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-08 19:35:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-08 19:35:01 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-08 18:21:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-08 18:21:07 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-06 21:47:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-06 21:47:30 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-06 08:40:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-06 08:40:36 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-04 14:34:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-04 14:34:17 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-04 12:59:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-04 12:59:27 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-04 09:56:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-04 09:56:54 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash Us Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a165ac1868ecc0befcbcab7dae7b273a.png","Artist":"Paperwhite","CreatedAt":"2017-09-02 19:46:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6F8Yv1yzgd8V3kMtxoKNmB","Timestamp":"2017-09-02 19:46:55 UTC","Track":"Wash Us Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bc5421318a73a5249755e54754b6de30.png","Artist":"Paperwhite","CreatedAt":"2018-02-27 15:40:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2018-02-27 15:40:52 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bc5421318a73a5249755e54754b6de30.png","Artist":"Paperwhite","CreatedAt":"2017-12-16 11:24:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2017-12-16 11:24:39 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Human Nature","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bc5421318a73a5249755e54754b6de30.png","Artist":"Paperwhite","CreatedAt":"2017-09-04 10:24:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2G0i6bHhwBbkkykm1lrPun","Timestamp":"2017-09-04 10:24:02 UTC","Track":"Human Nature","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d9f4d5b1bf8999eb8042bd54a0c89240.png","Artist":"Paperwhite","CreatedAt":"2017-09-04 12:25:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2017-09-04 12:25:29 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d9f4d5b1bf8999eb8042bd54a0c89240.png","Artist":"Paperwhite","CreatedAt":"2017-01-24 12:07:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2017-01-24 12:07:21 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d9f4d5b1bf8999eb8042bd54a0c89240.png","Artist":"Paperwhite","CreatedAt":"2017-01-23 15:56:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0QKNwgSzAFRQHlGoNWy3gb","Timestamp":"2017-01-23 15:56:11 UTC","Track":"Storm","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>
