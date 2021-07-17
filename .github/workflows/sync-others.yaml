@@ -28,6 +28,7 @@ jobs:
       run: |
         echo $CONFIG_FILE | base64 -d > config.yaml
 
-        music sync shazam
+        # shazam requires update to work, CSV export also available now
+        # music sync shazam
         music sync youtube
         music sync soundcloud
