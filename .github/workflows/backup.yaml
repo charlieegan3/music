@@ -3,6 +3,8 @@ name: backup
 on:
   schedule:
   - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs: {}
 
 jobs:
   refresh:
