@@ -4,7 +4,7 @@
 
 {{ define "head" }}
 <script>
-  ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats.json").then(function (response, xhr) {
+  ajax().get("https://storage.googleapis.com/charlieegan3-music-data-summary/stats.json").then(function (response, xhr) {
     renderPlays(response.PlaysMonth, "PlaysMonth", true);
     renderPlays(response.PlaysYear, "PlaysYear", true);
 

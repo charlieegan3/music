@@ -29,7 +29,7 @@ function filterArtists(artists) {
     renderArtistsWithTracks(matching, 1000, "Artists");
 }
 
-ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-tracks.json").then(function (response, xhr) {
+ajax().get("https://storage.googleapis.com/charlieegan3-music-data-summary/stats-tracks.json").then(function (response, xhr) {
   var artists = response.Artists;
   renderArtistsWithTracks(artists.slice(0, 10), 5, "Artists");
 

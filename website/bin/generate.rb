@@ -12,7 +12,7 @@ def run(command)
 end
 
 BACKUP_FILE = "enriched-backup-latest.json"
-BACKUP_LOCATION = "https://storage.googleapis.com/charlieegan3-music-backup/#{BACKUP_FILE}"
+BACKUP_LOCATION = "https://storage.googleapis.com/charlieegan3-music-data-backup/#{BACKUP_FILE}"
 HUGO_RELEASE = "https://github.com/gohugoio/hugo/releases/download/v0.69.2/hugo_0.69.2_Linux-64bit.tar.gz"
 
 # install hugo if missing

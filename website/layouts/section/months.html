@@ -4,7 +4,7 @@
 
 {{ define "head" }}
 <script>
-ajax().get("https://storage.googleapis.com/charlieegan3-music-summary/stats-months.json").then(function (response, xhr) {
+ajax().get("https://storage.googleapis.com/charlieegan3-music-data-summary/stats-months.json").then(function (response, xhr) {
   const monthList = document.getElementById("monthList");
   for (var index = 0; index < response.Months.length; index++) {
 	var month = response.Months[index];
