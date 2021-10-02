@@ -1,12 +1,12 @@
-name: summary-months
+name: Summary Months
 
 on:
   schedule:
   - cron: "0 4 * * 1,3,5"
 
 jobs:
-  refresh:
-    name: run
+  summary:
+    name: Summary Months
     runs-on: ubuntu-latest
     steps:
 

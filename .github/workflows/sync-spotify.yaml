@@ -1,4 +1,4 @@
-name: sync-spotify
+name: Sync Spotify
 
 on:
   schedule:
@@ -7,10 +7,11 @@ on:
     inputs: {}
 
 jobs:
-  refresh:
-    name: run
+  sync:
+    name: Sync Spotify
     runs-on: ubuntu-latest
     steps:
+
     - name: Checkout
       uses: actions/checkout@v2
 

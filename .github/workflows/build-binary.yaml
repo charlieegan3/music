@@ -6,8 +6,8 @@ on:
     - published
 
 jobs:
-  refresh:
-    name: build-binary
+  build:
+    name: Build Binary
     runs-on: ubuntu-latest
     steps:
     - name: Checkout

@@ -1,12 +1,12 @@
-name: summary-tracks
+name: Summary Tracks
 
 on:
   schedule:
   - cron: "0 4 * * 2,4,6"
 
 jobs:
-  refresh:
-    name: run
+  summary:
+    name: Summary Tracks
     runs-on: ubuntu-latest
     steps:
 

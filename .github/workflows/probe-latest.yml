@@ -1,4 +1,4 @@
-name: probe-latest
+name: Probe Latest
 
 on:
   schedule:
@@ -7,8 +7,8 @@ on:
     inputs: {}
 
 jobs:
-  refresh:
-    name: run
+  probe:
+    name: Probe Latest
     runs-on: ubuntu-latest
     steps:
 

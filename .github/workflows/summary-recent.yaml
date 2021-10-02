@@ -1,12 +1,12 @@
-name: summary-recent
+name: Summary Recent
 
 on:
   schedule:
   - cron: "*/10 * * * *"
 
 jobs:
-  refresh:
-    name: run
+  summary:
+    name: Summary Recent
     runs-on: ubuntu-latest
     steps:
 

@@ -1,4 +1,4 @@
-name: backup
+name: Backup
 
 on:
   schedule:
@@ -7,8 +7,8 @@ on:
     inputs: {}
 
 jobs:
-  refresh:
-    name: run
+  backup:
+    name: Backup
     runs-on: ubuntu-latest
     steps:
 

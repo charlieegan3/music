@@ -1,14 +1,12 @@
-name: build-site
+name: Build Site
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-    - 'website/**'
   schedule:
   - cron: '0 5 * * *'
+
 jobs:
   build:
+    name: Build Site
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
