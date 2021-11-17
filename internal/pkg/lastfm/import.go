@@ -12,33 +12,35 @@ import (
 	"golang.org/x/net/context"
 )
 
-// EnableUpload should be set to false to import data
-var EnableUpload = true
+var EnableUpload bool
+var DataFilePath string
 
-type lastFMDataPage struct {
-	Track []struct {
-		Album struct {
-			Text string `json:"#text"`
-		} `json:"album"`
-		Artist struct {
-			Text string `json:"#text"`
-		} `json:"artist"`
-		Date struct {
-			Uts string `json:"uts"`
-		} `json:"date"`
-		Image []struct {
-			Text string `json:"#text"`
-			Size string `json:"size"`
-		} `json:"image"`
-		Name string `json:"name"`
-	} `json:"track"`
+type track struct {
+	Album struct {
+		Text string `json:"#text"`
+	} `json:"album"`
+	Artist struct {
+		Text string `json:"#text"`
+	} `json:"artist"`
+	Date struct {
+		Uts string `json:"uts"`
+	} `json:"date"`
+	Image []struct {
+		Text string `json:"#text"`
+		Size string `json:"size"`
+	} `json:"image"`
+	Name string `json:"name"`
 }
 
-// Import gets a list of recently played tracks
+type lastFMDataPage struct {
+	Track []track `json:"track"`
+}
+
+// Import uploads a list of recent scrobbles
 // This can't really work in some generic way as the timestamps don't match
 // with spotify. Manually find the start and the end of the gap and set them as
 // flags
-func Import(startTime, endTime time.Time, projectID, datasetName, tableName string, dryrun bool) error {
+func Import(startTime, endTime time.Time, projectID, datasetName, tableName string) error {
 	// Creates a client.
 	ctx := context.Background()
 	client, err := bigquery.NewClient(ctx, projectID)
@@ -58,14 +60,26 @@ func Import(startTime, endTime time.Time, projectID, datasetName, tableName stri
 	}
 
 	// loads in the data from file (https://mainstream.ghan.nl/export.html)
-	jsonPages, err := ioutil.ReadFile("lastfm_data.json")
+	jsonPages, err := ioutil.ReadFile(DataFilePath)
 	if err != nil {
 		log.Fatalf("Failed to read lastfm_data: %v", err)
 	}
+
+	// attempt to parse as old format
 	var pages []lastFMDataPage
 	err = json.Unmarshal(jsonPages, &pages)
 	if err != nil {
-		log.Fatalf("unmarshal error: %s", err)
+		var trackArray [][]track
+		err = json.Unmarshal(jsonPages, &trackArray)
+		if err != nil {
+			log.Fatalf("unmarshal error: %s", err)
+		}
+
+		for _, ta := range trackArray {
+			pages = append(pages, lastFMDataPage{
+				Track: ta,
+			})
+		}
 	}
 
 	for i, page := range pages {
@@ -73,6 +87,7 @@ func Import(startTime, endTime time.Time, projectID, datasetName, tableName stri
 		for j, track := range page.Track {
 			n, err := strconv.ParseInt(track.Date.Uts, 10, 64)
 			if err != nil {
+				log.Println(err)
 				continue
 			}
 			t := time.Unix(n, 0)
@@ -108,17 +123,21 @@ func Import(startTime, endTime time.Time, projectID, datasetName, tableName stri
 			}
 		}
 
+		if len(vss) == 0 {
+			continue
+		}
+
 		if EnableUpload {
 			if err := u.Put(ctx, vss); err != nil {
 				fmt.Println(err)
 				return err
 			}
 		} else {
-			log.Println("skipping upload of page")
+			log.Printf("skipping upload of page: %d items", len(vss))
 		}
 	}
 
-	fmt.Println("done")
+	log.Println("done")
 
 	return nil
 }

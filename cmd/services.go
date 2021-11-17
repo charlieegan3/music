@@ -67,7 +67,7 @@ var lastFMImportCommand = &cobra.Command{
 		if err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to parse start time"))
 		}
-		endSeconds, err := strconv.ParseInt(args[0], 10, 64)
+		endSeconds, err := strconv.ParseInt(args[1], 10, 64)
 		if err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to parse end time"))
 		}
@@ -79,15 +79,12 @@ var lastFMImportCommand = &cobra.Command{
 		startTime := time.Unix(startSeconds, 0)
 		endTime := time.Unix(endSeconds, 0)
 
-		dryRun := true
-
 		lastfm.Import(
 			startTime,
 			endTime,
 			cfg.Google.Project,
 			cfg.Google.Dataset,
 			cfg.Google.Table,
-			dryRun,
 		)
 	},
 }
@@ -102,6 +99,13 @@ func init() {
 		"upload",
 		"",
 		false,
+		"Uploads the imported data",
+	)
+	lastFMImportCommand.PersistentFlags().StringVarP(
+		&lastfm.DataFilePath,
+		"file",
+		"",
+		"lastfm_data.json",
 		"Uploads the imported data",
 	)
 	lastFMCommand.AddCommand(lastFMImportCommand)
