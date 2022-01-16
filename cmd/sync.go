@@ -12,7 +12,7 @@ import (
 
 var syncCommand = &cobra.Command{
 	Use:   "sync",
-	Short: "commands to sync data from play sources",
+	Short: "sync data from various play sources",
 }
 
 var spotifySyncCommand = &cobra.Command{
