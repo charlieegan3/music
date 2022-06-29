@@ -1,10 +1,11 @@
 package monitoring
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/Jeffail/gabs/v2"
@@ -41,25 +42,26 @@ func LatestProbe(cfg config.Config) error {
 	}
 
 	if time.Since(t).Hours() > 24 {
-		URL := "https://api.pushover.net/1/messages.json"
-
-		values := url.Values{}
-		values.Add("token", cfg.Pushover.Token)
-		values.Add("user", cfg.Pushover.User)
-		values.Add("title", "Play Data Warning")
-		values.Add("message", fmt.Sprintf("%.0f hours since last play", time.Since(t).Hours()))
-
-		res, err := http.PostForm(URL, values)
-		if err != nil {
-			return err
+		datab := map[string]string{
+			"Title": "Play Data Warning",
+			"Body":  fmt.Sprintf("%.0f hours since last play", time.Since(t).Hours()),
+			"URL":   "",
 		}
 
-		data, err := ioutil.ReadAll(res.Body)
-		res.Body.Close()
+		b, err := json.Marshal(datab)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal webhook body: %w", err)
 		}
-		fmt.Println(string(data))
+
+		client := &http.Client{}
+		req, err := http.NewRequest("POST", cfg.Webhook.Endpoint, bytes.NewBuffer(b))
+
+		req.Header.Add("Content-Type", "application/json; charset=utf-8")
+
+		_, err = client.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to send webhook: %w", err)
+		}
 	}
 
 	return nil
