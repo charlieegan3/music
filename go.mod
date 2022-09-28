@@ -5,7 +5,7 @@ go 1.14
 require (
 	cloud.google.com/go/bigquery v1.5.0
 	cloud.google.com/go/storage v1.6.0
-	github.com/Jeffail/gabs/v2 v2.5.1
+	github.com/Jeffail/gabs/v2 v2.6.1
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/fatih/structs v1.1.0
 	github.com/gosimple/slug v1.9.0

@@ -42,10 +42,12 @@ func LatestProbe(cfg config.Config) error {
 	}
 
 	if time.Since(t).Hours() > 24 {
-		datab := map[string]string{
-			"Title": "Play Data Warning",
-			"Body":  fmt.Sprintf("%.0f hours since last play", time.Since(t).Hours()),
-			"URL":   "",
+		datab := []map[string]string{
+			{
+				"title": "Play Data Warning",
+				"body":  fmt.Sprintf("%.0f hours since last play", time.Since(t).Hours()),
+				"url":   "",
+			},
 		}
 
 		b, err := json.Marshal(datab)
