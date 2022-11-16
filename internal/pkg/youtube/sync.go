@@ -227,7 +227,7 @@ func fetchDataForVideo(cfg config.Config, videoID string) (Video, error) {
 		cfg.Youtube.RefreshToken,
 	)
 	service, err := youtube.New(client)
-	call := service.Videos.List("snippet,contentDetails,statistics")
+	call := service.Videos.List([]string{"snippet", "contentDetails", "statistics"})
 	call.Id(videoID)
 	resp, err := call.Do()
 	if err != nil {
