@@ -96,3 +96,4 @@ func (m *Music) DatabaseMigrations() (*embed.FS, string, error) {
 func (m *Music) DatabaseSet(db *sql.DB)              {}
 func (m *Music) HTTPPath() string                    { return "" }
 func (m *Music) HTTPAttach(router *mux.Router) error { return nil }
+func (m *Music) HTTPHost() string                    { return "" }
