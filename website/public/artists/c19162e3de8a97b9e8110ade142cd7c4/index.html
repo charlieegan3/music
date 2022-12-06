@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Ed Sheeran - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Ed Sheeran</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Ed Sheeran","CreatedAt":"2019-06-13 12:54:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-06-13 12:54:02 UTC","Track":"Shape of You (Galantis Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"","AlbumCover":"","Artist":"Ed Sheeran","CreatedAt":"2019-06-14 21:44:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-06-14 21:44:22 UTC","Track":"I Don't Care","YoutubeCategoryId":"","YoutubeId":""},{"Album":"÷ (Deluxe)","AlbumCover":"https://i.scdn.co/image/3b673c999773ba34acd5d724d47666e407fa06f2","Artist":"Ed Sheeran","CreatedAt":"2019-01-20 00:15:12 UTC","Duration":"261153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2019-01-20 00:00:45 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"x (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27313b3e37318a0c247b550bccd","Artist":"Ed Sheeran","CreatedAt":"2020-10-01 18:38:19 UTC","Duration":"258986","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1HNkqx9Ahdgi1Ixy2xkKkL","Timestamp":"2020-10-01 18:15:35 UTC","Track":"Photograph","YoutubeCategoryId":"","YoutubeId":""},{"Album":"=","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ef24c3fdbf856340d55cfeb2","Artist":"Ed Sheeran","CreatedAt":"2022-04-29 14:31:23 UTC","Duration":"207853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50nfwKoDiSYg8zOCREWAm5","Timestamp":"2022-04-29 14:08:09 UTC","Track":"Shivers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/10dd6b568651a6d11cc4d631fcb143bd.png","Artist":"Ed Sheeran","CreatedAt":"2018-09-12 07:49:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2018-09-12 07:49:07 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/10dd6b568651a6d11cc4d631fcb143bd.png","Artist":"Ed Sheeran","CreatedAt":"2017-07-14 08:13:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-07-14 08:13:04 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/10dd6b568651a6d11cc4d631fcb143bd.png","Artist":"Ed Sheeran","CreatedAt":"2017-05-15 21:14:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-05-15 21:14:16 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/10dd6b568651a6d11cc4d631fcb143bd.png","Artist":"Ed Sheeran","CreatedAt":"2017-05-15 10:13:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-05-15 10:13:28 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Singles","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2bfe3c1a9aec0a6a99385f8aca0d8118.png","Artist":"Ed Sheeran","CreatedAt":"2018-09-12 07:53:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-09-12 07:53:28 UTC","Track":"Castle on the Hill- Recorded at Spotify Studios NYC","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-14 15:16:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-14 15:16:28 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-13 21:02:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-13 21:02:19 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-10 16:14:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-10 16:14:22 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-08 18:31:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-08 18:31:02 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-08 14:38:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-08 14:38:38 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-05 14:37:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-05 14:37:46 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-05 10:20:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-05 10:20:48 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-05 09:39:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-05 09:39:31 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-05 08:59:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-05 08:59:14 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 18:22:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 18:22:36 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 17:43:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 17:43:15 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 14:47:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 14:47:38 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 13:26:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 13:26:03 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 12:43:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 12:43:06 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 09:02:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 09:02:58 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 07:45:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 07:45:17 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-04 07:40:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-04 07:40:14 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-03 19:14:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-03 19:14:20 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-03 18:25:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-03 18:25:27 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-03 16:44:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-03 16:44:12 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We the Generation (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3249d59933fa03eb7f68e31372dda3f4.png","Artist":"Ed Sheeran","CreatedAt":"2015-10-03 15:57:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-03 15:57:24 UTC","Track":"Bloodstream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Happier (Kasbo Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6c902a8e60b601af3cab9dff2c9afcd7.png","Artist":"Ed Sheeran","CreatedAt":"2018-07-28 17:53:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-28 17:53:59 UTC","Track":"Happier - Kasbo Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Happier (Kasbo Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6c902a8e60b601af3cab9dff2c9afcd7.png","Artist":"Ed Sheeran","CreatedAt":"2018-07-28 17:36:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-28 17:36:46 UTC","Track":"Happier - Kasbo Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-22 16:40:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-22 16:40:22 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-16 16:15:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-16 16:15:51 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-15 15:24:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-15 15:24:21 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-15 09:16:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-15 09:16:43 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-14 19:03:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-14 19:03:20 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-13 17:58:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-13 17:58:55 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-13 15:28:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-13 15:28:20 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-13 12:34:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-13 12:34:38 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-12 19:05:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-12 19:05:43 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Castle on the Hill","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b9216e654defab114de7936fa5a6abf3.png","Artist":"Ed Sheeran","CreatedAt":"2017-02-12 16:51:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6PCUP3dWmTjcTtXY02oFdT","Timestamp":"2017-02-12 16:51:01 UTC","Track":"Castle On the Hill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The A Team","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bf6695a7ef8e42a78c69c84d59b3d1bb.png","Artist":"Ed Sheeran","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"The A Team","YoutubeCategoryId":"","YoutubeId":""},{"Album":"x (Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d904dd085fb44fabcfd0834b8d2a5d92.png","Artist":"Ed Sheeran","CreatedAt":"2015-08-04 19:26:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1HNkqx9Ahdgi1Ixy2xkKkL","Timestamp":"2015-08-04 19:26:49 UTC","Track":"Photograph","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

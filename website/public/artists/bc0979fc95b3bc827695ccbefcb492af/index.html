@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Christine and the Queens - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Christine and the Queens</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Christine and the Queens","CreatedAt":"2019-07-25 17:19:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-07-25 17:19:45 UTC","Track":"Saint Claude","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273377405f7d38e016026008c6d","Artist":"Christine and the Queens","CreatedAt":"2022-03-03 10:27:41 UTC","Duration":"260876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rWeNybwVZTWEbkb9JOjcz","Timestamp":"2022-03-02 23:52:12 UTC","Track":"People, I've been sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273377405f7d38e016026008c6d","Artist":"Christine and the Queens","CreatedAt":"2022-03-02 21:20:32 UTC","Duration":"260876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rWeNybwVZTWEbkb9JOjcz","Timestamp":"2022-03-02 21:10:56 UTC","Track":"People, I've been sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273377405f7d38e016026008c6d","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 22:24:45 UTC","Duration":"260876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rWeNybwVZTWEbkb9JOjcz","Timestamp":"2022-01-03 20:59:04 UTC","Track":"People, I've been sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273377405f7d38e016026008c6d","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 20:11:29 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Z6hPYs0yG1lZrQ2SbD4bM","Timestamp":"2022-01-03 20:10:43 UTC","Track":"I disappear in your arms","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735f9ac1827852012c11bf9eb7","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 21:35:38 UTC","Duration":"208293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5KO53tfiVN6daF4w6twc63","Timestamp":"2022-01-03 21:24:35 UTC","Track":"5 dollars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735f9ac1827852012c11bf9eb7","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 21:35:36 UTC","Duration":"256053","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nTGyhsQmk8NHlg71ZEmmo","Timestamp":"2022-01-03 20:35:08 UTC","Track":"The walker","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-16 21:39:18 UTC","Duration":"260876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5stdNNY7SUv12p5sLkaBlL","Timestamp":"2020-05-16 21:38:53 UTC","Track":"People, I've been sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-15 19:29:21 UTC","Duration":"260876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5stdNNY7SUv12p5sLkaBlL","Timestamp":"2020-05-15 19:29:16 UTC","Track":"People, I've been sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-06-13 22:57:21 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-06-13 22:56:49 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-06-02 15:41:27 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-06-02 15:41:15 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-29 22:23:15 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-05-29 22:22:57 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-25 22:54:16 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-05-25 22:53:47 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-17 17:54:31 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-05-17 17:53:38 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-16 21:22:36 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-05-16 21:21:27 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-15 21:52:17 UTC","Duration":"236374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7k9L8N0jZcz9qFupVeI4Va","Timestamp":"2020-05-15 21:51:54 UTC","Track":"I disappear in your arms - bonus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"La vita nuova","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382c12a427c72396dc0bc3d4f","Artist":"Christine and the Queens","CreatedAt":"2020-05-16 22:45:20 UTC","Duration":"235010","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"12yGUMrIFfFg4zZ240IKtF","Timestamp":"2020-05-16 22:44:41 UTC","Track":"Je disparais dans tes bras","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c342e56ba3a3d3bc074f6c49","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 22:41:16 UTC","Duration":"233247","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ILilOGEh31uHITYFazrLM","Timestamp":"2022-01-03 22:10:09 UTC","Track":"Tilted","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c342e56ba3a3d3bc074f6c49","Artist":"Christine and the Queens","CreatedAt":"2021-02-17 13:34:51 UTC","Duration":"247393","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2021-02-17 13:04:37 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c342e56ba3a3d3bc074f6c49","Artist":"Christine and the Queens","CreatedAt":"2021-02-17 13:44:10 UTC","Duration":"258435","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2021-02-17 13:00:29 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f163fa3e84f8f189fe5b2156","Artist":"Christine and the Queens","CreatedAt":"2022-01-03 21:47:50 UTC","Duration":"218159","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3qth4Wzm1QBGxkusVF8BaN","Timestamp":"2022-01-03 21:46:14 UTC","Track":"iT","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f163fa3e84f8f189fe5b2156","Artist":"Christine and the Queens","CreatedAt":"2021-09-08 17:45:22 UTC","Duration":"234680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6tNDVXXaYWsBd3Mqhfelvl","Timestamp":"2021-09-08 16:29:37 UTC","Track":"Christine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f163fa3e84f8f189fe5b2156","Artist":"Christine and the Queens","CreatedAt":"2021-09-08 20:45:26 UTC","Duration":"239554","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Ai8XBxieq1CR263UdhGdF","Timestamp":"2021-09-08 20:35:30 UTC","Track":"Saint Claude (Version Française)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f163fa3e84f8f189fe5b2156","Artist":"Christine and the Queens","CreatedAt":"2021-02-17 12:58:00 UTC","Duration":"215609","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2021-02-17 12:56:10 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur Humaine","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f163fa3e84f8f189fe5b2156","Artist":"Christine and the Queens","CreatedAt":"2021-02-17 13:44:09 UTC","Duration":"215609","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2021-02-17 12:53:12 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/e4ed79c9bd5ff5c5bc6eba5bde61b8115a2ab87d","Artist":"Christine and the Queens","CreatedAt":"2018-12-24 18:00:09 UTC","Duration":"263906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UH4lWuTEs9r8W0ZkJ5heS","Timestamp":"2018-12-24 17:49:41 UTC","Track":"Doesn’t matter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/e4ed79c9bd5ff5c5bc6eba5bde61b8115a2ab87d","Artist":"Christine and the Queens","CreatedAt":"2018-12-19 19:45:09 UTC","Duration":"263906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UH4lWuTEs9r8W0ZkJ5heS","Timestamp":"2018-12-19 17:37:01 UTC","Track":"Doesn’t matter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/e4ed79c9bd5ff5c5bc6eba5bde61b8115a2ab87d","Artist":"Christine and the Queens","CreatedAt":"2018-12-19 15:01:27 UTC","Duration":"263906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UH4lWuTEs9r8W0ZkJ5heS","Timestamp":"2018-12-19 14:58:31 UTC","Track":"Doesn’t matter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/e4ed79c9bd5ff5c5bc6eba5bde61b8115a2ab87d","Artist":"Christine and the Queens","CreatedAt":"2018-12-19 12:00:10 UTC","Duration":"263906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UH4lWuTEs9r8W0ZkJ5heS","Timestamp":"2018-12-19 11:20:49 UTC","Track":"Doesn’t matter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chris","AlbumCover":"https://i.scdn.co/image/e4ed79c9bd5ff5c5bc6eba5bde61b8115a2ab87d","Artist":"Christine and the Queens","CreatedAt":"2018-12-18 15:15:07 UTC","Duration":"263906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UH4lWuTEs9r8W0ZkJ5heS","Timestamp":"2018-12-18 15:12:56 UTC","Track":"Doesn’t matter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-05 23:48:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-08-05 23:48:21 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 15:32:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-08-01 15:32:37 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 12:58:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-08-01 12:58:17 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-31 22:06:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-07-31 22:06:14 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-30 22:33:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-07-30 22:33:25 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-30 20:19:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-07-30 20:19:00 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-29 20:05:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6bwKCy9SYutp9YakZSLSlG","Timestamp":"2016-07-29 20:05:20 UTC","Track":"Safe and Holy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 15:36:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2016-08-01 15:36:45 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 13:02:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2016-08-01 13:02:25 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-31 22:10:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2016-07-31 22:10:22 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-30 20:23:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2016-07-30 20:23:08 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-29 20:10:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2F0y8HQbcKg5rsZ9QBoCTW","Timestamp":"2016-07-29 20:10:06 UTC","Track":"Half Ladies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 15:41:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2016-08-01 15:41:04 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-08-01 13:06:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2016-08-01 13:06:44 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-31 22:14:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2016-07-31 22:14:41 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-30 20:27:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2016-07-30 20:27:27 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chaleur humaine","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1f52e17bfed44b6c4ee34094415143e.png","Artist":"Christine and the Queens","CreatedAt":"2016-07-29 20:14:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7rUJX9xP2YcL62uJvtaeJd","Timestamp":"2016-07-29 20:14:23 UTC","Track":"Paradis Perdus","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

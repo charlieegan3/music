@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Halsey - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Halsey</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-02-02 19:30:18 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-02-02 19:29:19 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-31 11:15:26 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-31 11:14:46 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-29 17:44:11 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-29 17:43:58 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-27 11:26:18 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-27 11:25:19 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-26 09:08:12 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-26 09:07:59 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-22 17:21:15 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-22 14:13:12 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-21 21:20:21 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-21 21:19:13 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-19 17:26:13 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-19 17:26:03 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-19 12:51:20 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-19 12:50:55 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-18 07:53:16 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-18 07:52:37 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-17 19:08:12 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-17 19:07:44 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-17 16:35:19 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-17 16:34:34 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-17 13:45:25 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-17 13:44:42 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-17 09:02:14 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-17 09:01:30 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-16 22:48:17 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-16 22:47:40 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-16 16:19:22 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-16 16:18:49 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-16 14:01:16 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-16 14:01:01 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-15 19:25:17 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-15 19:24:54 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2020-01-15 08:58:19 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-01-15 08:57:59 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-27 14:52:12 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-27 14:51:14 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-09 20:30:27 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-09 20:05:34 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-09 19:45:20 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-09 19:19:40 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-06 16:00:28 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-06 15:15:51 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-06 10:45:16 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-06 09:20:09 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/442eb78fb86eab0ec162ec5ea33405b19c61898c","Artist":"Halsey","CreatedAt":"2019-12-05 13:15:26 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-12-05 13:08:39 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS","AlbumCover":"https://i.scdn.co/image/5e47d440c38c823b767f60075f1ed6cb8d0aa787","Artist":"Halsey","CreatedAt":"2020-01-16 14:43:14 UTC","Duration":"249499","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1TnUURhehaoMWKAqQtirm6","Timestamp":"2020-01-16 14:42:30 UTC","Track":"Colors","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-02-03 13:46:13 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-02-03 13:45:40 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-31 11:19:18 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-31 11:18:38 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-29 11:12:10 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-29 11:11:50 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-26 08:13:14 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-26 08:12:56 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-22 17:20:18 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-22 14:20:07 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-21 21:26:13 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-21 21:26:07 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-19 18:22:10 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-19 18:21:57 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-19 12:58:12 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-19 12:57:50 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-18 08:00:31 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-18 07:59:32 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-17 19:15:24 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-17 19:14:40 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-17 16:42:21 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-17 16:41:29 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-17 13:52:11 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-17 13:51:36 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-17 09:09:17 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-17 09:08:25 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-16 16:26:13 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-16 16:25:44 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nightmare","AlbumCover":"https://i.scdn.co/image/6b5ec8e174d2a89698fe75cc635cb40cc03ef6a3","Artist":"Halsey","CreatedAt":"2020-01-16 14:23:18 UTC","Duration":"231998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"340UVheS8z3ncW9TTUhAbc","Timestamp":"2020-01-16 14:22:54 UTC","Track":"Nightmare","YoutubeCategoryId":"","YoutubeId":""},{"Album":"hopeless fountain kingdom (Deluxe)","AlbumCover":"https://i.scdn.co/image/7489751532880d5e7aa5b77d9295c2bf0f16496e","Artist":"Halsey","CreatedAt":"2020-01-16 14:54:18 UTC","Duration":"214801","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7i2DJ88J7jQ8K7zqFX2fW8","Timestamp":"2020-01-16 14:53:25 UTC","Track":"Now Or Never","YoutubeCategoryId":"","YoutubeId":""},{"Album":"hopeless fountain kingdom","AlbumCover":"https://i.scdn.co/image/7489751532880d5e7aa5b77d9295c2bf0f16496e","Artist":"Halsey","CreatedAt":"2019-12-05 15:00:34 UTC","Duration":"202438","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0YbFukNTRWhZMNDFepZwSC","Timestamp":"2019-12-05 14:55:35 UTC","Track":"Eyes Closed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"hopeless fountain kingdom (Deluxe)","AlbumCover":"https://i.scdn.co/image/7489751532880d5e7aa5b77d9295c2bf0f16496e","Artist":"Halsey","CreatedAt":"2020-01-16 14:30:17 UTC","Duration":"181279","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y9iMe8SOB6z3NoHE2OfXl","Timestamp":"2020-01-16 14:29:45 UTC","Track":"Bad At Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-29 14:20:19 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-29 14:19:40 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-26 08:09:11 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-26 08:09:04 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-22 17:19:15 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-22 14:16:14 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-21 21:23:22 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-21 21:22:15 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-19 17:37:17 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-19 17:36:41 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-19 12:54:13 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-19 12:53:58 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-18 07:56:21 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-18 07:55:40 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-17 19:11:19 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-17 19:10:46 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-17 16:38:19 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-17 16:37:36 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-17 13:48:14 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-17 13:47:44 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-17 09:05:22 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-17 09:04:32 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-16 16:22:14 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-16 16:21:52 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-16 14:04:19 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-16 14:04:04 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2020-01-15 17:41:22 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2020-01-15 17:40:56 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2019-12-06 11:00:22 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2019-12-06 10:30:31 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Graveyard","AlbumCover":"https://i.scdn.co/image/83920504446bc3c4a6fbfc2618f30621f945b745","Artist":"Halsey","CreatedAt":"2019-12-06 00:00:39 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6V9fHiv84WlVTg7CSnIVY2","Timestamp":"2019-12-05 22:21:01 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/8e147b4b424507bb535013f5380e4e0849afb233","Artist":"Halsey","CreatedAt":"2020-01-16 14:46:18 UTC","Duration":"199593","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2IO7yf562c1zLzpanal1DT","Timestamp":"2020-01-16 14:45:50 UTC","Track":"Gasoline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"hopeless fountain kingdom (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730f7ad6d8d829906c17cae210","Artist":"Halsey","CreatedAt":"2020-12-11 13:59:25 UTC","Duration":"249239","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2bDXmdP23tCK9uj8e2o3ya","Timestamp":"2020-12-11 13:37:57 UTC","Track":"Devil In Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374fefed78db6d6cf4d963fdc","Artist":"Halsey","CreatedAt":"2020-12-29 23:46:07 UTC","Duration":"201549","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6s8PRmROPJHlqZmu9Bbviz","Timestamp":"2020-12-29 22:59:30 UTC","Track":"Roman Holiday","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374fefed78db6d6cf4d963fdc","Artist":"Halsey","CreatedAt":"2020-12-22 19:53:03 UTC","Duration":"201549","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6s8PRmROPJHlqZmu9Bbviz","Timestamp":"2020-12-22 19:52:41 UTC","Track":"Roman Holiday","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374fefed78db6d6cf4d963fdc","Artist":"Halsey","CreatedAt":"2020-12-21 21:27:47 UTC","Duration":"201549","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6s8PRmROPJHlqZmu9Bbviz","Timestamp":"2020-12-21 21:08:00 UTC","Track":"Roman Holiday","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374fefed78db6d6cf4d963fdc","Artist":"Halsey","CreatedAt":"2020-12-16 16:44:10 UTC","Duration":"201549","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6s8PRmROPJHlqZmu9Bbviz","Timestamp":"2020-12-16 16:43:20 UTC","Track":"Roman Holiday","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374fefed78db6d6cf4d963fdc","Artist":"Halsey","CreatedAt":"2020-12-11 02:15:14 UTC","Duration":"201549","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6s8PRmROPJHlqZmu9Bbviz","Timestamp":"2020-12-10 23:46:02 UTC","Track":"Roman Holiday","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-12-10 23:59:40 UTC","Duration":"186187","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"55ZcA6PazdlXjE1jO5GrzJ","Timestamp":"2020-12-10 23:59:11 UTC","Track":"Ashley","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2021-05-03 20:40:21 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ufmtcIFdFpuUYBPXK5f67","Timestamp":"2021-05-03 20:25:48 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-12-11 02:15:15 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ufmtcIFdFpuUYBPXK5f67","Timestamp":"2020-12-11 00:13:31 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-08-24 22:17:07 UTC","Duration":"181805","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ufmtcIFdFpuUYBPXK5f67","Timestamp":"2020-08-24 21:27:47 UTC","Track":"Graveyard","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-08-24 21:49:15 UTC","Duration":"221095","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"42SOtYBdnfj9zEdZSlAq5k","Timestamp":"2020-08-24 21:41:44 UTC","Track":"Finally // beautiful stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-12-11 14:27:06 UTC","Duration":"211784","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Mfv5HaqnI18Q9JRv9hqnn","Timestamp":"2020-12-11 13:53:11 UTC","Track":"Still Learning","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Manic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737636e1c9e67eaafc9f49aefd","Artist":"Halsey","CreatedAt":"2020-08-24 19:08:02 UTC","Duration":"211784","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Mfv5HaqnI18Q9JRv9hqnn","Timestamp":"2020-08-24 19:07:10 UTC","Track":"Still Learning","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd02d63417be256b22bffc28","Artist":"Halsey","CreatedAt":"2020-12-23 14:51:24 UTC","Duration":"249499","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1TnUURhehaoMWKAqQtirm6","Timestamp":"2020-12-23 14:19:03 UTC","Track":"Colors","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd02d63417be256b22bffc28","Artist":"Halsey","CreatedAt":"2020-12-23 02:16:12 UTC","Duration":"249499","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1TnUURhehaoMWKAqQtirm6","Timestamp":"2020-12-22 22:02:27 UTC","Track":"Colors","YoutubeCategoryId":"","YoutubeId":""},{"Album":"BADLANDS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd02d63417be256b22bffc28","Artist":"Halsey","CreatedAt":"2020-12-11 10:29:12 UTC","Duration":"249499","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1TnUURhehaoMWKAqQtirm6","Timestamp":"2020-12-11 09:10:35 UTC","Track":"Colors","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c42acc1b86597285c2c79559","Artist":"Halsey","CreatedAt":"2020-12-11 12:55:26 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-12-11 12:44:14 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c42acc1b86597285c2c79559","Artist":"Halsey","CreatedAt":"2020-11-03 09:36:42 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2020-11-03 09:19:31 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-29 11:19:13 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-29 11:18:31 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-25 23:10:18 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-25 23:09:23 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-22 17:13:22 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-22 13:51:45 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-19 18:00:42 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-19 17:59:28 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-19 12:32:18 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-19 12:29:28 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-17 16:13:14 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-17 16:13:07 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-16 14:16:18 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-16 14:15:20 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You should be sad","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-13 16:03:18 UTC","Duration":"205473","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2usxQITOSDqvkYiI0oIwao","Timestamp":"2020-01-13 16:02:09 UTC","Track":"You should be sad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Finally // beautiful stranger","AlbumCover":"https://i.scdn.co/image/d3e3d14c03923a3530716903f09d07fedc61e150","Artist":"Halsey","CreatedAt":"2020-01-16 14:19:20 UTC","Duration":"221095","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5YvcUK2eXJ2OllqDuEg18S","Timestamp":"2020-01-16 14:19:02 UTC","Track":"Finally // beautiful stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Without Me","AlbumCover":"https://i.scdn.co/image/dd916d01780a9591c8a02944fa06aaf30ca3e374","Artist":"Halsey","CreatedAt":"2019-01-09 21:15:06 UTC","Duration":"201660","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5p7ujcrUXASCNwRaWNHR1C","Timestamp":"2019-01-09 21:11:51 UTC","Track":"Without Me","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

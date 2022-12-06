@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Clint Mansell - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Clint Mansell</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2015-04-12 17:49:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-12 17:49:16 UTC","Track":"Requiem for A Dream - Winter - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-03-30 19:19:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-30 19:19:39 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-03-12 09:14:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-12 09:14:41 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-19 14:20:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-19 14:20:51 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-13 10:51:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-13 10:51:44 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-08 22:30:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-08 22:30:49 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-08 09:22:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-08 09:22:53 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-07 13:17:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-07 13:17:13 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-03 14:48:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-03 14:48:30 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-02-01 14:35:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 14:35:57 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-30 22:11:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 22:11:30 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-30 11:12:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 11:12:49 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-29 16:57:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 16:57:41 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-28 14:03:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-28 14:03:56 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-24 23:07:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-24 23:07:12 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cult Cuts - Music from the Modern Cinema","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2013-01-22 23:17:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 23:17:47 UTC","Track":"Requiem For A Dream - Lux Aeterna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"","AlbumCover":"","Artist":"Clint Mansell","CreatedAt":"2019-07-03 21:12:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-07-03 21:12:37 UTC","Track":"World At Their Feet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3","AlbumCover":"https://i.scdn.co/image/7f889dc035283aadaa71dfe2870572fbc130c1b1","Artist":"Clint Mansell","CreatedAt":"2019-04-25 15:15:09 UTC","Duration":"123720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2019-04-25 14:23:41 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3","AlbumCover":"https://i.scdn.co/image/7f889dc035283aadaa71dfe2870572fbc130c1b1","Artist":"Clint Mansell","CreatedAt":"2019-04-25 14:45:11 UTC","Duration":"123720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2019-04-25 13:45:36 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3","AlbumCover":"https://i.scdn.co/image/7f889dc035283aadaa71dfe2870572fbc130c1b1","Artist":"Clint Mansell","CreatedAt":"2019-04-25 13:15:09 UTC","Duration":"123720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2019-04-25 13:07:32 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736c5ef138c4754ff469721baf","Artist":"Clint Mansell","CreatedAt":"2022-07-01 07:08:45 UTC","Duration":"431413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2022-07-01 07:06:41 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736c5ef138c4754ff469721baf","Artist":"Clint Mansell","CreatedAt":"2020-04-30 10:52:28 UTC","Duration":"431413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2020-04-30 10:51:58 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736c5ef138c4754ff469721baf","Artist":"Clint Mansell","CreatedAt":"2022-07-01 06:59:04 UTC","Duration":"310253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0X0kSqEp7Ow4BYSV1y1HTy","Timestamp":"2022-07-01 06:47:41 UTC","Track":"\"We're Not Programs, GERTY, We're People\"","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736c5ef138c4754ff469721baf","Artist":"Clint Mansell","CreatedAt":"2021-04-11 16:47:37 UTC","Duration":"310253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0X0kSqEp7Ow4BYSV1y1HTy","Timestamp":"2021-04-11 16:46:32 UTC","Track":"\"We're Not Programs, GERTY, We're People\"","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273870565ec0e4158fa4b81da1c","Artist":"Clint Mansell","CreatedAt":"2019-10-16 08:30:20 UTC","Duration":"431413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2019-10-16 08:15:25 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Out of Blue (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e73ce4e10110a3bf6695078b","Artist":"Clint Mansell","CreatedAt":"2022-07-01 07:46:21 UTC","Duration":"122810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jWAQNlfoScyyDijaa7uVO","Timestamp":"2022-07-01 07:13:29 UTC","Track":"Out Of Blue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Black Mirror: San Junipero (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f2c4b34d44ed87b2dc00d8d5","Artist":"Clint Mansell","CreatedAt":"2021-04-03 21:25:15 UTC","Duration":"240643","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1JaCzrF7tKqauoNdQUWcNb","Timestamp":"2021-04-03 21:00:12 UTC","Track":"San Junipero (80s-90s-00s-??S)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Black Mirror: San Junipero (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f2c4b34d44ed87b2dc00d8d5","Artist":"Clint Mansell","CreatedAt":"2021-04-05 14:56:50 UTC","Duration":"311198","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2lpkRgBi1D7juwRLXs5xhR","Timestamp":"2021-04-05 13:58:46 UTC","Track":"Waves Crashing on Distant Shores of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Black Mirror: San Junipero (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f2c4b34d44ed87b2dc00d8d5","Artist":"Clint Mansell","CreatedAt":"2021-04-03 22:47:06 UTC","Duration":"157848","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7vQtcOcC5YrRhdXXrTPMr4","Timestamp":"2021-04-03 21:26:41 UTC","Track":"Night Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fb6e4451f9d60cace76b0b0d","Artist":"Clint Mansell","CreatedAt":"2022-10-12 11:51:55 UTC","Duration":"301733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2pr6us08iPNzIex5q6fMvI","Timestamp":"2022-10-12 11:17:51 UTC","Track":"Together We Will Live Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fb6e4451f9d60cace76b0b0d","Artist":"Clint Mansell","CreatedAt":"2022-09-11 18:53:54 UTC","Duration":"301733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2pr6us08iPNzIex5q6fMvI","Timestamp":"2022-09-11 18:37:23 UTC","Track":"Together We Will Live Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fb6e4451f9d60cace76b0b0d","Artist":"Clint Mansell","CreatedAt":"2022-07-01 07:20:31 UTC","Duration":"301733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2pr6us08iPNzIex5q6fMvI","Timestamp":"2022-07-01 07:18:32 UTC","Track":"Together We Will Live Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/034c1bb299ac485c80c4bbd4637632c7.png","Artist":"Clint Mansell","CreatedAt":"2018-05-16 13:42:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2018-05-16 13:42:48 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/034c1bb299ac485c80c4bbd4637632c7.png","Artist":"Clint Mansell","CreatedAt":"2017-11-12 15:03:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2017-11-12 15:03:19 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2015-12-01 20:02:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2015-12-01 20:02:33 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2015-07-26 21:24:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2015-07-26 21:24:40 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2015-04-12 14:09:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2015-04-12 14:09:56 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2015-04-07 08:33:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2015-04-07 08:33:35 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2013-03-31 12:28:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2013-03-31 12:28:17 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f1174742e5c4dd3b4c3e9904d0a7cc9.png","Artist":"Clint Mansell","CreatedAt":"2013-03-24 16:59:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2013-03-24 16:59:58 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2015-04-07 13:24:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2015-04-07 13:24:59 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-06-02 13:58:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-06-02 13:58:03 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-06-01 21:16:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-06-01 21:16:17 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-06-01 19:15:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-06-01 19:15:28 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-06-01 15:18:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-06-01 15:18:45 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-31 15:17:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-31 15:17:22 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-28 09:56:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-28 09:56:48 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-27 20:08:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-27 20:08:02 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-27 10:12:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-27 10:12:40 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-26 20:25:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-26 20:25:30 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-25 15:21:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-25 15:21:40 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-25 14:33:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-25 14:33:33 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-24 16:24:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-24 16:24:00 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-23 19:09:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-23 19:09:47 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-23 10:05:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-23 10:05:14 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2014-05-22 19:56:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2014-05-22 19:56:40 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-07-06 10:50:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-07-06 10:50:30 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-06-22 10:25:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-06-22 10:25:08 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-06-14 13:35:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-06-14 13:35:33 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-03-30 19:07:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-03-30 19:07:17 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-03-15 21:30:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-03-15 21:30:27 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-03-14 21:04:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-03-14 21:04:14 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-03-12 09:23:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-03-12 09:23:23 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-02-19 14:29:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-02-19 14:29:34 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-02-08 22:39:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-02-08 22:39:31 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-02-07 13:25:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-02-07 13:25:55 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-02-03 15:20:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-02-03 15:20:16 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-31 11:51:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-31 11:51:00 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-30 22:23:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-30 22:23:31 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-30 11:21:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-30 11:21:32 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-29 17:06:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-29 17:06:24 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-28 14:17:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-28 14:17:31 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-26 22:32:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-26 22:32:46 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-24 23:15:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-24 23:15:57 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c3b0f00a2364e7598f0896126c339a5.png","Artist":"Clint Mansell","CreatedAt":"2013-01-23 13:42:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4NkxNXR19hl20qlB2DOgAx","Timestamp":"2013-01-23 13:42:54 UTC","Track":"Welcome to Lunar Industries","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2ac4eb4ab2104bab932ea9279a1d7fe0.png","Artist":"Clint Mansell","CreatedAt":"2013-01-25 00:00:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-25 00:00:45 UTC","Track":"The Last Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain OST","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2ac4eb4ab2104bab932ea9279a1d7fe0.png","Artist":"Clint Mansell","CreatedAt":"2015-04-14 11:44:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2pr6us08iPNzIex5q6fMvI","Timestamp":"2015-04-14 11:44:57 UTC","Track":"Together We Will Live Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fountain OST","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2ac4eb4ab2104bab932ea9279a1d7fe0.png","Artist":"Clint Mansell","CreatedAt":"2013-09-08 15:56:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2pr6us08iPNzIex5q6fMvI","Timestamp":"2013-09-08 15:56:09 UTC","Track":"Together We Will Live Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 3 Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/86b2ee1245d049bcb649187aeef0b59e.png","Artist":"Clint Mansell","CreatedAt":"2018-05-16 14:09:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4zkynG1TXIknSEiJ9616rt","Timestamp":"2018-05-16 14:09:22 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Requiem for a Dream / OST (Nonesuch store edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/97f581eac51de0d71d40db60a9d643bf.png","Artist":"Clint Mansell","CreatedAt":"2018-05-16 13:41:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-05-16 13:41:51 UTC","Track":"Coney Island Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Requiem for a Dream / OST (Nonesuch store edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/97f581eac51de0d71d40db60a9d643bf.png","Artist":"Clint Mansell","CreatedAt":"2018-05-16 13:39:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-05-16 13:39:45 UTC","Track":"Summer Overture","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Black Mirror: San Junipero (Original Score)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/de2f72b06cefc1a4b21d89d726331de5.png","Artist":"Clint Mansell","CreatedAt":"2018-01-24 12:14:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 12:14:21 UTC","Track":"Faith, Hope, Fear \u0026 Falling In Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Black Mirror: San Junipero (Original Score)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/de2f72b06cefc1a4b21d89d726331de5.png","Artist":"Clint Mansell","CreatedAt":"2018-01-19 12:17:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1JaCzrF7tKqauoNdQUWcNb","Timestamp":"2018-01-19 12:17:10 UTC","Track":"San Junipero (80s-90s-00s-??S)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

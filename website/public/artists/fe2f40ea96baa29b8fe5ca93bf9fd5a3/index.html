@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Alex M.O.R.P.H. - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Alex M.O.R.P.H.</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-03-27 21:43:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-27 21:43:50 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-03-01 19:46:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-01 19:46:25 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-02-21 20:03:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-21 20:03:48 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-02-21 15:42:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-21 15:42:18 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-02-08 13:09:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-08 13:09:34 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-01-31 10:52:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 10:52:03 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Universal Religion Chapter 6 (Mixed Version)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-01-24 22:45:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-24 22:45:37 UTC","Track":"Eternal Flame [Mix Cut] - Original Breaks Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed by Armin van Buuren, Paul Oakenfold, Markus Schulz, Cosmic Gate \u0026 Andy Moor)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2015-12-02 12:31:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-02 12:31:51 UTC","Track":"Walk The Edge - Alex M.O.R.P.H. B2B Woody Van Eyden Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed by Armin van Buuren, Paul Oakenfold, Markus Schulz, Cosmic Gate \u0026 Andy Moor)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-02-02 12:46:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-02 12:46:32 UTC","Track":"Walk The Edge - Alex M.O.R.P.H. B2B Woody Van Eyden Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed by Armin van Buuren, Paul Oakenfold, Markus Schulz, Cosmic Gate \u0026 Andy Moor)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Walk The Edge - Alex M.O.R.P.H. B2B Woody Van Eyden Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mystery Of Aether (Unmixed Edits)","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2014-04-23 20:24:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-04-23 20:24:38 UTC","Track":"An Angel's Love - Andrew Rayel Aether Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 731","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2015-09-20 20:03:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-20 20:03:08 UTC","Track":"Amistad (ASOT 731) - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 622","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2013-08-16 20:51:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-08-16 20:51:57 UTC","Track":"Waking Up The Stars [ASOT 622] - Skytech Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-12-11 11:51:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-11 11:51:18 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-12-09 23:52:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-09 23:52:30 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-12-08 15:44:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-08 15:44:15 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-11-12 00:13:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-12 00:13:28 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-27 09:31:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 09:31:26 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-20 16:05:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-20 16:05:24 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-17 12:30:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-17 12:30:51 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-12 22:00:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-12 22:00:59 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-12 16:16:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-12 16:16:43 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-11 11:26:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-11 11:26:59 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-10 14:22:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-10 14:22:24 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-10 10:46:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-10 10:46:18 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-09 22:26:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-09 22:26:58 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-07 17:53:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-07 17:53:10 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-06 14:34:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-06 14:34:07 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-06 10:40:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-06 10:40:36 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-04 16:15:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-04 16:15:03 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-04 14:48:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-04 14:48:14 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-04 13:30:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-04 13:30:34 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-04 09:26:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-04 09:26:43 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-03 20:05:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-03 20:05:50 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-03 14:58:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-03 14:58:15 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-03 11:32:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-03 11:32:16 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-03 10:48:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-03 10:48:43 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-02 20:20:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-02 20:20:09 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-02 16:55:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-02 16:55:09 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 783","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-10-02 15:28:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-02 15:28:53 UTC","Track":"Dreamcatcher (ASOT 783)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 766","AlbumCover":"","Artist":"Alex M.O.R.P.H.","CreatedAt":"2016-06-15 09:53:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 09:53:27 UTC","Track":"Angelic (ASOT 766) [Future Favorite]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed Version)","AlbumCover":"https://i.scdn.co/image/2eadc5ab1b39377595119a418e7dfac93ff5449f","Artist":"Alex M.O.R.P.H.","CreatedAt":"2019-06-18 20:45:03 UTC","Duration":"356453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1aPP6fCTy8BA5RC2u68o5s","Timestamp":"2019-06-18 16:39:07 UTC","Track":"Walk The Edge [Mix Cut] - Alex M.O.R.P.H. B2B Woody Van Eyden Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed Version)","AlbumCover":"https://i.scdn.co/image/2eadc5ab1b39377595119a418e7dfac93ff5449f","Artist":"Alex M.O.R.P.H.","CreatedAt":"2017-09-07 10:30:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1aPP6fCTy8BA5RC2u68o5s","Timestamp":"2017-09-07 10:30:36 UTC","Track":"Walk The Edge [Mix Cut] - Alex M.O.R.P.H. B2B Woody Van Eyden Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASOT 1037 - A State Of Trance Episode 1037","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738ee33521beb32496e904cd40","Artist":"Alex M.O.R.P.H.","CreatedAt":"2021-10-24 17:57:12 UTC","Duration":"228300","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a94OG6hr1E0WSqYSb2ZxM","Timestamp":"2021-10-24 16:28:41 UTC","Track":"Godspeed (ASOT 1037)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b2917f338e31f85cf0714c7b","Artist":"Alex M.O.R.P.H.","CreatedAt":"2021-08-25 17:33:53 UTC","Duration":"194787","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52F3KUSabfkpFOA4vsbmjW","Timestamp":"2021-08-25 16:10:33 UTC","Track":"Escape","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Escape","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b2917f338e31f85cf0714c7b","Artist":"Alex M.O.R.P.H.","CreatedAt":"2021-08-19 21:31:45 UTC","Duration":"194787","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52F3KUSabfkpFOA4vsbmjW","Timestamp":"2021-08-19 21:20:58 UTC","Track":"Escape","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Not All Superheroes Wear Capes","AlbumCover":"https://i.scdn.co/image/df62c2e995ef011e3ebf4ca88431710782710265","Artist":"Alex M.O.R.P.H.","CreatedAt":"2018-10-24 20:00:12 UTC","Duration":"173750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5oyKxAiVQo0V1MIrhC8Qon","Timestamp":"2018-10-24 14:42:31 UTC","Track":"Not All Superheroes Wear Capes - Album Opening Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreams","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f4d0ac49a63f458bbcd24fa9a2703e7a.png","Artist":"Alex M.O.R.P.H.","CreatedAt":"2014-04-27 14:17:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-04-27 14:17:52 UTC","Track":"Dreams - Radio Edit","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Mat Zo - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Mat Zo</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Group Therapy 250 Live from The Gorge Amphitheatre","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2018-09-26 23:04:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-09-26 23:04:07 UTC","Track":"Elf / Rebound (ABGT250)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Group Therapy 250 Live from The Gorge Amphitheatre","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2018-09-26 15:53:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-09-26 15:53:15 UTC","Track":"Elf / Rebound (ABGT250)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-12-03 14:23:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-03 14:23:34 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-11-09 15:52:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-09 15:52:30 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-10-31 10:09:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-31 10:09:55 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-10-12 15:20:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-12 15:20:51 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-10-04 15:35:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-04 15:35:57 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-09-27 15:02:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-27 15:02:25 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-09-11 14:36:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-11 14:36:51 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-09-06 20:08:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-06 20:08:20 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"","Artist":"Mat Zo","CreatedAt":"2013-09-04 21:48:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-04 21:48:10 UTC","Track":"Synapse Dynamics (Arty remix edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Games [UKF10]","AlbumCover":"https://i.scdn.co/image/34edda98d77e3e01311ccc5ae86afee86bd98359","Artist":"Mat Zo","CreatedAt":"2019-11-22 10:15:22 UTC","Duration":"360000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4qZkFcpbvgqs7LgGHRgmXa","Timestamp":"2019-11-22 10:12:41 UTC","Track":"Games","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-09-04 15:01:51 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-09-04 14:59:19 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-27 23:30:15 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-07-27 22:38:18 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-18 19:00:12 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-07-18 18:20:39 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-17 16:15:05 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-07-17 15:15:27 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-16 16:00:14 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-07-16 15:45:49 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-04-01 11:45:15 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2019-04-01 11:22:20 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2018-11-12 09:26:01 UTC","Duration":"449032","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7wjGcjfkXWF33m0IImNK6D","Timestamp":"2018-11-12 00:22:02 UTC","Track":"Says Without Going","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-18 17:45:08 UTC","Duration":"432468","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Nzu8QKeb6LGMofsaphtD2","Timestamp":"2019-07-18 17:32:03 UTC","Track":"Meaning Lost All Words","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-18 09:30:06 UTC","Duration":"432468","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Nzu8QKeb6LGMofsaphtD2","Timestamp":"2019-07-18 09:25:22 UTC","Track":"Meaning Lost All Words","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2018-11-12 09:26:02 UTC","Duration":"432468","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Nzu8QKeb6LGMofsaphtD2","Timestamp":"2018-11-12 00:08:45 UTC","Track":"Meaning Lost All Words","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-20 19:45:14 UTC","Duration":"449280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4wCCudm5v4RkXQ6Jj82PdI","Timestamp":"2019-07-20 19:38:23 UTC","Track":"See It When I Believe It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-19 14:30:15 UTC","Duration":"449280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4wCCudm5v4RkXQ6Jj82PdI","Timestamp":"2019-07-19 14:26:05 UTC","Track":"See It When I Believe It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2019-07-19 09:30:19 UTC","Duration":"449280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4wCCudm5v4RkXQ6Jj82PdI","Timestamp":"2019-07-19 09:20:36 UTC","Track":"See It When I Believe It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/8a30cafff900ddd3ac4d12e4c53cdb61ced0c3c9","Artist":"Mat Zo","CreatedAt":"2018-11-12 09:26:01 UTC","Duration":"449280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4wCCudm5v4RkXQ6Jj82PdI","Timestamp":"2018-11-12 00:25:37 UTC","Track":"See It When I Believe It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2021-01-07 15:37:55 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2021-01-07 15:37:45 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-09-22 14:44:50 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-09-22 12:47:56 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-09-07 17:54:55 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-09-07 17:52:05 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-27 18:22:12 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-27 18:07:52 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-27 16:53:04 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-27 16:50:21 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-23 21:59:32 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-23 21:43:58 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-23 19:09:32 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-23 18:48:26 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-22 16:19:13 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-22 16:14:52 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-21 11:17:41 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-21 10:36:17 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-20 17:58:53 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-20 17:41:52 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-19 17:53:58 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-19 17:46:11 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-19 16:20:00 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-19 16:19:29 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-19 15:18:57 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-19 14:53:40 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-18 20:06:24 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-18 19:58:11 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-18 08:11:10 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-18 08:09:19 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-17 21:46:11 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-17 21:43:52 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-17 20:54:39 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-17 20:52:00 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-17 19:26:29 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-17 19:09:26 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734381df38c5430deaea476a08","Artist":"Mat Zo","CreatedAt":"2020-08-17 10:00:21 UTC","Duration":"238164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lscGMufRIPvlMgtSV69nA","Timestamp":"2020-08-17 09:44:00 UTC","Track":"Love Songs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vice (VIP)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352cbd3429b80109dcaf4b6da","Artist":"Mat Zo","CreatedAt":"2019-12-04 11:30:35 UTC","Duration":"413023","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4iWa5yJckL8aoBrIzxulIB","Timestamp":"2019-12-04 10:36:45 UTC","Track":"Vice - VIP","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Petrushka","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27359490691fbf939a35a3df2fd","Artist":"Mat Zo","CreatedAt":"2021-05-01 14:43:22 UTC","Duration":"233437","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0CfD7wsloLC0h7t24RbdfD","Timestamp":"2021-05-01 14:11:22 UTC","Track":"Petrushka - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tracing Steps","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273985ca07942c1f50df33508cb","Artist":"Mat Zo","CreatedAt":"2020-10-03 17:46:29 UTC","Duration":"402580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0rY6eMNP3hXxEodeEOdKIk","Timestamp":"2020-10-03 17:44:58 UTC","Track":"Tracing Steps","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a6a1b1d97dd34365ce07e2ab","Artist":"Mat Zo","CreatedAt":"2020-01-25 16:35:22 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2020-01-25 16:34:38 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a6a1b1d97dd34365ce07e2ab","Artist":"Mat Zo","CreatedAt":"2020-01-24 15:57:20 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2020-01-24 15:56:13 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a6a1b1d97dd34365ce07e2ab","Artist":"Mat Zo","CreatedAt":"2020-01-23 15:46:20 UTC","Duration":"317392","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6zoFp7Cq9KAUkD27ie9DCI","Timestamp":"2020-01-23 15:46:08 UTC","Track":"See It When I Believe It - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Words EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a6a1b1d97dd34365ce07e2ab","Artist":"Mat Zo","CreatedAt":"2019-12-04 14:15:24 UTC","Duration":"449280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4wCCudm5v4RkXQ6Jj82PdI","Timestamp":"2019-12-04 13:53:22 UTC","Track":"See It When I Believe It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tracing Steps","AlbumCover":"https://i.scdn.co/image/d5da8a1beabcdd8b84aa57512f6cb657e2f54baf","Artist":"Mat Zo","CreatedAt":"2019-07-19 16:15:09 UTC","Duration":"402580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0rY6eMNP3hXxEodeEOdKIk","Timestamp":"2019-07-19 15:22:49 UTC","Track":"Tracing Steps","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tracing Steps","AlbumCover":"https://i.scdn.co/image/d5da8a1beabcdd8b84aa57512f6cb657e2f54baf","Artist":"Mat Zo","CreatedAt":"2019-07-19 10:15:16 UTC","Duration":"402580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6JkPF83preThhfxkP8pa8b","Timestamp":"2019-07-19 10:09:22 UTC","Track":"Heat Wave","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mixed For Feet, Vol. 1 (Unmixed Edits)","AlbumCover":"https://i.scdn.co/image/f3752c03699c92ee51f2233870ad1bd4a3cc385d","Artist":"Mat Zo","CreatedAt":"2018-11-29 09:00:14 UTC","Duration":"294545","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5BmYDTPNXltUKBHkijRsCf","Timestamp":"2018-11-29 08:59:11 UTC","Track":"Synapse Dynamics - Arty Remix Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-28 19:25:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-28 19:25:24 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-28 13:19:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-28 13:19:03 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-28 08:41:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-28 08:41:26 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 21:51:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 21:51:51 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 21:11:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 21:11:55 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 18:33:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 18:33:55 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 15:47:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 15:47:39 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 14:21:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 14:21:20 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 13:24:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 13:24:55 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 11:16:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 11:16:08 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-27 10:43:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 10:43:07 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 22:36:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 22:36:52 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 22:18:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 22:18:12 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 15:25:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 15:25:15 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 14:22:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 14:22:51 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 13:39:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 13:39:47 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 12:46:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 12:46:32 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 11:14:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 11:14:01 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-26 08:33:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 08:33:18 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Easy","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/41e9c906fd624eb22eed60ffb18047cc.png","Artist":"Mat Zo","CreatedAt":"2016-03-25 23:52:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-25 23:52:43 UTC","Track":"Easy - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-12-05 14:25:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-05 14:25:02 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-12-01 11:31:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-01 11:31:15 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-11-04 22:09:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-04 22:09:52 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-29 14:18:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-29 14:18:57 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-26 14:12:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-26 14:12:37 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-25 20:22:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-25 20:22:28 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-24 19:31:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-24 19:31:13 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-23 10:09:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-23 10:09:49 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mozart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6cc16b0a80364f2e8639ca12707bbc42.png","Artist":"Mat Zo","CreatedAt":"2013-10-21 15:34:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-21 15:34:16 UTC","Track":"Mozart - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Default / Rush 2009","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8c872948161a4a01a4199ec940fe0f6a.png","Artist":"Mat Zo","CreatedAt":"2017-12-13 12:52:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-13 12:52:50 UTC","Track":"Rush 2009 - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aurus / The Price Of Oil","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/aa30943b194244e8b06dae74de94648c.png","Artist":"Mat Zo","CreatedAt":"2013-10-07 08:01:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-07 08:01:48 UTC","Track":"Aurus (Original Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Self Assemble","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e5bb6b36817b9283266053f8a9cf1df7.png","Artist":"Mat Zo","CreatedAt":"2016-08-29 09:45:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-29 09:45:55 UTC","Track":"Order Out of Chaos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Self Assemble","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e5bb6b36817b9283266053f8a9cf1df7.png","Artist":"Mat Zo","CreatedAt":"2017-04-24 21:11:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-24 21:11:04 UTC","Track":"Too Late (feat. Sinead Egan)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moonset","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/eb38f683e1be4c4baa84d500ad3f5341.png","Artist":"Mat Zo","CreatedAt":"2016-04-26 13:50:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-26 13:50:07 UTC","Track":"Moonset - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moonset","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/eb38f683e1be4c4baa84d500ad3f5341.png","Artist":"Mat Zo","CreatedAt":"2016-04-26 13:58:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-26 13:58:45 UTC","Track":"Moonset - Allende Remix","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

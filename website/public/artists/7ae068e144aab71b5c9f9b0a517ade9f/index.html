@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Taylor Swift - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Taylor Swift</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-08 12:13:46 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-08 11:49:46 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-07 14:37:39 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-07 14:15:34 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-04 10:48:20 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-04 07:48:59 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-03 16:57:52 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-03 16:28:46 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-03 10:47:33 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-03 10:33:55 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-02 14:22:14 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-02 13:55:31 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:55:55 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-02 09:53:07 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485125751b4b32829d6bbfe6be7f","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:15:54 UTC","Duration":"215920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vVMlbdYx2080Oa9FndPZr","Timestamp":"2022-11-02 09:15:23 UTC","Track":"long story short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485133b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2022-11-02 10:16:23 UTC","Duration":"260440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19CSr8rwW05VJL2F91KFNK","Timestamp":"2022-11-02 09:45:15 UTC","Track":"ivy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485133b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:28:46 UTC","Duration":"260440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19CSr8rwW05VJL2F91KFNK","Timestamp":"2022-11-02 09:07:32 UTC","Track":"ivy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485133b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2022-11-03 17:35:07 UTC","Duration":"185320","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5BK0uqwY9DNfZ630STAEaq","Timestamp":"2022-11-03 17:30:34 UTC","Track":"gold rush","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485133b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:48:25 UTC","Duration":"185320","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5BK0uqwY9DNfZ630STAEaq","Timestamp":"2022-11-02 09:40:55 UTC","Track":"gold rush","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485133b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:04:39 UTC","Duration":"185320","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5BK0uqwY9DNfZ630STAEaq","Timestamp":"2022-11-02 09:03:11 UTC","Track":"gold rush","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-02 09:48:24 UTC","Duration":"210251","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Jlcvv8IykzHaSmj49uNW8","Timestamp":"2022-11-02 09:22:06 UTC","Track":"the 1","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-08 11:53:27 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-08 11:41:16 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-07 14:13:37 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-07 14:07:04 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-04 07:51:13 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-04 07:41:36 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-03 20:11:52 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-03 20:04:22 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-03 16:24:49 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-03 16:20:16 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-03 10:36:43 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-03 10:25:24 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000485195f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-02 13:52:46 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-02 13:47:01 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989","AlbumCover":"https://i.scdn.co/image/ab67616d00004851b7e976d2b35c767f9012cb72","Artist":"Taylor Swift","CreatedAt":"2022-11-03 17:44:46 UTC","Duration":"193293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NNolUeL5m2ju7kf8pdg6H","Timestamp":"2022-11-03 16:57:59 UTC","Track":"All You Had To Do Was Stay","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Red (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c248e90c3e569f90aef9dec","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:38:15 UTC","Duration":"223093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4yBEU0askBZzE2XEVdEwmx","Timestamp":"2020-03-16 20:37:16 UTC","Track":"Red","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Red (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c248e90c3e569f90aef9dec","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:51:13 UTC","Duration":"219720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6FB3v4YcR57y4tXFcdxI1E","Timestamp":"2020-03-16 19:50:42 UTC","Track":"I Knew You Were Trouble.","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Red (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c248e90c3e569f90aef9dec","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:24:18 UTC","Duration":"232120","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ce41JVa6KFaryfmC2bu2W","Timestamp":"2020-03-16 20:23:39 UTC","Track":"22","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Red (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c248e90c3e569f90aef9dec","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:54:18 UTC","Duration":"193146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0VwNdo84DaVYLIkbVO86ND","Timestamp":"2020-03-16 19:53:56 UTC","Track":"We Are Never Ever Getting Back Together","YoutubeCategoryId":"","YoutubeId":""},{"Album":"evermore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27333b8541201f1ef38941024be","Artist":"Taylor Swift","CreatedAt":"2021-12-23 22:23:49 UTC","Duration":"214706","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lx2cLdOt3piJbcaXIV74f","Timestamp":"2021-12-23 21:45:21 UTC","Track":"willow","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:33:18 UTC","Duration":"231826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1u8c2t2Cy7UBoG4ArRcF5g","Timestamp":"2020-03-16 19:32:56 UTC","Track":"Blank Space","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-03-18 11:12:18 UTC","Duration":"231000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ug5NqcwcFR2xrfTkc7k8e","Timestamp":"2020-03-16 21:18:06 UTC","Track":"Style","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2021-01-01 18:01:33 UTC","Duration":"220440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4A4A6dwl5DqdqrZaEtKGPR","Timestamp":"2021-01-01 17:40:47 UTC","Track":"Wildest Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-12-18 18:40:56 UTC","Duration":"220440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4A4A6dwl5DqdqrZaEtKGPR","Timestamp":"2020-12-18 18:12:05 UTC","Track":"Wildest Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-12-16 18:24:22 UTC","Duration":"220440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4A4A6dwl5DqdqrZaEtKGPR","Timestamp":"2020-12-16 17:17:42 UTC","Track":"Wildest Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-12-11 21:19:52 UTC","Duration":"220440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4A4A6dwl5DqdqrZaEtKGPR","Timestamp":"2020-12-11 20:57:52 UTC","Track":"Wildest Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989 (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352b2a3824413eefe9e33817a","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:47:15 UTC","Duration":"219200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cqRj7pUJDkTCEsJkx8snD","Timestamp":"2020-03-16 19:47:02 UTC","Track":"Shake It Off","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fearless (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360cb9332e8c8c7d8e50854b3","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:09:17 UTC","Duration":"236266","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1D4PL9B8gOg78jiHg3FvBb","Timestamp":"2020-03-16 20:08:39 UTC","Track":"Love Story","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fearless (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360cb9332e8c8c7d8e50854b3","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:20:10 UTC","Duration":"232120","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1GEBsLDvJGw7kviySRI6GX","Timestamp":"2020-03-16 20:19:46 UTC","Track":"You Belong With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation Stadium Tour Surprise Song Playlist","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27363d77f99117b28af9f656918","Artist":"Taylor Swift","CreatedAt":"2020-12-22 22:53:06 UTC","Duration":"223093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4V9NuhKQcUFt4cgbynHV79","Timestamp":"2020-12-22 21:16:24 UTC","Track":"Red","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation Stadium Tour Surprise Song Playlist","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27363d77f99117b28af9f656918","Artist":"Taylor Swift","CreatedAt":"2020-12-21 18:49:50 UTC","Duration":"223093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4V9NuhKQcUFt4cgbynHV79","Timestamp":"2020-12-21 18:07:22 UTC","Track":"Red","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation Stadium Tour Surprise Song Playlist","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27363d77f99117b28af9f656918","Artist":"Taylor Swift","CreatedAt":"2020-12-16 14:51:38 UTC","Duration":"223093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4V9NuhKQcUFt4cgbynHV79","Timestamp":"2020-12-16 14:48:51 UTC","Track":"Red","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation Stadium Tour Surprise Song Playlist","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27363d77f99117b28af9f656918","Artist":"Taylor Swift","CreatedAt":"2020-12-11 01:53:09 UTC","Duration":"223093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4V9NuhKQcUFt4cgbynHV79","Timestamp":"2020-12-10 23:21:31 UTC","Track":"Red","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273727a2e497acecc218412dfe6","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:37:17 UTC","Duration":"232253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5sOch9Cf4uxcMtwFzMtNqQ","Timestamp":"2020-03-16 19:36:49 UTC","Track":"Delicate","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273727a2e497acecc218412dfe6","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:30:15 UTC","Duration":"209680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"12WvaS3V4dPRBU2o37vX69","Timestamp":"2020-03-16 20:30:00 UTC","Track":"Gorgeous","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation (Big Machine Radio Release Special)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273727a2e497acecc218412dfe6","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:13:20 UTC","Duration":"211853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1JbR9RDP3ogVNEWFgNXAjh","Timestamp":"2020-03-16 20:12:11 UTC","Track":"Look What You Made Me Do","YoutubeCategoryId":"","YoutubeId":""},{"Album":"folklore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27395f754318336a07e85ec59bc","Artist":"Taylor Swift","CreatedAt":"2022-11-09 15:59:48 UTC","Duration":"252880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6VsvKPJ4xjVNKpI8VVZ3SV","Timestamp":"2022-11-09 15:41:06 UTC","Track":"invisible string","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7e976d2b35c767f9012cb72","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:02:15 UTC","Duration":"220440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3fVnlF4pGqWI9flVENcT28","Timestamp":"2020-03-16 20:01:43 UTC","Track":"Wildest Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"1989","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7e976d2b35c767f9012cb72","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:34:16 UTC","Duration":"211933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TvQLMecTE8utzoNmvXRbK","Timestamp":"2020-03-16 20:33:32 UTC","Track":"Bad Blood","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lover","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e787cffec20aa2a396a61647","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:40:13 UTC","Duration":"171360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6RRNNciQGZEXnqk8SQ9yv5","Timestamp":"2020-03-16 19:39:41 UTC","Track":"You Need To Calm Down","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lover","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e787cffec20aa2a396a61647","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:05:20 UTC","Duration":"178426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1BxfuPKGuaTgP7aM0Bbdwr","Timestamp":"2020-03-16 20:04:42 UTC","Track":"Cruel Summer","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lover","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e787cffec20aa2a396a61647","Artist":"Taylor Swift","CreatedAt":"2020-03-16 19:29:19 UTC","Duration":"190360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RauEVgRgj1IuWdJ9fDs70","Timestamp":"2020-03-16 19:28:47 UTC","Track":"The Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lover","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e787cffec20aa2a396a61647","Artist":"Taylor Swift","CreatedAt":"2020-03-16 20:27:13 UTC","Duration":"170640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"43rA71bccXFGD4C8GOpIlN","Timestamp":"2020-03-16 20:26:30 UTC","Track":"I Forgot That You Existed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"reputation","AlbumCover":"https://i.scdn.co/image/c1d13ca191838eb78d0f609d4805a400650cc4f8","Artist":"Taylor Swift","CreatedAt":"2019-10-10 08:41:33 UTC","Duration":"233626","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0VE4kBnHJUgtMf0dy6DRmW","Timestamp":"2019-10-10 08:05:28 UTC","Track":"Getaway Car","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lover","AlbumCover":"https://i.scdn.co/image/e30b81b756002dffe808888a4b67461e15e67681","Artist":"Taylor Swift","CreatedAt":"2020-01-15 19:08:12 UTC","Duration":"221306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1dGr1c8CrMLDpV6mPbImSI","Timestamp":"2020-01-15 19:07:56 UTC","Track":"Lover","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights (3am Edition)","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2bb1c215a957801b0dc8c26925b95c50.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 16:47:24 UTC","Track":"Question...?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights (3am Edition)","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2bb1c215a957801b0dc8c26925b95c50.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 16:31:43 UTC","Track":"Would've, Could've, Should've","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights (3am Edition)","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2bb1c215a957801b0dc8c26925b95c50.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 15:49:43 UTC","Track":"Lavender Haze","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights (3am Edition)","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2bb1c215a957801b0dc8c26925b95c50.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 16:16:13 UTC","Track":"The Great War","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights (3am Edition)","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2bb1c215a957801b0dc8c26925b95c50.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 16:03:00 UTC","Track":"Karma","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/4869ca6fef509baf681c1d3d2a797af7.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 15:36:28 UTC","Track":"Anti-Hero","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/4869ca6fef509baf681c1d3d2a797af7.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 17:15:23 UTC","Track":"Bejeweled","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Midnights","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/4869ca6fef509baf681c1d3d2a797af7.jpg","Artist":"Taylor Swift","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 17:01:13 UTC","Track":"You're on Your Own, Kid","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Hosini - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Hosini</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-05-02 18:15:06 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-05-02 16:14:55 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-05-02 13:45:10 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-05-02 13:31:32 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-05-01 16:30:11 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-05-01 16:22:43 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-05-01 13:30:13 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-05-01 13:17:05 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-04-29 15:00:12 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-04-29 14:55:49 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep In Miami 2018","AlbumCover":"https://i.scdn.co/image/601d812c4c0b735ac25c4320925b03c095593ec4","Artist":"Hosini","CreatedAt":"2019-04-29 12:45:08 UTC","Duration":"401429","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61iILPf7s6CAxSIBl76Uml","Timestamp":"2019-04-29 12:41:00 UTC","Track":"Capella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 09","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f98dc917d7e068ccb7791dd","Artist":"Hosini","CreatedAt":"2021-11-29 21:23:37 UTC","Duration":"208000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LnifglHkA6YqLq7MPGc63","Timestamp":"2021-11-29 20:42:20 UTC","Track":"Syna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 09","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f98dc917d7e068ccb7791dd","Artist":"Hosini","CreatedAt":"2021-11-29 17:52:27 UTC","Duration":"208000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LnifglHkA6YqLq7MPGc63","Timestamp":"2021-11-29 16:38:11 UTC","Track":"Syna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 09","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f98dc917d7e068ccb7791dd","Artist":"Hosini","CreatedAt":"2021-11-29 14:32:19 UTC","Duration":"208000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LnifglHkA6YqLq7MPGc63","Timestamp":"2021-11-29 14:02:37 UTC","Track":"Syna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-12-13 12:29:25 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-12-13 12:03:30 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-11-25 13:23:11 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-11-25 13:02:29 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-11-25 09:31:05 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-11-25 08:52:47 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-24 18:25:19 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-24 17:09:17 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-21 13:33:24 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-21 13:01:10 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-21 09:26:43 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-21 08:33:18 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-13 14:17:21 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-13 14:01:35 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-13 13:05:35 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-13 12:39:07 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-13 10:58:43 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-13 10:35:57 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-12 12:25:14 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-12 11:28:18 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-11 22:56:34 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-11 22:43:23 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-11 21:41:47 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-11 20:53:17 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-11 18:45:43 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-11 16:11:38 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-11 14:53:32 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-11 14:26:49 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-08 20:31:12 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-08 19:27:46 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-08 18:45:58 UTC","Duration":"203880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TR0jqm8Fq7PL1BKJSER7E","Timestamp":"2021-10-08 18:36:36 UTC","Track":"Balloons - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-12-13 10:44:29 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-12-13 10:31:06 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-12-13 10:26:35 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-12-13 10:25:49 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-11-25 13:23:09 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-11-25 12:33:50 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-11-25 08:36:27 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-11-25 08:24:07 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-12 07:51:59 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-10-12 07:45:34 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-11 10:47:18 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-10-11 10:42:28 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-10-08 16:44:07 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-10-08 15:52:48 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-03-15 17:22:53 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-03-15 14:18:17 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Anjunadeep 12","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733cc4c87257d04f3aad7bedb9","Artist":"Hosini","CreatedAt":"2021-03-15 12:04:58 UTC","Duration":"321253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WcUzhTFq1Z7BmZX0e8NTC","Timestamp":"2021-03-15 11:53:31 UTC","Track":"Froozen - Mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-09-08 10:28:01 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-09-08 09:37:15 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-28 13:07:20 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-28 06:20:26 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-27 14:00:45 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-27 13:44:36 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-25 09:55:11 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-25 08:28:49 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-24 22:37:03 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-24 22:21:35 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-24 20:30:47 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-24 16:54:45 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"8 Hours, Still No Rain EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27399e3b5c4b4bca3043d625362","Artist":"Hosini","CreatedAt":"2021-05-24 14:55:58 UTC","Duration":"267863","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4zEbnQ59YXDeCC8Cc81pjc","Timestamp":"2021-05-24 14:31:32 UTC","Track":"Kunzite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Froozen / Balloons","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ae32e04edb4d4f68a6f377d8","Artist":"Hosini","CreatedAt":"2022-05-04 07:45:31 UTC","Duration":"234744","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0NQhw2ZcwkfaVN98QYsY7X","Timestamp":"2022-05-04 07:36:01 UTC","Track":"Balloons","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Froozen / Balloons","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ae32e04edb4d4f68a6f377d8","Artist":"Hosini","CreatedAt":"2022-05-03 07:35:44 UTC","Duration":"234744","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0NQhw2ZcwkfaVN98QYsY7X","Timestamp":"2022-05-03 07:08:14 UTC","Track":"Balloons","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

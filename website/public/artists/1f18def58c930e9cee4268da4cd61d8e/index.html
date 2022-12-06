@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Eslabon Armado - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Eslabon Armado</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Vibras de Noche","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730259ab06988965b03eae686a","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 17:01:13 UTC","Duration":"270668","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7Aiq4g8tSExAM2qUNkiHbZ","Timestamp":"2022-01-08 16:27:07 UTC","Track":"Tal Vez","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vibras de Noche","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730259ab06988965b03eae686a","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 13:43:17 UTC","Duration":"270668","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7Aiq4g8tSExAM2qUNkiHbZ","Timestamp":"2022-01-08 12:03:26 UTC","Track":"Tal Vez","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vibras de Noche","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730259ab06988965b03eae686a","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 19:35:45 UTC","Duration":"245911","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tKEWCeBSeiSJVB9ZURgUz","Timestamp":"2022-01-08 17:31:01 UTC","Track":"Dame Tu Calor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vibras de Noche","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730259ab06988965b03eae686a","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 15:39:44 UTC","Duration":"245911","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tKEWCeBSeiSJVB9ZURgUz","Timestamp":"2022-01-08 13:45:06 UTC","Track":"Dame Tu Calor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733e59459508943946907ad74f","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 18:50:51 UTC","Duration":"226821","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WYB1odDfMPVMyp1QxFInT","Timestamp":"2022-01-08 16:01:09 UTC","Track":"Con Tus Besos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 15:53:21 UTC","Duration":"228000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7F7hBGecl8FIkvHE7pCTGG","Timestamp":"2022-01-08 14:05:13 UTC","Track":"Loco Enamorado","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 19:07:18 UTC","Duration":"155125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kItv0UayV5g4Xs9FMshDR","Timestamp":"2022-01-08 18:20:18 UTC","Track":"Cuando Tú Me Miras","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 18:31:52 UTC","Duration":"207253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e6iopg5dmxbqJ1Mbhypab","Timestamp":"2022-01-08 18:08:19 UTC","Track":"La Diabla","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 17:01:09 UTC","Duration":"189375","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6q1rr8W0TudmxomRdHxUWP","Timestamp":"2022-01-08 14:45:19 UTC","Track":"No Dudes de Ti","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 12:56:21 UTC","Duration":"189375","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6q1rr8W0TudmxomRdHxUWP","Timestamp":"2022-01-08 12:17:02 UTC","Track":"No Dudes de Ti","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-05 14:54:47 UTC","Duration":"189375","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6q1rr8W0TudmxomRdHxUWP","Timestamp":"2022-01-05 14:09:08 UTC","Track":"No Dudes de Ti","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 17:48:58 UTC","Duration":"202506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"67WSWDDuEEmBIXTchwACs1","Timestamp":"2022-01-08 15:41:20 UTC","Track":"Tonto Perdedor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tu Veneno Mortal, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27360501f0543348ee4bb8c3fd3","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 14:31:36 UTC","Duration":"202506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"67WSWDDuEEmBIXTchwACs1","Timestamp":"2022-01-08 12:39:53 UTC","Track":"Tonto Perdedor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 18:04:13 UTC","Duration":"398466","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4cNOvC1mAjWEABZTxx2psa","Timestamp":"2022-01-08 16:56:32 UTC","Track":"Mi Historia Entre Tus Dedos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 17:01:10 UTC","Duration":"307375","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2uVW9s3bC14wp15d3Ma6EO","Timestamp":"2022-01-08 15:17:16 UTC","Track":"Ando Más Que Mal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 20:25:57 UTC","Duration":"203706","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50g9l7cOUIXt9LVl9eX784","Timestamp":"2022-01-08 18:36:13 UTC","Track":"Me Matas","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 19:35:44 UTC","Duration":"222926","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kPEpa2Z7jWjfA6YMq9CGE","Timestamp":"2022-01-08 17:26:55 UTC","Track":"Diciembre","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 13:55:12 UTC","Duration":"222926","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kPEpa2Z7jWjfA6YMq9CGE","Timestamp":"2022-01-08 13:24:05 UTC","Track":"Diciembre","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 19:23:09 UTC","Duration":"354480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4efRO3aXHHwN3x8VxND4d6","Timestamp":"2022-01-08 17:51:51 UTC","Track":"¿Dime Porque?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 13:55:11 UTC","Duration":"354480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4efRO3aXHHwN3x8VxND4d6","Timestamp":"2022-01-08 13:03:54 UTC","Track":"¿Dime Porque?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corta Venas","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273657fa1079d4f17b7e06dd86e","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 14:43:30 UTC","Duration":"208326","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6tzWQCTlrZr1CnwiFGCmoM","Timestamp":"2022-01-08 14:25:17 UTC","Track":"La Mejor de Todas","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lamento Boliviano","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fbf23dff6170cd927133da65","Artist":"Eslabon Armado","CreatedAt":"2022-01-08 17:49:02 UTC","Duration":"212213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nViFsaHhvPV6GLms1R0oe","Timestamp":"2022-01-08 17:20:24 UTC","Track":"Lamento Boliviano","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Danger - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Danger</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"09/17 2007 - EP","AlbumCover":"https://i.scdn.co/image/1170e0252b1524c6a60bcd7e6f4d3d5ccc086a47","Artist":"Danger","CreatedAt":"2019-01-20 16:00:09 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xnSYyx3j0Q9Ib3GUzy0Fq","Timestamp":"2019-01-20 14:47:22 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-30 10:28:27 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-30 09:28:08 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-28 18:05:40 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-28 17:54:35 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-27 19:16:51 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-27 19:10:12 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-27 12:51:57 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-27 12:43:47 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-26 22:19:44 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-26 22:13:50 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-26 18:37:56 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-26 18:36:42 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-25 17:43:07 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-25 17:25:49 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-25 15:21:34 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-25 14:55:27 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732b606483bf61fdfba68ed4dc","Artist":"Danger","CreatedAt":"2020-08-24 15:55:07 UTC","Duration":"271946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lO8ZTS4kNYa9eOSC1QYQi","Timestamp":"2020-08-24 15:50:48 UTC","Track":"4:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27375fd49dc340142ec8086942b","Artist":"Danger","CreatedAt":"2020-08-24 16:13:38 UTC","Duration":"311914","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5UJGa2ei5bFdpLGpT9TcLk","Timestamp":"2020-08-24 15:56:01 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739ab84cdf4fa3f991708f7001","Artist":"Danger","CreatedAt":"2020-08-24 15:46:35 UTC","Duration":"261818","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6MLptqfOLeV8uwAqwXaZ1v","Timestamp":"2020-08-24 15:46:16 UTC","Track":"6.24","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Origins","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7c927af5d1cb6fce363e850","Artist":"Danger","CreatedAt":"2019-12-11 15:15:18 UTC","Duration":"274443","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1zrBVZh5mQBkh5myzGiDUn","Timestamp":"2019-12-11 14:17:34 UTC","Track":"16:56","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Origins","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7c927af5d1cb6fce363e850","Artist":"Danger","CreatedAt":"2019-12-09 22:15:17 UTC","Duration":"274443","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1zrBVZh5mQBkh5myzGiDUn","Timestamp":"2019-12-09 21:23:13 UTC","Track":"16:56","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Origins","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7c927af5d1cb6fce363e850","Artist":"Danger","CreatedAt":"2019-12-09 22:00:34 UTC","Duration":"274443","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1zrBVZh5mQBkh5myzGiDUn","Timestamp":"2019-12-09 20:35:52 UTC","Track":"16:56","YoutubeCategoryId":"","YoutubeId":""},{"Album":"4:42 Still Free (From Haven)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c8c79ecedaa493a4765b26b7","Artist":"Danger","CreatedAt":"2020-12-01 17:14:50 UTC","Duration":"191176","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ygY78WEQVbQl0h4jqOsGY","Timestamp":"2020-12-01 16:57:17 UTC","Track":"4:42 Still Free (From Haven)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013 - EP","AlbumCover":"https://i.scdn.co/image/feead1acbc190ea83c7ecae8c8a20f9ca2157a80","Artist":"Danger","CreatedAt":"2019-01-21 15:45:07 UTC","Duration":"311914","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2019-01-21 15:05:34 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013 - EP","AlbumCover":"https://i.scdn.co/image/feead1acbc190ea83c7ecae8c8a20f9ca2157a80","Artist":"Danger","CreatedAt":"2019-01-21 08:45:06 UTC","Duration":"311914","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2019-01-21 08:44:08 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/16 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/16dddedf3da84d9f93432a4ac1498035.png","Artist":"Danger","CreatedAt":"2017-02-16 14:45:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:45:29 UTC","Track":"88:88 (80kidz Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/16 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/16dddedf3da84d9f93432a4ac1498035.png","Artist":"Danger","CreatedAt":"2017-02-16 14:26:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:26:47 UTC","Track":"88:88","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 15:05:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:05:04 UTC","Track":"1:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 08:53:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 08:53:46 UTC","Track":"1:30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 15:01:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:01:16 UTC","Track":"1:13","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 15:08:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:08:44 UTC","Track":"1:42","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:32:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:32:27 UTC","Track":"1:42","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 08:57:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 08:57:27 UTC","Track":"1:42","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2016-05-09 21:52:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-09 21:52:08 UTC","Track":"1:42","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-29 16:07:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-29 16:07:20 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-21 14:56:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-21 14:56:10 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-21 10:09:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-21 10:09:34 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-20 02:07:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-20 02:07:40 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-19 22:45:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-19 22:45:16 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-03-08 08:20:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-03-08 08:20:39 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:56:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-02-16 14:56:04 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"July 2013","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7616ad1969d7446bc417dbfd195fde8a.png","Artist":"Danger","CreatedAt":"2017-02-16 08:48:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6jImsKa3Z2FaHbQp2OtE6s","Timestamp":"2017-02-16 08:48:29 UTC","Track":"1:09","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/790ade7121af1bc5b28e429c6f967f9a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:41:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:41:01 UTC","Track":"8.02","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/790ade7121af1bc5b28e429c6f967f9a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:22:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6MLptqfOLeV8uwAqwXaZ1v","Timestamp":"2017-02-16 14:22:24 UTC","Track":"6.24","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/790ade7121af1bc5b28e429c6f967f9a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:54:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:54:48 UTC","Track":"19.06","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/790ade7121af1bc5b28e429c6f967f9a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:50:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:50:54 UTC","Track":"7.53","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Furi (Original Game Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/790ade7121af1bc5b28e429c6f967f9a.png","Artist":"Danger","CreatedAt":"2017-02-16 14:53:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:53:32 UTC","Track":"19.07","YoutubeCategoryId":"","YoutubeId":""},{"Album":"太鼓","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9ab6328363d8b9e6ec663ff395ccae8a.png","Artist":"Danger","CreatedAt":"2018-06-26 13:19:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-06-26 13:19:38 UTC","Track":"11:02","YoutubeCategoryId":"","YoutubeId":""},{"Album":"太鼓","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9ab6328363d8b9e6ec663ff395ccae8a.png","Artist":"Danger","CreatedAt":"2017-11-06 15:43:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-06 15:43:57 UTC","Track":"22:41","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/14 2007","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/badeaf5c3b384f69944486245a47a535.png","Artist":"Danger","CreatedAt":"2017-02-16 14:37:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:37:20 UTC","Track":"11h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-22 21:47:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-22 21:47:54 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-22 17:17:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-22 17:17:00 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-22 16:01:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-22 16:01:07 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-21 14:20:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-21 14:20:47 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-16 15:40:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:40:34 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-16 15:13:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:13:37 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-16 14:17:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 14:17:53 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-15 14:40:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-15 14:40:38 UTC","Track":"4h30","YoutubeCategoryId":"","YoutubeId":""},{"Album":"09/17 2007 - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1753d80f53e4005813d981866896204.png","Artist":"Danger","CreatedAt":"2017-02-16 15:18:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-16 15:18:10 UTC","Track":"3:11","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

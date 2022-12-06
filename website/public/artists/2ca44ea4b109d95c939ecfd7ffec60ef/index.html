@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lionel Richie - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Lionel Richie</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Lionel Richie","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Dancing On The Ceiling Lyrics","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731b9257d1986769d0c8b8cbc9","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:01:15 UTC","Duration":"383440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7gaQtc0vrSpmRJpSMDiPEk","Timestamp":"2021-12-15 16:55:41 UTC","Track":"All Night Long (All Night)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2022-01-15 20:56:58 UTC","Duration":"246933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6HMvJcdw6qLsyV1b5x29sa","Timestamp":"2022-01-15 20:32:35 UTC","Track":"Hello","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:34:46 UTC","Duration":"246933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6HMvJcdw6qLsyV1b5x29sa","Timestamp":"2021-12-15 16:59:48 UTC","Track":"Hello","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2022-07-11 08:43:38 UTC","Duration":"192066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6HPLeKiNm92RbykX2BDTUB","Timestamp":"2022-07-11 08:20:58 UTC","Track":"Stuck On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2022-01-15 20:44:57 UTC","Duration":"192066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6HPLeKiNm92RbykX2BDTUB","Timestamp":"2022-01-15 20:24:01 UTC","Track":"Stuck On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:34:45 UTC","Duration":"192066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6HPLeKiNm92RbykX2BDTUB","Timestamp":"2021-12-15 16:39:18 UTC","Track":"Stuck On You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2022-01-21 20:39:43 UTC","Duration":"257240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7nvLekndCInVSpJolFMDJk","Timestamp":"2022-01-21 20:03:33 UTC","Track":"The Only One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Can't Slow Down","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732166b28714239e31b48aeb17","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:30:19 UTC","Duration":"257240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7nvLekndCInVSpJolFMDJk","Timestamp":"2021-12-15 17:12:14 UTC","Track":"The Only One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2022-07-11 08:30:51 UTC","Duration":"270720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0snPJPxkk0MbTc0xeUvAPt","Timestamp":"2022-07-11 08:17:45 UTC","Track":"Dancing On The Ceiling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2022-01-21 19:54:54 UTC","Duration":"270720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0snPJPxkk0MbTc0xeUvAPt","Timestamp":"2022-01-21 19:40:14 UTC","Track":"Dancing On The Ceiling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2022-01-15 21:19:34 UTC","Duration":"270720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0snPJPxkk0MbTc0xeUvAPt","Timestamp":"2022-01-15 20:41:23 UTC","Track":"Dancing On The Ceiling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:05:16 UTC","Duration":"270720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0snPJPxkk0MbTc0xeUvAPt","Timestamp":"2021-12-15 16:49:18 UTC","Track":"Dancing On The Ceiling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2022-01-15 20:31:08 UTC","Duration":"241066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17CPezzLWzvGfpZW6X8XT0","Timestamp":"2022-01-15 20:17:41 UTC","Track":"Say You, Say Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dancing On The Ceiling (Expanded Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732c33399e119cec9b0fcde564","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:48:40 UTC","Duration":"241066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17CPezzLWzvGfpZW6X8XT0","Timestamp":"2021-12-15 16:44:47 UTC","Track":"Say You, Say Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionel Richie","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733e41a7cb23338c64648953ed","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:48:41 UTC","Duration":"200506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7AslBsiVLQAGrmFmi79ZeK","Timestamp":"2021-12-15 17:03:08 UTC","Track":"Truly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:34:34 UTC","Duration":"402777","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gqRFxzYfH3fymiOZw2eYv","Timestamp":"2021-12-15 18:55:54 UTC","Track":"Angel - Boogieman Remix Extended","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:58:33 UTC","Duration":"341616","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6oBItvuUPHHNkSuzV5vXUV","Timestamp":"2021-12-15 18:29:33 UTC","Track":"All Night Long - Live From Edinburgh Castle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:05:20 UTC","Duration":"316329","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0r84k6zGVbmKHkTsIfVjVX","Timestamp":"2021-12-15 18:34:49 UTC","Track":"Still - Live - Montreux Music Fest July 19, 2000","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:48:42 UTC","Duration":"222280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7bbTYLnHPC4jbXqis8H0Mw","Timestamp":"2021-12-15 17:26:16 UTC","Track":"Cinderella","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:49:51 UTC","Duration":"275510","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6FomAcStYJsQO66WxUHTKs","Timestamp":"2021-12-15 18:45:13 UTC","Track":"Dancing On The Ceiling - Live from Wembley","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:46:37 UTC","Duration":"249260","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3XaYyE6kQcXl0H6wR6Ix1E","Timestamp":"2021-12-15 18:23:51 UTC","Track":"Just Can't Say Goodbye - Bonus Track - UK/Jap/Oz/Nz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:21:59 UTC","Duration":"248286","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2PFxtGqud9f80N0nnwo5Nf","Timestamp":"2021-12-15 17:52:41 UTC","Track":"Wasted Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:49:50 UTC","Duration":"254644","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31DDU2G9yR0NqtrzBruVfH","Timestamp":"2021-12-15 18:10:12 UTC","Track":"Don't Stop The Music","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:01:17 UTC","Duration":"308620","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6sfu55NKpk3XCc2xoMLqfz","Timestamp":"2021-12-15 17:35:53 UTC","Track":"Dance The Night Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:34:47 UTC","Duration":"255289","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0TVWtW0eLXFBlGdNtCbEfd","Timestamp":"2021-12-15 17:22:34 UTC","Track":"Angel","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:01:18 UTC","Duration":"255140","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3NrYZ8f8YjqvPjuKab9Ukw","Timestamp":"2021-12-15 17:56:57 UTC","Track":"Piece Of My Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 17:48:43 UTC","Duration":"235570","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6EpGYXcgOuAppTRz5IfYmG","Timestamp":"2021-12-15 17:44:21 UTC","Track":"How Long","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:34:33 UTC","Duration":"243927","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qVUoudEKZLcyilzCB6sMB","Timestamp":"2021-12-15 18:05:57 UTC","Track":"Here Is My Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:21:58 UTC","Duration":"253020","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"74LRW4zrVof55h71AEFYhc","Timestamp":"2021-12-15 17:48:33 UTC","Track":"Don't You Ever Go Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:49:49 UTC","Duration":"271733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"14WgXaLxxZSacfOgjj7nho","Timestamp":"2021-12-15 17:40:25 UTC","Track":"Tonight","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:30:21 UTC","Duration":"296153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2K4wsDXAAOSSerYNrPAcUS","Timestamp":"2021-12-15 18:01:53 UTC","Track":"It May Be The Water","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:30:22 UTC","Duration":"277856","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3jiERmfctRgWD5TeB0kknO","Timestamp":"2021-12-15 18:19:42 UTC","Track":"Shout It To The World - Bonus Track - Japan/Oz/Nz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 19:05:19 UTC","Duration":"292821","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1K0edN9Fy7NOhozDjh3cuk","Timestamp":"2021-12-15 18:15:04 UTC","Track":"I Forgot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Renaissance (Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737710fa42b5cf103a2e7d3ccd","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:30:20 UTC","Duration":"268737","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7r73GRBKncXGlpGN1sQhCZ","Timestamp":"2021-12-15 17:30:44 UTC","Track":"Tender Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2022-07-11 08:15:40 UTC","Duration":"258666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4czNORk5MjW5WOn98bki32","Timestamp":"2022-07-11 08:13:14 UTC","Track":"All Night Long (All Night) - Single Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2022-01-21 21:27:21 UTC","Duration":"258666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4czNORk5MjW5WOn98bki32","Timestamp":"2022-01-21 21:08:13 UTC","Track":"All Night Long (All Night) - Single Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2022-01-15 20:31:07 UTC","Duration":"258666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4czNORk5MjW5WOn98bki32","Timestamp":"2022-01-15 20:12:15 UTC","Track":"All Night Long (All Night) - Single Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2022-01-21 20:49:46 UTC","Duration":"364120","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tzqUn1y5GNrV0dKV9S5vC","Timestamp":"2022-01-21 20:26:59 UTC","Track":"Do It To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:49:48 UTC","Duration":"364120","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tzqUn1y5GNrV0dKV9S5vC","Timestamp":"2021-12-15 17:18:18 UTC","Track":"Do It To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2022-01-16 02:25:46 UTC","Duration":"288440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rdX2dS4KfkpR31qrQanE2","Timestamp":"2022-01-15 20:44:48 UTC","Track":"My Destiny","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2021-12-15 18:01:16 UTC","Duration":"288440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rdX2dS4KfkpR31qrQanE2","Timestamp":"2021-12-15 17:07:57 UTC","Track":"My Destiny","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Back To Front","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a47127db3e929f64a2795666","Artist":"Lionel Richie","CreatedAt":"2021-04-08 03:35:40 UTC","Duration":"288440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rdX2dS4KfkpR31qrQanE2","Timestamp":"2021-04-07 23:57:51 UTC","Track":"My Destiny","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Just Go","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1ba552f0673acc50a7c9ab6","Artist":"Lionel Richie","CreatedAt":"2022-01-21 20:49:47 UTC","Duration":"199026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"46rdxuEHnKRpoxOGCSOFAh","Timestamp":"2022-01-21 20:48:08 UTC","Track":"Forever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Just For You","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee7d50ab98c5c0b6af0ac86c","Artist":"Lionel Richie","CreatedAt":"2022-01-21 19:35:04 UTC","Duration":"273653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"09VATIkszNqE2lFJNZXJDI","Timestamp":"2022-01-21 19:19:30 UTC","Track":"Just For You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Just For You","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee7d50ab98c5c0b6af0ac86c","Artist":"Lionel Richie","CreatedAt":"2022-01-21 19:24:57 UTC","Duration":"273653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"09VATIkszNqE2lFJNZXJDI","Timestamp":"2022-01-21 19:15:24 UTC","Track":"Just For You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Just For You","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee7d50ab98c5c0b6af0ac86c","Artist":"Lionel Richie","CreatedAt":"2022-01-21 19:15:10 UTC","Duration":"273653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"09VATIkszNqE2lFJNZXJDI","Timestamp":"2022-01-21 19:15:01 UTC","Track":"Just For You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All Night Long","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d4434508934f44369578f4b5241fe67e.png","Artist":"Lionel Richie","CreatedAt":"2015-08-03 22:31:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-03 22:31:02 UTC","Track":"All Night Long","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All Night Long","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d4434508934f44369578f4b5241fe67e.png","Artist":"Lionel Richie","CreatedAt":"2013-05-24 13:07:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-05-24 13:07:16 UTC","Track":"All Night Long","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All Night Long","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d4434508934f44369578f4b5241fe67e.png","Artist":"Lionel Richie","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"All Night Long","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

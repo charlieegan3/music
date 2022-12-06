@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Jack Wall - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Jack Wall</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2021-02-22 18:58:37 UTC","Duration":"177506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2021-02-22 16:29:30 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2021-02-22 16:38:06 UTC","Duration":"177506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2021-02-22 16:26:32 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2021-02-22 17:14:43 UTC","Duration":"177506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2021-02-22 16:23:34 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2016-10-09 18:04:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2016-10-09 18:04:01 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2015-08-02 22:36:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2015-08-02 22:36:00 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2015-07-27 17:03:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2015-07-27 17:03:50 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2015-07-27 17:03:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2015-07-27 17:03:48 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2015-04-12 14:00:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2015-04-12 14:00:56 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2015-04-07 08:24:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2015-04-07 08:24:35 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2013-03-24 16:35:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2013-03-24 16:35:49 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732542daaa35723d3a73dd67a5","Artist":"Jack Wall","CreatedAt":"2013-03-24 16:32:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2013-03-24 16:32:52 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736c62e46fa22df6cbafaaf123","Artist":"Jack Wall","CreatedAt":"2021-02-18 14:44:58 UTC","Duration":"133093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SPCHLD079c54uM5nGv7b","Timestamp":"2021-02-18 14:11:11 UTC","Track":"Leviathan","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2017-11-15 11:51:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0F1aXv1VJYvZSajERdjIyG","Timestamp":"2017-11-15 11:51:53 UTC","Track":"The End Run","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2017-11-15 12:02:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-15 12:02:05 UTC","Track":"Reflections","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2016-10-09 18:22:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-09 18:22:27 UTC","Track":"Reflections","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2017-11-15 11:59:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-15 11:59:35 UTC","Track":"New Worlds","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2016-10-09 18:21:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-09 18:21:06 UTC","Track":"New Worlds","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/013b9baa8d9d85c2298a4672c7584f78.png","Artist":"Jack Wall","CreatedAt":"2017-11-15 11:54:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-15 11:54:49 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2015-02-16 19:53:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-16 19:53:08 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-12-05 22:00:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-05 22:00:13 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-12-02 16:36:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-02 16:36:35 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-19 21:53:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-19 21:53:03 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-14 19:55:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-14 19:55:51 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-10 20:03:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-10 20:03:27 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-10 00:32:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-10 00:32:56 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-07 14:58:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-07 14:58:27 UTC","Track":"Hero's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-10 20:05:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-10 20:05:58 UTC","Track":"Adrenaline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-10 00:35:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-10 00:35:27 UTC","Track":"Adrenaline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty Black Ops II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/123959e0543b09948de843bf2d131ffb.png","Artist":"Jack Wall","CreatedAt":"2013-11-07 14:59:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-07 14:59:56 UTC","Track":"Alex and David","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect (EA Games Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/332a1ed8245befd11195acc3e7a779f5.png","Artist":"Jack Wall","CreatedAt":"2017-11-15 12:03:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-15 12:03:25 UTC","Track":"Virmire Ride","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:48:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:48:40 UTC","Track":"Liberty Road","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:04:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 23:04:18 UTC","Track":"Therapy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:43:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:43:48 UTC","Track":"Retreat","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-30 10:25:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 10:25:14 UTC","Track":"Double-Tap Rootbeer","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:01:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 23:01:58 UTC","Track":"Ego Vivo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:06:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 23:06:50 UTC","Track":"Sand Castle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:30:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:30:27 UTC","Track":"Horrors at the Silo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:29:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:29:46 UTC","Track":"Coalescence","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-30 10:27:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 10:27:50 UTC","Track":"Speed Cola","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:12:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 23:12:40 UTC","Track":"What Has Taylor Become?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:23:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:23:19 UTC","Track":"Cloud Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-30 10:26:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 10:26:11 UTC","Track":"Revive Soda","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:51:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:51:32 UTC","Track":"Dreams (featuring Azam Ali)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:57:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:57:57 UTC","Track":"A World Upside Down","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-30 10:27:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 10:27:06 UTC","Track":"Widow's Wine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2016-08-13 22:02:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"65SPCHLD079c54uM5nGv7b","Timestamp":"2016-08-13 22:02:01 UTC","Track":"Leviathan","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:14:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"65SPCHLD079c54uM5nGv7b","Timestamp":"2015-11-29 23:14:16 UTC","Track":"Leviathan","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 23:10:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 23:10:07 UTC","Track":"Lotus Towers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:41:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:41:05 UTC","Track":"Burn / Rescue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:36:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:36:13 UTC","Track":"Vengeance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:45:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:45:12 UTC","Track":"Interrogating Salim","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-30 10:20:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 10:20:18 UTC","Track":"I Live (Orchestral Version)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Call of Duty: Black Ops III (Official Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4415a6d8c2d7bfc66ffb5e2d603f9bd3.png","Artist":"Jack Wall","CreatedAt":"2015-11-29 22:33:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-29 22:33:45 UTC","Track":"Diaz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Video Games Live","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bed3106e09f52616d0007a8ebf463f1c.png","Artist":"Jack Wall","CreatedAt":"2013-08-31 16:18:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-08-31 16:18:55 UTC","Track":"Civilization IV Medley","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2017-09-03 18:49:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-03 18:49:07 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2015-04-12 18:07:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-12 18:07:29 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2014-03-23 19:30:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-03-23 19:30:00 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2014-03-23 19:22:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-03-23 19:22:50 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2 OST","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Suicide Mission","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2014-03-23 19:45:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-03-23 19:45:01 UTC","Track":"The Illusive Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mass Effect 2","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e048e48bd30c4b329048fd568c8e32ef.png","Artist":"Jack Wall","CreatedAt":"2014-03-23 19:27:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-03-23 19:27:36 UTC","Track":"The Illusive Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"CALL OF DUTY®: BLACK OPS II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ef2bb02f5a6d4fbfb6a90db2ee8a68b1.png","Artist":"Jack Wall","CreatedAt":"2015-03-06 20:19:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-06 20:19:57 UTC","Track":"Adrenaline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"CALL OF DUTY®: BLACK OPS II","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ef2bb02f5a6d4fbfb6a90db2ee8a68b1.png","Artist":"Jack Wall","CreatedAt":"2015-02-16 19:55:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-16 19:55:29 UTC","Track":"Adrenaline","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

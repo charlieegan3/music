@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Henry Jackman - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Henry Jackman</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"X-MEN: FIRST CLASS","AlbumCover":"https://i.scdn.co/image/3b5f5d472ca5ba120051362461499bc8541c19fe","Artist":"Henry Jackman","CreatedAt":"2019-04-03 18:00:12 UTC","Duration":"200226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5IWmdl33NNTLsKlLT6WSlh","Timestamp":"2019-04-03 17:05:28 UTC","Track":"First Class","YoutubeCategoryId":"","YoutubeId":""},{"Album":"X-MEN: FIRST CLASS","AlbumCover":"https://i.scdn.co/image/3b5f5d472ca5ba120051362461499bc8541c19fe","Artist":"Henry Jackman","CreatedAt":"2019-04-03 18:30:13 UTC","Duration":"138960","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2SdRshWUc2tinUBdXBePSr","Timestamp":"2019-04-03 16:52:10 UTC","Track":"Sub Lift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-03 18:15:08 UTC","Duration":"239933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3bS1MkQ3IQfKCQ4wuCDUeR","Timestamp":"2019-04-03 16:30:39 UTC","Track":"The Twelve Towers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-12 10:30:06 UTC","Duration":"243946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2019-04-12 10:00:52 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-10 17:15:09 UTC","Duration":"243946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2019-04-10 17:02:59 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-08 16:00:07 UTC","Duration":"243946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2019-04-08 15:19:59 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-04 08:15:10 UTC","Duration":"243946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2019-04-04 08:13:04 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/783c860323f06a924b4bd8613ae2e393abf7491e","Artist":"Henry Jackman","CreatedAt":"2019-04-03 16:15:09 UTC","Duration":"243946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2019-04-03 16:08:40 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ralph Breaks the Internet (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/85a2b342a5f26a358fac3cba0fc01d7a4db05a3e","Artist":"Henry Jackman","CreatedAt":"2019-04-12 11:00:06 UTC","Duration":"167248","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xqr9dXk7U5FdDt2zT75Rr","Timestamp":"2019-04-12 10:32:14 UTC","Track":"The Internet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ralph Breaks the Internet (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/85a2b342a5f26a358fac3cba0fc01d7a4db05a3e","Artist":"Henry Jackman","CreatedAt":"2019-04-11 09:45:10 UTC","Duration":"167248","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xqr9dXk7U5FdDt2zT75Rr","Timestamp":"2019-04-11 09:15:42 UTC","Track":"The Internet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ralph Breaks the Internet (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/85a2b342a5f26a358fac3cba0fc01d7a4db05a3e","Artist":"Henry Jackman","CreatedAt":"2019-04-08 15:00:08 UTC","Duration":"167248","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xqr9dXk7U5FdDt2zT75Rr","Timestamp":"2019-04-08 14:55:14 UTC","Track":"The Internet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ralph Breaks the Internet (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/85a2b342a5f26a358fac3cba0fc01d7a4db05a3e","Artist":"Henry Jackman","CreatedAt":"2019-04-03 21:00:12 UTC","Duration":"167248","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xqr9dXk7U5FdDt2zT75Rr","Timestamp":"2019-04-03 20:33:13 UTC","Track":"The Internet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ralph Breaks the Internet (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/85a2b342a5f26a358fac3cba0fc01d7a4db05a3e","Artist":"Henry Jackman","CreatedAt":"2019-04-03 15:15:10 UTC","Duration":"167248","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xqr9dXk7U5FdDt2zT75Rr","Timestamp":"2019-04-03 15:05:30 UTC","Track":"The Internet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Captain Phillips (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273446f24dde5c459aca28f61e2","Artist":"Henry Jackman","CreatedAt":"2021-04-05 14:32:54 UTC","Duration":"192453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"09OsZ4BlDXp67SKaGBvEUR","Timestamp":"2021-04-05 14:11:25 UTC","Track":"Safe Now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"X-MEN: FIRST CLASS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a3476ff29ca1b705554694ff","Artist":"Henry Jackman","CreatedAt":"2021-12-19 22:57:38 UTC","Duration":"200226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5IWmdl33NNTLsKlLT6WSlh","Timestamp":"2021-12-19 22:15:53 UTC","Track":"First Class","YoutubeCategoryId":"","YoutubeId":""},{"Album":"X-MEN: FIRST CLASS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a3476ff29ca1b705554694ff","Artist":"Henry Jackman","CreatedAt":"2021-12-19 19:20:23 UTC","Duration":"200226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5IWmdl33NNTLsKlLT6WSlh","Timestamp":"2021-12-19 18:37:18 UTC","Track":"First Class","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Comedown (From the Apple Original Film \"Cherry\")","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adb25ea6f6f0b9550ce7acce","Artist":"Henry Jackman","CreatedAt":"2021-03-22 16:48:59 UTC","Duration":"561730","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ZUKD0I8MVIRU0PMGwkHcK","Timestamp":"2021-03-22 15:01:28 UTC","Track":"The Comedown (From The Apple Original Film “Cherry”)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Comedown (From the Apple Original Film \"Cherry\")","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adb25ea6f6f0b9550ce7acce","Artist":"Henry Jackman","CreatedAt":"2021-03-22 13:32:31 UTC","Duration":"561730","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ZUKD0I8MVIRU0PMGwkHcK","Timestamp":"2021-03-22 12:17:53 UTC","Track":"The Comedown (From The Apple Original Film “Cherry”)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:56:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:56:29 UTC","Track":"No Escape","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:06:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:06:27 UTC","Track":"Hidden in Plain Sight","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:42:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:42:17 UTC","Track":"Hidden in Plain Sight","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:20:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:20:14 UTC","Track":"Hidden in Plain Sight","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:17:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:17:38 UTC","Track":"The Brothers Drake","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:53:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:53:29 UTC","Track":"The Brothers Drake","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:44:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:44:04 UTC","Track":"The Brothers Drake","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-25 10:27:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-25 10:27:16 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-21 12:51:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-21 12:51:48 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 15:50:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 15:50:58 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 21:59:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 21:59:32 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:26:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:26:49 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:03:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:03:59 UTC","Track":"Cut to the Chase","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-25 10:33:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-25 10:33:21 UTC","Track":"Once a Thief...","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 15:57:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 15:57:00 UTC","Track":"Once a Thief...","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:32:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:32:50 UTC","Track":"Once a Thief...","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:10:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:10:01 UTC","Track":"Once a Thief...","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-19 18:40:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-19 18:40:07 UTC","Track":"Avery's Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:24:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:24:51 UTC","Track":"Avery's Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 15:00:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 15:00:41 UTC","Track":"Avery's Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:54:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:54:02 UTC","Track":"Avery's Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 11:55:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 11:55:34 UTC","Track":"Avery's Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:35:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:35:30 UTC","Track":"Epilogue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 15:16:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 15:16:48 UTC","Track":"Epilogue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:06:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:06:33 UTC","Track":"Epilogue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:14:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:14:47 UTC","Track":"Sic Parvis Magna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:50:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:50:37 UTC","Track":"Sic Parvis Magna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:33:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:33:43 UTC","Track":"Sic Parvis Magna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:31:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:31:19 UTC","Track":"One Last Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 15:12:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 15:12:37 UTC","Track":"One Last Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:02:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:02:21 UTC","Track":"One Last Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:02:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3bS1MkQ3IQfKCQ4wuCDUeR","Timestamp":"2016-12-13 16:02:27 UTC","Track":"The Twelve Towers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:38:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3bS1MkQ3IQfKCQ4wuCDUeR","Timestamp":"2016-12-12 14:38:17 UTC","Track":"The Twelve Towers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:16:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3bS1MkQ3IQfKCQ4wuCDUeR","Timestamp":"2016-12-12 12:16:46 UTC","Track":"The Twelve Towers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:51:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4tTm7EYO02u0cfrTWhWvLt","Timestamp":"2016-12-12 13:51:16 UTC","Track":"New Devon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:12:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:12:29 UTC","Track":"The Thieves of Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:48:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:48:19 UTC","Track":"The Thieves of Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:31:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:31:26 UTC","Track":"The Thieves of Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:27:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:27:19 UTC","Track":"Brother's Keeper","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 15:03:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 15:03:10 UTC","Track":"Brother's Keeper","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:58:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:58:46 UTC","Track":"Brother's Keeper","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 15:59:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 15:59:14 UTC","Track":"The Grave of Henry Avery","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:35:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:35:04 UTC","Track":"The Grave of Henry Avery","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:12:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:12:15 UTC","Track":"The Grave of Henry Avery","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:22:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:22:46 UTC","Track":"For Better or Worse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:58:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:58:36 UTC","Track":"For Better or Worse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:49:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:49:11 UTC","Track":"For Better or Worse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 11:58:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 11:58:03 UTC","Track":"For Better or Worse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:19:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:19:34 UTC","Track":"Race to Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:55:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:55:24 UTC","Track":"Race to Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 13:45:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 13:45:59 UTC","Track":"Race to Libertalia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:08:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:08:50 UTC","Track":"At Sea","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:44:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:44:40 UTC","Track":"At Sea","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:22:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:22:41 UTC","Track":"At Sea","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-25 10:25:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-25 10:25:58 UTC","Track":"A Normal Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 15:49:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 15:49:40 UTC","Track":"A Normal Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 21:58:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 21:58:14 UTC","Track":"A Normal Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:24:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:24:59 UTC","Track":"A Normal Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 11:59:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 11:59:48 UTC","Track":"A Normal Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:01:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:01:04 UTC","Track":"Lure of Adventure","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:26:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:26:20 UTC","Track":"Marooned","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-25 10:30:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-25 10:30:29 UTC","Track":"Reunited","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 15:54:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 15:54:08 UTC","Track":"Reunited","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 22:02:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 22:02:42 UTC","Track":"Reunited","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:29:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:29:58 UTC","Track":"Reunited","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 12:07:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 12:07:09 UTC","Track":"Reunited","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-13 16:38:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 16:38:48 UTC","Track":"A Thief's End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 15:20:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 15:20:06 UTC","Track":"A Thief's End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 14:09:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 14:09:50 UTC","Track":"A Thief's End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Uncharted 4: A Thief's End (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8646e7edf25cdd3589943d34cc03d58c.png","Artist":"Henry Jackman","CreatedAt":"2016-12-12 11:53:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-12 11:53:40 UTC","Track":"A Thief's End","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

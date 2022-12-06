@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>BLOXX - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>BLOXX</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-09-05 12:47:26 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-09-05 12:27:00 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-22 20:13:30 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-22 20:04:03 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-12 12:43:39 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-12 12:43:14 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-11 10:15:04 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-11 09:53:23 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-03 09:06:49 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-03 08:55:56 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-01 21:33:35 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-01 21:13:38 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-01 17:27:32 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-01 17:26:11 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-07-01 12:30:12 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-07-01 11:58:31 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-30 14:14:53 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-30 13:49:11 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-29 15:13:48 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-29 14:35:30 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-28 14:36:53 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-28 14:25:03 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-28 06:56:14 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-28 06:42:10 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-27 20:52:14 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-27 20:44:16 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-27 17:55:52 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-27 17:50:55 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-27 15:33:29 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-27 15:03:28 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-27 13:51:19 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-27 13:21:58 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-27 06:35:46 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-27 06:14:59 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-25 11:40:36 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-25 11:27:58 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-22 16:22:29 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-22 16:18:58 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-21 15:27:40 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-21 15:11:12 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-21 15:16:55 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-21 10:54:51 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-21 09:31:39 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-21 09:21:19 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-20 18:45:19 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-20 18:06:48 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-20 11:24:10 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-20 11:00:49 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-20 07:52:44 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-20 07:37:01 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-19 21:57:48 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-19 21:46:16 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-19 21:05:37 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-19 20:55:00 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-16 14:36:34 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-15 21:56:08 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pop Culture Radio","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730491817b09e2e1e5107b4a53","Artist":"BLOXX","CreatedAt":"2022-06-15 16:48:18 UTC","Duration":"200725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mAlQORMN7wwblaO6erw9H","Timestamp":"2022-06-15 15:56:42 UTC","Track":"Pop Culture Radio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lie Out Loud","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733819f80e510efd7b3675835f","Artist":"BLOXX","CreatedAt":"2021-05-02 22:11:43 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ET6OmsdVH0yFYYoUwRoQI","Timestamp":"2021-05-02 21:00:31 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-10-03 15:25:24 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-10-03 15:07:22 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-27 23:12:09 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-27 22:01:07 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-26 21:29:19 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-26 20:52:47 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-25 15:45:32 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-25 15:43:31 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-24 21:57:24 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-24 20:36:44 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-24 17:54:29 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-24 17:51:27 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-23 21:05:13 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-23 20:03:38 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-23 12:49:55 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-23 12:49:43 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-22 22:45:14 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-22 22:43:45 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-22 14:44:52 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-22 13:46:14 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-22 10:51:59 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-22 10:38:04 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-21 18:27:02 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-21 18:23:57 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-21 14:00:00 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-21 12:57:38 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-20 12:56:22 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-20 12:11:00 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-19 22:28:52 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-19 22:02:47 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-19 19:56:56 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-19 19:55:05 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-18 17:50:04 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-18 17:49:14 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-18 19:53:56 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-18 01:13:59 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-17 22:08:03 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-17 21:28:37 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coming Up Short","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d71f3362c3534e17a0c704","Artist":"BLOXX","CreatedAt":"2020-09-17 18:46:28 UTC","Duration":"195534","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YrT4nWBMF1eEHYc2fNOht","Timestamp":"2020-09-17 18:43:49 UTC","Track":"Coming Up Short","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Headspace","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c69d2fa0aba1d02d3cd26ad9","Artist":"BLOXX","CreatedAt":"2020-04-28 14:43:13 UTC","Duration":"222725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53fJc75FcbvuhhqQsOQ9oP","Timestamp":"2020-04-28 14:42:25 UTC","Track":"Headspace","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Headspace","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c69d2fa0aba1d02d3cd26ad9","Artist":"BLOXX","CreatedAt":"2020-04-27 15:35:37 UTC","Duration":"222725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53fJc75FcbvuhhqQsOQ9oP","Timestamp":"2020-04-27 15:34:26 UTC","Track":"Headspace","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Headspace","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c69d2fa0aba1d02d3cd26ad9","Artist":"BLOXX","CreatedAt":"2020-04-27 13:22:18 UTC","Duration":"222725","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53fJc75FcbvuhhqQsOQ9oP","Timestamp":"2020-04-27 13:21:27 UTC","Track":"Headspace","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sea Blue","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ebc43a4ed04e54b8350c0438","Artist":"BLOXX","CreatedAt":"2022-09-05 14:12:53 UTC","Duration":"204509","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1A2p2Mpu2yIuaVJ5PFjiNW","Timestamp":"2022-09-05 13:50:43 UTC","Track":"Sea Blue","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

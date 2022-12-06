@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MØ - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>MØ</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"No Mythologies to Follow (Deluxe)","AlbumCover":"https://i.scdn.co/image/24b9d5ecd238a717908a6d1760777df4c81d432c","Artist":"MØ","CreatedAt":"2019-04-30 15:45:10 UTC","Duration":"195760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2019-04-30 15:43:28 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow (Deluxe)","AlbumCover":"https://i.scdn.co/image/24b9d5ecd238a717908a6d1760777df4c81d432c","Artist":"MØ","CreatedAt":"2019-04-30 15:45:09 UTC","Duration":"195760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2019-04-30 15:42:05 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow (Deluxe)","AlbumCover":"https://i.scdn.co/image/24b9d5ecd238a717908a6d1760777df4c81d432c","Artist":"MØ","CreatedAt":"2019-04-30 16:00:11 UTC","Duration":"195760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2019-04-30 15:38:49 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Imaginary Friend","AlbumCover":"https://i.scdn.co/image/384250aca9ed8d57d3ddd0d7864ac922656f4d5e","Artist":"MØ","CreatedAt":"2019-02-01 00:00:16 UTC","Duration":"227434","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66zKGtwJfexRLCtkP6fc1d","Timestamp":"2019-01-31 23:58:36 UTC","Track":"Imaginary Friend","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Forever Neverland","AlbumCover":"https://i.scdn.co/image/618f430630c38fdcb4b2dc1530e01fffcdec8daa","Artist":"MØ","CreatedAt":"2019-04-30 18:45:11 UTC","Duration":"188089","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1QhIQHKL8ItLUq2nTxvsC1","Timestamp":"2019-04-30 16:18:48 UTC","Track":"Way Down","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Forever Neverland","AlbumCover":"https://i.scdn.co/image/618f430630c38fdcb4b2dc1530e01fffcdec8daa","Artist":"MØ","CreatedAt":"2019-04-30 16:30:14 UTC","Duration":"188089","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1QhIQHKL8ItLUq2nTxvsC1","Timestamp":"2019-04-30 16:17:29 UTC","Track":"Way Down","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Forever Neverland","AlbumCover":"https://i.scdn.co/image/618f430630c38fdcb4b2dc1530e01fffcdec8daa","Artist":"MØ","CreatedAt":"2019-04-30 16:30:15 UTC","Duration":"45398","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5bAAgSC9tzdbUlFo6tFDjA","Timestamp":"2019-04-30 16:18:15 UTC","Track":"Intro (Purple Like the Summer Rain)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When I Was Young - EP","AlbumCover":"https://i.scdn.co/image/6c09c7bb59c4f5b531eca95ea88777790b84140b","Artist":"MØ","CreatedAt":"2019-01-02 17:15:10 UTC","Duration":"202693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5D8bhinWH9XyqIBsyOVNUM","Timestamp":"2019-01-02 16:53:40 UTC","Track":"Bb","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-03 23:01:58 UTC","Duration":"171200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3VbDcrNGmAeX1Aij4w1Y9C","Timestamp":"2022-08-03 22:58:22 UTC","Track":"Wheelspin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-28 10:02:41 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-28 06:08:51 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-20 09:54:59 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-20 08:59:33 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-20 08:42:23 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-18 18:03:55 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-08 17:53:33 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-08 17:11:05 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-08 16:12:57 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-08 15:34:20 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-08 14:24:15 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-08 13:57:35 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-06 18:54:23 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-06 18:43:51 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-06 16:45:57 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-06 16:11:08 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-06 11:22:17 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-06 10:52:53 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-06 09:48:30 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-06 09:23:52 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-06 07:59:51 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-06 07:54:57 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-05 23:59:08 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-05 23:44:11 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-05 22:47:40 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-05 22:15:15 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-05 13:04:00 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-05 12:55:30 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-04 14:23:35 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-04 13:30:37 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-04 11:06:41 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-04 10:52:55 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Motordrome","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273432ad46607948c43b98034e4","Artist":"MØ","CreatedAt":"2022-08-03 21:31:57 UTC","Duration":"194653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQUdOtqdAZm3qf5esD6x6","Timestamp":"2022-08-03 21:07:11 UTC","Track":"New Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"True Romance","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27364c863a8b299a2f9917f77f9","Artist":"MØ","CreatedAt":"2022-08-03 22:46:25 UTC","Duration":"182722","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5HtApUGrSqWVbGHeQNHzET","Timestamp":"2022-08-03 22:32:04 UTC","Track":"True Romance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kindness","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cb56a2a7fcb4d9cfe731dec0","Artist":"MØ","CreatedAt":"2021-09-30 15:56:04 UTC","Duration":"194640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ovV1imGX3ATM8XKGgX7jx","Timestamp":"2021-09-30 15:21:08 UTC","Track":"Kindness","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Live to Survive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dbf6eca076f88ca58f6d067d","Artist":"MØ","CreatedAt":"2021-09-30 14:46:29 UTC","Duration":"184666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3DnUQXJqtTsS17KLeZQSh9","Timestamp":"2021-09-30 14:40:02 UTC","Track":"Live to Survive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nights With You","AlbumCover":"https://i.scdn.co/image/e198c3a4b48815c18cbe7728582f95d755a22e56","Artist":"MØ","CreatedAt":"2019-10-10 10:45:19 UTC","Duration":"197494","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5q5gzmbBS5yQzos2BvVr1t","Timestamp":"2019-10-10 10:21:23 UTC","Track":"Nights With You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nights With You","AlbumCover":"https://i.scdn.co/image/e198c3a4b48815c18cbe7728582f95d755a22e56","Artist":"MØ","CreatedAt":"2019-04-30 19:00:10 UTC","Duration":"197494","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5q5gzmbBS5yQzos2BvVr1t","Timestamp":"2019-04-30 18:45:23 UTC","Track":"Nights With You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nights With You","AlbumCover":"https://i.scdn.co/image/e198c3a4b48815c18cbe7728582f95d755a22e56","Artist":"MØ","CreatedAt":"2019-04-30 16:15:12 UTC","Duration":"197494","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5q5gzmbBS5yQzos2BvVr1t","Timestamp":"2019-04-30 16:00:52 UTC","Track":"Nights With You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Final Song","AlbumCover":"https://i.scdn.co/image/f087239d16c1262f6e23fb470e2bb0ca706c9a91","Artist":"MØ","CreatedAt":"2019-06-27 12:15:04 UTC","Duration":"235826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4qqArAiTPueDxIp7cf87h7","Timestamp":"2019-06-27 11:07:43 UTC","Track":"Final Song","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Final Song","AlbumCover":"https://i.scdn.co/image/f087239d16c1262f6e23fb470e2bb0ca706c9a91","Artist":"MØ","CreatedAt":"2019-04-30 18:31:05 UTC","Duration":"235826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4qqArAiTPueDxIp7cf87h7","Timestamp":"2019-04-30 18:23:26 UTC","Track":"Final Song","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Final Song","AlbumCover":"https://i.scdn.co/image/f087239d16c1262f6e23fb470e2bb0ca706c9a91","Artist":"MØ","CreatedAt":"2019-04-30 16:15:11 UTC","Duration":"235826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4qqArAiTPueDxIp7cf87h7","Timestamp":"2019-04-30 15:47:23 UTC","Track":"Final Song","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kamikaze","AlbumCover":"https://i.scdn.co/image/f3165e1c56aa9f76a8ea96ccd943828cb872edd7","Artist":"MØ","CreatedAt":"2019-04-30 16:15:14 UTC","Duration":"214240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6TjP1C3sGQH1jBfzUXfcMg","Timestamp":"2019-04-30 16:14:21 UTC","Track":"Kamikaze","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kamikaze","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/53c075c3ba41ef726c60fc95e83f9297.png","Artist":"MØ","CreatedAt":"2017-03-25 23:53:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6TjP1C3sGQH1jBfzUXfcMg","Timestamp":"2017-03-25 23:53:23 UTC","Track":"Kamikaze","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-11-24 19:44:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-11-24 19:44:03 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-07-10 21:55:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-07-10 21:55:34 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-07-10 21:52:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-07-10 21:52:17 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-04-13 09:34:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-04-13 09:34:01 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-03-22 22:19:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-03-22 22:19:01 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-01-31 20:44:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-31 20:44:28 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-01-31 15:18:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-31 15:18:21 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-01-30 16:40:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-30 16:40:54 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-01-27 21:53:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-27 21:53:28 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71014aa2694d46d2c655552615d017f7.png","Artist":"MØ","CreatedAt":"2015-01-24 13:28:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-24 13:28:02 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-07-13 17:24:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-13 17:24:55 UTC","Track":"Waste of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-02-01 23:29:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-01 23:29:55 UTC","Track":"Waste of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-31 19:08:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-31 19:08:14 UTC","Track":"Waste of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-30 17:02:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-30 17:02:01 UTC","Track":"Waste of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:57:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:57:04 UTC","Track":"Waste of Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Wanna Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:53:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5XgY31mRfciAX9aWufAsxh","Timestamp":"2015-01-24 21:53:48 UTC","Track":"Don't Wanna Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-07-30 20:25:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-30 20:25:55 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-07-25 15:18:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-25 15:18:56 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-07-11 16:34:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 16:34:53 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-31 22:53:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-31 22:53:52 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-27 22:14:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-27 22:14:51 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 22:00:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 22:00:40 UTC","Track":"Dust Is Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:34:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:34:43 UTC","Track":"Fire Rides","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-07-11 23:42:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 23:42:20 UTC","Track":"Red in the Grey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-31 20:57:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-31 20:57:16 UTC","Track":"Red in the Grey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-30 16:33:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-30 16:33:27 UTC","Track":"Red in the Grey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-27 20:19:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-27 20:19:50 UTC","Track":"Red in the Grey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:46:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:46:09 UTC","Track":"Red in the Grey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:41:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:41:56 UTC","Track":"Never Wanna Know","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:38:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:38:10 UTC","Track":"Maiden","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 21:49:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 21:49:56 UTC","Track":"Pilgrim","YoutubeCategoryId":"","YoutubeId":""},{"Album":"No Mythologies to Follow","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a3e7175b219b4ca46568e73f6da7bfd2.png","Artist":"MØ","CreatedAt":"2015-01-24 22:04:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 22:04:29 UTC","Track":"XXX 88 (feat. Diplo)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

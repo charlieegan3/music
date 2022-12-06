@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>AK - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>AK</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-30 19:03:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-30 19:03:41 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-25 10:44:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-25 10:44:39 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-21 10:52:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-21 10:52:33 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-17 15:34:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-17 15:34:27 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-16 17:08:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-16 17:08:20 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-15 22:44:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-15 22:44:11 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-13 15:17:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-13 15:17:45 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-13 09:55:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-13 09:55:33 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-09 21:40:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-09 21:40:17 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-09 15:14:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-09 15:14:52 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-07 09:03:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-07 09:03:28 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-04 16:15:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-04 16:15:51 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Parking Lots (Remixes)","AlbumCover":"","Artist":"AK","CreatedAt":"2017-04-04 08:25:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-04 08:25:48 UTC","Track":"Parking Lots (Ak Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"IV","AlbumCover":"","Artist":"AK","CreatedAt":"2018-03-06 23:05:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-06 23:05:05 UTC","Track":"IV","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling","AlbumCover":"","Artist":"AK","CreatedAt":"2016-08-24 16:23:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-24 16:23:30 UTC","Track":"Falling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling","AlbumCover":"","Artist":"AK","CreatedAt":"2016-08-24 14:02:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-24 14:02:53 UTC","Track":"Falling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling","AlbumCover":"","Artist":"AK","CreatedAt":"2016-08-23 13:43:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-23 13:43:11 UTC","Track":"Falling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling","AlbumCover":"","Artist":"AK","CreatedAt":"2016-08-21 21:25:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-21 21:25:20 UTC","Track":"Falling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling","AlbumCover":"","Artist":"AK","CreatedAt":"2016-08-20 09:41:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-20 09:41:14 UTC","Track":"Falling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aufwärts","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273346b2b6ee83a259c8489efd0","Artist":"AK","CreatedAt":"2021-04-06 14:08:03 UTC","Duration":"218880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Wew9ZnvCnsJtSKgm8tGb2","Timestamp":"2021-04-06 13:40:05 UTC","Track":"Aufwärts","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sleepless in Berlin","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273434f20fbda2c2d6d02a3d628","Artist":"AK","CreatedAt":"2020-10-05 15:49:54 UTC","Duration":"198571","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1noDNeVWioK5Q17deVoUpl","Timestamp":"2020-10-05 14:46:13 UTC","Track":"Sleepless in Berlin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27349a7b3b91557e85faeaab663","Artist":"AK","CreatedAt":"2020-10-05 14:43:37 UTC","Duration":"228000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4x9nVGF0fDaffc1LkBmgNP","Timestamp":"2020-10-05 14:39:00 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-20 12:32:56 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-20 12:03:12 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-18 20:41:39 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-18 20:17:09 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-18 18:55:32 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-18 18:18:35 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-18 16:59:39 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-18 16:22:13 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-15 15:25:54 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-15 14:02:11 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-14 16:51:53 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-14 16:50:27 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-14 17:58:18 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-14 16:23:51 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-14 14:28:14 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-14 14:26:27 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-14 13:22:51 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-14 13:01:11 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-13 21:44:52 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-13 21:37:43 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-13 15:45:40 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-13 15:36:07 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-13 14:27:23 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-13 14:10:50 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-13 12:49:18 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-13 12:45:33 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-12 14:27:20 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-12 14:24:05 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-12 14:38:20 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-12 13:16:56 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-12 08:39:52 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-12 08:20:50 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-11 14:59:32 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-11 14:55:07 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-11 13:57:16 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-11 12:51:57 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-08 14:24:27 UTC","Duration":"214153","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1E7ex3WpcZD9NXSTB37Fjy","Timestamp":"2020-10-08 14:00:51 UTC","Track":"Zukunft","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:32:23 UTC","Duration":"200000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"14rkMJ505N4PN3nQTDn3Aq","Timestamp":"2020-10-05 15:17:55 UTC","Track":"Salt Water","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:23:29 UTC","Duration":"180895","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5LLtDP2GyQEzcwKSuwTKZX","Timestamp":"2020-10-05 15:11:34 UTC","Track":"Together","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:40:51 UTC","Duration":"180900","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3vmEa21yeR5GRCXeGtcVlv","Timestamp":"2020-10-05 15:14:35 UTC","Track":"Noon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:32:22 UTC","Duration":"161718","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4dJEOnY5WVgAgyZqXIAijQ","Timestamp":"2020-10-05 15:05:23 UTC","Track":"Wandering Thoughts","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:23:28 UTC","Duration":"190588","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3UCzQ6XHI3ddEZCk2XNt8j","Timestamp":"2020-10-05 15:08:33 UTC","Track":"Holding On","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Facets","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734c370af7069cd993464411ef","Artist":"AK","CreatedAt":"2020-10-05 15:23:30 UTC","Duration":"187500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1wppGTDcsCrnIEusbS0RxI","Timestamp":"2020-10-05 15:21:02 UTC","Track":"Clouds Drifting South","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Just A Dream","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734cd5c1537fe4e3e7a6d10649","Artist":"AK","CreatedAt":"2021-01-11 12:03:25 UTC","Duration":"209323","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5aM1x8Jp52XCEiQLAnyBBs","Timestamp":"2021-01-11 11:21:12 UTC","Track":"Just A Dream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273660986b708cbf6a5d6750e56","Artist":"AK","CreatedAt":"2020-10-05 15:23:26 UTC","Duration":"210580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5bO33fxvcGqZp7Pw3zIQsj","Timestamp":"2020-10-05 14:35:11 UTC","Track":"Discovery","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Moving Forward","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736b4777ea0059bfff8bed7260","Artist":"AK","CreatedAt":"2021-04-20 13:41:25 UTC","Duration":"189333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2q6Ouc8kqwwXX3Vs5HJhQg","Timestamp":"2021-04-20 13:39:09 UTC","Track":"Moving Forward","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pulses","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27382311d0b31d835b9e6a4c341","Artist":"AK","CreatedAt":"2020-10-05 14:52:29 UTC","Duration":"250000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0shbqhTWZAH9lKY6CaJ7Q7","Timestamp":"2020-10-05 14:50:23 UTC","Track":"Pulses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Raindrops","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273828f9de62ca1b3f0caf3bfc8","Artist":"AK","CreatedAt":"2020-10-05 15:02:30 UTC","Duration":"173134","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4iGmeE1BwOerlAdennrkC2","Timestamp":"2020-10-05 14:53:17 UTC","Track":"Trauma","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Flying","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f145c6eb9575bd4e51e3bb269992b54.png","Artist":"AK","CreatedAt":"2018-07-28 17:19:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-28 17:19:04 UTC","Track":"Flying","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-28 07:23:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-28 07:23:44 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-15 22:05:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-15 22:05:14 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-09 18:46:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-09 18:46:44 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-08 21:44:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-08 21:44:14 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-07 16:58:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-07 16:58:51 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-07 14:38:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-07 14:38:34 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-07 11:45:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-07 11:45:50 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-06 18:09:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-06 18:09:15 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-06 17:19:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-06 17:19:05 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-06 12:00:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-06 12:00:17 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/156c7e46f9fd4c9dedb20ea3de9892e8.png","Artist":"AK","CreatedAt":"2018-03-05 16:11:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-05 16:11:50 UTC","Track":"Immortal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-20 12:44:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-20 12:44:23 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-16 15:15:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-16 15:15:50 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-16 11:04:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-16 11:04:19 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-15 19:03:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-15 19:03:13 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-14 10:30:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-14 10:30:18 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discovery","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/37d40ae58e74df71b4d7451e5d655231.png","Artist":"AK","CreatedAt":"2017-11-13 16:31:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-13 16:31:46 UTC","Track":"It Takes Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Icicle","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7f348abbe985f36d36beace3437d9ead.png","Artist":"AK","CreatedAt":"2017-02-28 13:58:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-28 13:58:21 UTC","Track":"Icicle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Faded Lights","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d0b54c050978e39b5c1a36971accb545.png","Artist":"AK","CreatedAt":"2016-09-29 14:22:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-09-29 14:22:24 UTC","Track":"Faded Lights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Faded Lights","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d0b54c050978e39b5c1a36971accb545.png","Artist":"AK","CreatedAt":"2016-09-23 16:50:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-09-23 16:50:50 UTC","Track":"Faded Lights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Faded Lights","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d0b54c050978e39b5c1a36971accb545.png","Artist":"AK","CreatedAt":"2016-09-23 12:11:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-09-23 12:11:15 UTC","Track":"Faded Lights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Faded Lights","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d0b54c050978e39b5c1a36971accb545.png","Artist":"AK","CreatedAt":"2016-09-19 15:55:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-09-19 15:55:24 UTC","Track":"Faded Lights","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

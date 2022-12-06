@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Vintage &amp; Morelli - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Vintage &amp; Morelli</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Arrival Pres. Vintage \u0026 Morelli 01","AlbumCover":"","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-09-16 16:07:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-09-16 16:07:33 UTC","Track":"For You - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"From the Outside","AlbumCover":"","Artist":"Vintage \u0026 Morelli","CreatedAt":"2018-07-04 08:02:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-04 08:02:04 UTC","Track":"From the Outside - Vintage \u0026 Morelli Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"From the Outside","AlbumCover":"","Artist":"Vintage \u0026 Morelli","CreatedAt":"2018-07-03 17:43:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-03 17:43:32 UTC","Track":"From the Outside - Vintage \u0026 Morelli Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27311daee3792af6fd9803a1f01","Artist":"Vintage \u0026 Morelli","CreatedAt":"2021-02-17 19:33:39 UTC","Duration":"273000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5WJYG4XK7pfmveip7ULdEp","Timestamp":"2021-02-17 18:04:27 UTC","Track":"Daydream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27311daee3792af6fd9803a1f01","Artist":"Vintage \u0026 Morelli","CreatedAt":"2021-02-17 17:57:19 UTC","Duration":"312000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Gf6Yj9AjNQZLaLSLeyiKe","Timestamp":"2021-02-17 17:54:59 UTC","Track":"Nostalgia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27311daee3792af6fd9803a1f01","Artist":"Vintage \u0026 Morelli","CreatedAt":"2021-02-17 18:47:43 UTC","Duration":"531000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1zeUEiKvNcXsOydGkKJaPs","Timestamp":"2021-02-17 17:49:47 UTC","Track":"Daydream - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2021-02-17 19:14:50 UTC","Duration":"265416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2021-02-17 18:39:01 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-07-02 22:40:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-07-02 22:40:08 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-29 19:51:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-29 19:51:59 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 13:28:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-27 13:28:28 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 09:32:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-27 09:32:27 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-24 14:48:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-24 14:48:03 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-23 10:53:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-23 10:53:27 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-23 08:32:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-23 08:32:54 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 22:26:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-21 22:26:34 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 21:56:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-21 21:56:16 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 757","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733bfc8698ad7a915f381e82d1","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 21:44:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2vPVhZKqPOVIu1WlSU1iTq","Timestamp":"2016-06-21 21:44:27 UTC","Track":"Contrasts (ASOT 757) [Progressive Pick]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hymn To The Night","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7ea38e160dc300deea719e3","Artist":"Vintage \u0026 Morelli","CreatedAt":"2020-01-06 22:18:26 UTC","Duration":"209125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3pTEuNgVttf1J5i6WlbBbS","Timestamp":"2020-01-06 22:17:53 UTC","Track":"Ascension","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hymn To The Night","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b7ea38e160dc300deea719e3","Artist":"Vintage \u0026 Morelli","CreatedAt":"2019-12-03 15:15:25 UTC","Duration":"209125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3pTEuNgVttf1J5i6WlbBbS","Timestamp":"2019-12-03 14:00:54 UTC","Track":"Ascension","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ascension","AlbumCover":"https://i.scdn.co/image/c9b10961c99917ed68047ab1e77fd33b9ccae276","Artist":"Vintage \u0026 Morelli","CreatedAt":"2019-06-17 17:30:13 UTC","Duration":"209125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3WO3k4GooPYbK7ZBKHEpbA","Timestamp":"2019-06-17 16:50:58 UTC","Track":"Ascension","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ascension","AlbumCover":"https://i.scdn.co/image/c9b10961c99917ed68047ab1e77fd33b9ccae276","Artist":"Vintage \u0026 Morelli","CreatedAt":"2019-06-17 15:00:11 UTC","Duration":"209125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3WO3k4GooPYbK7ZBKHEpbA","Timestamp":"2019-06-17 14:30:52 UTC","Track":"Ascension","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hymn To The Night","AlbumCover":"https://i.scdn.co/image/e021179d60fbded6479591dd1da6627820856646","Artist":"Vintage \u0026 Morelli","CreatedAt":"2019-08-09 17:00:22 UTC","Duration":"209125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3pTEuNgVttf1J5i6WlbBbS","Timestamp":"2019-08-09 16:35:35 UTC","Track":"Ascension","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-07-01 21:43:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-07-01 21:43:42 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 21:59:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 21:59:58 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 14:38:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 14:38:39 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 10:38:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 10:38:04 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-25 14:48:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-25 14:48:39 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-24 14:05:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-24 14:05:27 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-23 11:25:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-23 11:25:32 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-22 22:04:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-22 22:04:25 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 13:17:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-21 13:17:24 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-20 15:40:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-20 15:40:28 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-19 14:00:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-19 14:00:48 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-17 21:25:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-17 21:25:53 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-16 11:31:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-16 11:31:44 UTC","Track":"Nostalgia - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 20:43:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 20:43:10 UTC","Track":"Dreaming of You - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-07-01 22:11:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-07-01 22:11:46 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-28 18:51:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-28 18:51:13 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 22:05:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 22:05:11 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 12:36:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 12:36:02 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-25 14:39:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-25 14:39:47 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-24 13:52:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-24 13:52:59 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-23 09:25:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-23 09:25:13 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-22 21:42:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-22 21:42:22 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 13:29:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-21 13:29:50 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-19 13:50:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-19 13:50:16 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-17 21:17:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-17 21:17:02 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 20:53:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 20:53:47 UTC","Track":"Daydream - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-28 08:25:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-28 08:25:39 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-27 12:22:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 12:22:27 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-25 14:53:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-25 14:53:51 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-24 14:10:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-24 14:10:39 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-23 09:59:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-23 09:59:28 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-22 21:56:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-22 21:56:14 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 15:05:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-21 15:05:12 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-21 12:12:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-21 12:12:28 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-19 16:07:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-19 16:07:23 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-19 13:28:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-19 13:28:38 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-17 21:31:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-17 21:31:05 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-16 11:40:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-16 11:40:47 UTC","Track":"Daydream - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-16 10:08:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-16 10:08:36 UTC","Track":"Allure - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 21:35:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 21:35:26 UTC","Track":"We Are Future - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 21:40:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 21:40:32 UTC","Track":"Sweet Surrender - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-16 10:13:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-16 10:13:38 UTC","Track":"Afterglow - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 20:49:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 20:49:13 UTC","Track":"Sands of Time - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2017-05-31 19:06:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1zeUEiKvNcXsOydGkKJaPs","Timestamp":"2017-05-31 19:06:01 UTC","Track":"Daydream - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-16 11:45:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-16 11:45:21 UTC","Track":"Sweet Surrender - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 21:12:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 21:12:49 UTC","Track":"Lullaby - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 21:21:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 21:21:03 UTC","Track":"Desire - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2017-02-28 11:55:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-02-28 11:55:04 UTC","Track":"Sweet Surrender","YoutubeCategoryId":"","YoutubeId":""},{"Album":"My Rose Enchanted Destiny","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/00c7a3a1f5c9fb4d9058be2bb7e3082d.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2016-06-15 21:29:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-15 21:29:07 UTC","Track":"My Rose Enchanted Destiny - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beyond The Horizon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/23b6ac056ef461638afa7defc69f8b2f.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2018-07-28 16:47:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-28 16:47:13 UTC","Track":"Autumn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aurora","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/53477c380152b1c217dd4c90c1d554c6.png","Artist":"Vintage \u0026 Morelli","CreatedAt":"2018-03-05 16:53:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-05 16:53:14 UTC","Track":"Aurora","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>VHS Collection - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>VHS Collection</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/563de052aa42ec20911f3f5389e0eed284cee8a7","Artist":"VHS Collection","CreatedAt":"2019-02-13 10:30:11 UTC","Duration":"249374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FhH4YIos1vHe1ZvdyhYZ2","Timestamp":"2019-02-13 09:09:19 UTC","Track":"Floating","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-25 11:30:14 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-25 11:29:26 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-24 19:15:13 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-24 19:08:12 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-21 16:00:08 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-21 14:51:37 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-19 15:45:12 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-19 15:29:46 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-14 19:15:08 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-14 19:14:51 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-13 16:15:09 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-13 15:58:55 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-13 10:15:05 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-13 09:21:39 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/5f434bd98bc6a0f28be16c88aeb8526203a8e4bf","Artist":"VHS Collection","CreatedAt":"2019-02-13 09:00:10 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-02-13 08:49:51 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/a0a287e0843be2b92d608e64d71a819a44eb8e78","Artist":"VHS Collection","CreatedAt":"2019-06-27 17:15:04 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-06-27 16:23:38 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/a0a287e0843be2b92d608e64d71a819a44eb8e78","Artist":"VHS Collection","CreatedAt":"2019-03-27 18:00:15 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"21JbwuOaYB6uAXp3iISVLk","Timestamp":"2019-03-27 17:46:40 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sign","AlbumCover":"https://i.scdn.co/image/a0af95fa22835b8b638cc2def3c70205d1a8359e","Artist":"VHS Collection","CreatedAt":"2019-02-15 21:45:06 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CN8zBU4Qzm6Wp9nmGpauZ","Timestamp":"2019-02-15 21:40:07 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sign","AlbumCover":"https://i.scdn.co/image/a0af95fa22835b8b638cc2def3c70205d1a8359e","Artist":"VHS Collection","CreatedAt":"2019-02-07 17:30:10 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CN8zBU4Qzm6Wp9nmGpauZ","Timestamp":"2019-02-07 17:08:46 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sign","AlbumCover":"https://i.scdn.co/image/a0af95fa22835b8b638cc2def3c70205d1a8359e","Artist":"VHS Collection","CreatedAt":"2018-11-22 19:30:11 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CN8zBU4Qzm6Wp9nmGpauZ","Timestamp":"2018-11-22 19:20:23 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sign","AlbumCover":"https://i.scdn.co/image/a0af95fa22835b8b638cc2def3c70205d1a8359e","Artist":"VHS Collection","CreatedAt":"2018-11-15 22:45:12 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CN8zBU4Qzm6Wp9nmGpauZ","Timestamp":"2018-11-15 22:43:01 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27344ead7c5703b83adfad79d2f","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:32:20 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7xcT9KZbcrdTi0tYkSoZYN","Timestamp":"2022-02-02 11:25:16 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27344ead7c5703b83adfad79d2f","Artist":"VHS Collection","CreatedAt":"2021-09-01 19:11:33 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7xcT9KZbcrdTi0tYkSoZYN","Timestamp":"2021-09-01 18:14:44 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736bdc7def83b1e2f3c15b5627","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:00:26 UTC","Duration":"235653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"707Ftz4B7hIPpnSkGdaDmt","Timestamp":"2022-02-02 13:16:23 UTC","Track":"The Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736bdc7def83b1e2f3c15b5627","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:42:18 UTC","Duration":"235653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"707Ftz4B7hIPpnSkGdaDmt","Timestamp":"2022-02-02 11:21:35 UTC","Track":"The Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736bdc7def83b1e2f3c15b5627","Artist":"VHS Collection","CreatedAt":"2021-10-13 19:17:24 UTC","Duration":"235653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"707Ftz4B7hIPpnSkGdaDmt","Timestamp":"2021-10-13 17:57:25 UTC","Track":"The Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736bdc7def83b1e2f3c15b5627","Artist":"VHS Collection","CreatedAt":"2021-08-05 10:03:42 UTC","Duration":"235653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"707Ftz4B7hIPpnSkGdaDmt","Timestamp":"2021-08-05 09:37:42 UTC","Track":"The Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736bdc7def83b1e2f3c15b5627","Artist":"VHS Collection","CreatedAt":"2021-08-01 18:59:58 UTC","Duration":"235653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"707Ftz4B7hIPpnSkGdaDmt","Timestamp":"2021-08-01 17:59:59 UTC","Track":"The Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sign","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738277725fd3884a9d57ae5002","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:42:24 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qp4VhYr76TFnfT0mH1ZUw","Timestamp":"2022-02-02 13:27:42 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:03:25 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1CDZV0S1YVuJVvQxFFYhyo","Timestamp":"2022-02-02 11:54:48 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:37:24 UTC","Duration":"245520","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2lSl3I1KNyWJBFlcGEeezG","Timestamp":"2022-02-02 12:33:12 UTC","Track":"Fade Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:28:39 UTC","Duration":"231373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7DyC8weXaH7qGjN7xTiU7N","Timestamp":"2022-02-02 12:10:21 UTC","Track":"American Cynic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:47:12 UTC","Duration":"228813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"214pPgc09rWwJpr96EszhW","Timestamp":"2022-02-02 12:21:28 UTC","Track":"What Does It Mean","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 12:44:51 UTC","Duration":"206306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6qe6IEtcA6ZWNbSyoxQxUJ","Timestamp":"2022-02-02 12:17:39 UTC","Track":"Animal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-04-17 14:25:55 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33svqzlpTFH7Xi9fUzlixA","Timestamp":"2022-04-17 14:13:58 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 12:11:34 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33svqzlpTFH7Xi9fUzlixA","Timestamp":"2022-02-02 12:03:02 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:32:19 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33svqzlpTFH7Xi9fUzlixA","Timestamp":"2022-02-02 11:17:39 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2021-09-01 17:50:13 UTC","Duration":"260357","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33svqzlpTFH7Xi9fUzlixA","Timestamp":"2021-09-01 16:26:15 UTC","Track":"Sign","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:37:23 UTC","Duration":"232600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nKpLRz3yu4LgkwZVVu45T","Timestamp":"2022-02-02 12:14:13 UTC","Track":"The Otherside","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:00:23 UTC","Duration":"198306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5rm3s5rBVnnhg2USYmvFKc","Timestamp":"2022-02-02 12:29:06 UTC","Track":"Feel It Boy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:03:26 UTC","Duration":"207573","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0BzeENRNOCilQzGp3COd4T","Timestamp":"2022-02-02 12:06:29 UTC","Track":"Blame It on a Dream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 12:44:50 UTC","Duration":"233040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3AG4iidAZpKMJtiEVya9EU","Timestamp":"2022-02-02 11:58:42 UTC","Track":"Take My Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738303aa866967b0d7e0ec4955","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:03:27 UTC","Duration":"259426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"79SaiMsnY3CVGCST8qhOgf","Timestamp":"2022-02-02 12:25:48 UTC","Track":"Break","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Deep End","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739dea1ee2b49b44fb95d6273b","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:00:25 UTC","Duration":"203653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19lD117SUnDiSHrNk9z3UG","Timestamp":"2022-02-02 13:12:27 UTC","Track":"The Deep End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-08-01 15:34:50 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-08-01 15:11:31 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-02-28 17:42:11 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-02-28 17:32:31 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-02-28 14:07:11 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-02-28 12:38:26 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-02-28 12:51:18 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-02-28 12:09:40 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-02-23 14:49:42 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-02-23 14:25:32 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b896a7297887c351ddb5d7a9","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:32:25 UTC","Duration":"231653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5xMv5UpdLOXzKs4cbpIlrQ","Timestamp":"2022-02-02 13:23:22 UTC","Track":"Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Searching For The Light","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cf063db40db665e00b5c496f","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:28:43 UTC","Duration":"187809","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QVZBtrQavTRm7yqWFwm7n","Timestamp":"2022-02-02 13:19:30 UTC","Track":"Searching For The Light","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Searching For The Light","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cf063db40db665e00b5c496f","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:42:19 UTC","Duration":"187809","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0QVZBtrQavTRm7yqWFwm7n","Timestamp":"2022-02-02 11:36:41 UTC","Track":"Searching For The Light","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Survive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de842830cf8e638b5d0e626e","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:47:13 UTC","Duration":"137386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1l21v9pWPlE6tc3DfWcIwT","Timestamp":"2022-02-02 13:05:04 UTC","Track":"Survive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Survive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de842830cf8e638b5d0e626e","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:22:17 UTC","Duration":"137386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1l21v9pWPlE6tc3DfWcIwT","Timestamp":"2022-02-02 11:13:19 UTC","Track":"Survive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Survive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de842830cf8e638b5d0e626e","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:06:53 UTC","Duration":"137386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1l21v9pWPlE6tc3DfWcIwT","Timestamp":"2022-02-02 11:00:57 UTC","Track":"Survive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Survive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de842830cf8e638b5d0e626e","Artist":"VHS Collection","CreatedAt":"2022-01-28 18:58:44 UTC","Duration":"137386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1l21v9pWPlE6tc3DfWcIwT","Timestamp":"2022-01-28 17:40:07 UTC","Track":"Survive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-08-01 17:17:06 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-08-01 17:04:44 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-08-01 11:58:49 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-08-01 11:48:33 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-28 18:55:01 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-28 18:02:33 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-23 14:21:34 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-23 14:07:54 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-23 14:11:29 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-23 14:02:42 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-23 11:07:34 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-23 11:00:01 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-23 10:58:18 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-23 10:55:45 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-21 19:34:29 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-21 19:13:55 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-21 18:25:53 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-21 15:27:00 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-10 18:47:30 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-10 17:36:07 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:19:31 UTC","Duration":"255011","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2dTBqJaxsrD38R4WtULkRG","Timestamp":"2022-02-02 12:55:03 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:28:41 UTC","Duration":"213883","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0wRY1a8AlsjBdARuTPyDYd","Timestamp":"2022-02-02 12:41:03 UTC","Track":"The Longest Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:28:42 UTC","Duration":"213883","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7biXNL8tBS0yO2bDAVsGkE","Timestamp":"2022-02-02 13:02:47 UTC","Track":"The Longest Drive (Nyc Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:03:28 UTC","Duration":"254571","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nCYh6JwDiwqBzYxBaX84J","Timestamp":"2022-02-02 12:50:49 UTC","Track":"Waiting on the Summer","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:06:54 UTC","Duration":"254571","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nCYh6JwDiwqBzYxBaX84J","Timestamp":"2022-02-02 11:05:30 UTC","Track":"Waiting on the Summer","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-08-01 17:17:05 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-08-01 16:56:50 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-08-01 11:43:49 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-08-01 11:40:39 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-28 18:47:33 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-28 17:54:40 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-28 13:42:53 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-28 12:34:08 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-21 18:53:13 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-21 15:19:08 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-10 17:55:25 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-10 17:44:03 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 12:44:52 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-02 12:37:29 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:52:15 UTC","Duration":"257798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2022-02-02 11:33:32 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee0f031e25d18e92ccf1ee9a","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:19:32 UTC","Duration":"249374","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0myz23ZGVa11yzEJk9Sqmc","Timestamp":"2022-02-02 12:59:13 UTC","Track":"Floating","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animal","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fa33c9c59a5e5cb7aba7f035","Artist":"VHS Collection","CreatedAt":"2022-02-02 14:00:27 UTC","Duration":"206306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3Ola1uVPhaUKiwR9Q0o30K","Timestamp":"2022-02-02 13:45:03 UTC","Track":"Animal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-02-08 10:44:39 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-02-08 09:56:19 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-02-03 11:17:42 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-02-03 10:58:17 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-02-02 17:43:15 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-02-02 17:10:40 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-02-02 13:37:25 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-02-02 13:09:04 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-02-02 11:52:14 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-02-02 11:29:15 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2022-01-17 16:45:02 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2022-01-17 14:17:00 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Space Between Us","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe64ed47c7f11dc2661a8a1f","Artist":"VHS Collection","CreatedAt":"2021-11-17 21:55:29 UTC","Duration":"239360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RuQddbj6LGbMq1CzzPgGj","Timestamp":"2021-11-17 21:25:29 UTC","Track":"Space Between Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Night Drive","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ffec30b480462669f66dfb7f","Artist":"VHS Collection","CreatedAt":"2022-08-08 11:52:15 UTC","Duration":"203653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4sIPwAB4Cb3BvjdB19VcaK","Timestamp":"2022-08-08 11:41:31 UTC","Track":"The Deep End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/c4e3d9a195d0e91b2040ffb2f92ed88c182bba17","Artist":"VHS Collection","CreatedAt":"2019-06-27 12:45:09 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rAUH8YZRvGyZ5wmoKjYbG","Timestamp":"2019-06-27 12:18:26 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/c4e3d9a195d0e91b2040ffb2f92ed88c182bba17","Artist":"VHS Collection","CreatedAt":"2018-11-26 07:45:11 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rAUH8YZRvGyZ5wmoKjYbG","Timestamp":"2018-11-26 07:36:25 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/c4e3d9a195d0e91b2040ffb2f92ed88c182bba17","Artist":"VHS Collection","CreatedAt":"2018-11-22 18:45:11 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rAUH8YZRvGyZ5wmoKjYbG","Timestamp":"2018-11-22 18:35:11 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So I Met Someone","AlbumCover":"https://i.scdn.co/image/c4e3d9a195d0e91b2040ffb2f92ed88c182bba17","Artist":"VHS Collection","CreatedAt":"2018-11-15 22:45:13 UTC","Duration":"220666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rAUH8YZRvGyZ5wmoKjYbG","Timestamp":"2018-11-15 22:35:13 UTC","Track":"So I Met Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-24 21:45:14 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-24 21:40:39 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-24 18:00:08 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-24 17:45:57 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-21 14:30:09 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-21 14:27:25 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-19 21:00:07 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-19 20:06:00 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-19 16:15:11 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-19 15:05:34 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-12 19:00:15 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-12 18:21:28 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-09 20:15:05 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-09 19:03:37 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Retrofuturism","AlbumCover":"https://i.scdn.co/image/d5245b85b8df3c14312f137565c4825f3cb12987","Artist":"VHS Collection","CreatedAt":"2019-02-09 17:15:12 UTC","Duration":"192026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xGYhajhgoAH7Ft16sR75q","Timestamp":"2019-02-09 16:49:47 UTC","Track":"I Can't Stand It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0728b5458eda7c58bd401da5023062bb.png","Artist":"VHS Collection","CreatedAt":"2017-09-04 11:40:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0cebKBlitBbcFPj9Ppk509","Timestamp":"2017-09-04 11:40:46 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/870d8a50338cda019f2827d14ba19f85.png","Artist":"VHS Collection","CreatedAt":"2017-09-04 14:28:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7biXNL8tBS0yO2bDAVsGkE","Timestamp":"2017-09-04 14:28:06 UTC","Track":"The Longest Drive (Nyc Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/870d8a50338cda019f2827d14ba19f85.png","Artist":"VHS Collection","CreatedAt":"2018-02-27 15:08:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0myz23ZGVa11yzEJk9Sqmc","Timestamp":"2018-02-27 15:08:49 UTC","Track":"Floating","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stereo Hype","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/870d8a50338cda019f2827d14ba19f85.png","Artist":"VHS Collection","CreatedAt":"2017-09-04 13:08:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0myz23ZGVa11yzEJk9Sqmc","Timestamp":"2017-09-04 13:08:57 UTC","Track":"Floating","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

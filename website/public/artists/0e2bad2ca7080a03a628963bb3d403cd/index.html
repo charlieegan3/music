@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>The Rolling Stones - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>The Rolling Stones</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"The Rolling Stones","CreatedAt":"2019-06-10 11:51:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-06-10 11:51:50 UTC","Track":"The Last Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"","AlbumCover":"","Artist":"The Rolling Stones","CreatedAt":"2019-04-17 20:55:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-04-17 20:55:17 UTC","Track":"Sympathy For The Devil","YoutubeCategoryId":"","YoutubeId":""},{"Album":"","AlbumCover":"","Artist":"The Rolling Stones","CreatedAt":"2019-02-17 19:25:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-02-17 19:25:41 UTC","Track":"Sympathy For The Devil","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://i.scdn.co/image/072be8c8070865cdbc15eb91bc78e270bdb2d995","Artist":"The Rolling Stones","CreatedAt":"2019-08-21 15:00:18 UTC","Duration":"341773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52dm9op3rbfAkc1LGXgipW","Timestamp":"2019-08-21 14:57:36 UTC","Track":"Wild Horses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Exile On Main Street (2010 Re-Mastered)","AlbumCover":"https://i.scdn.co/image/8a4fdf1731d62ffa9875f21b489ef6f96b269308","Artist":"The Rolling Stones","CreatedAt":"2019-10-14 09:15:15 UTC","Duration":"226333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4hq0S6wznq7SHDyMOFXL9i","Timestamp":"2019-10-14 08:33:06 UTC","Track":"Tumbling Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Exile On Main Street (2010 Re-Mastered)","AlbumCover":"https://i.scdn.co/image/8a4fdf1731d62ffa9875f21b489ef6f96b269308","Artist":"The Rolling Stones","CreatedAt":"2019-10-14 08:45:20 UTC","Duration":"256826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1iii3DosaivkmvUDmhZhCP","Timestamp":"2019-10-14 08:09:45 UTC","Track":"Shine A Light","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/97071b2317676a9661aa703fe4a9415f5301d6ee","Artist":"The Rolling Stones","CreatedAt":"2019-04-24 16:00:10 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2019-04-24 15:56:42 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/97071b2317676a9661aa703fe4a9415f5301d6ee","Artist":"The Rolling Stones","CreatedAt":"2019-03-20 09:15:17 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2019-03-20 08:53:39 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://i.scdn.co/image/a0c743f0e271abc3fef0f6f256821fb30f4227b6","Artist":"The Rolling Stones","CreatedAt":"2020-01-28 17:43:12 UTC","Duration":"341773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52dm9op3rbfAkc1LGXgipW","Timestamp":"2020-01-28 17:42:47 UTC","Track":"Wild Horses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Some Girls","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27305c7aec05eabf142cc33b936","Artist":"The Rolling Stones","CreatedAt":"2021-04-07 23:32:35 UTC","Duration":"265173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"77oU2rjC5XbjQfNe3bD6so","Timestamp":"2021-04-07 22:42:44 UTC","Track":"Beast Of Burden - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732af30c881bb23cfb82a8cf99","Artist":"The Rolling Stones","CreatedAt":"2021-12-04 12:23:47 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2021-12-04 12:05:33 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732af30c881bb23cfb82a8cf99","Artist":"The Rolling Stones","CreatedAt":"2021-09-29 17:24:42 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2021-09-29 16:10:43 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732af30c881bb23cfb82a8cf99","Artist":"The Rolling Stones","CreatedAt":"2021-09-29 16:57:01 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2021-09-29 16:06:11 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732af30c881bb23cfb82a8cf99","Artist":"The Rolling Stones","CreatedAt":"2021-09-29 16:21:55 UTC","Duration":"270773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2021-09-29 16:01:40 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Exile On Main Street (2010 Re-Mastered)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ba42bfcfeed19018b1f8cab8","Artist":"The Rolling Stones","CreatedAt":"2020-05-08 17:20:08 UTC","Duration":"226333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4hq0S6wznq7SHDyMOFXL9i","Timestamp":"2020-05-08 17:19:13 UTC","Track":"Tumbling Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Exile On Main Street (2010 Re-Mastered)","AlbumCover":"https://i.scdn.co/image/b2e067d0cd7b61c4cb8fbdf42056ca9ab2fd84a9","Artist":"The Rolling Stones","CreatedAt":"2019-08-21 14:15:17 UTC","Duration":"271933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"42o3gy9e8dzBHvQE991ad8","Timestamp":"2019-08-21 14:10:00 UTC","Track":"Rocks Off","YoutubeCategoryId":"","YoutubeId":""},{"Album":"December’s Children (And Everybody’s)","AlbumCover":"https://i.scdn.co/image/c2b3a37e717a6646cea232d65816a337bc112f03","Artist":"The Rolling Stones","CreatedAt":"2019-08-21 15:45:15 UTC","Duration":"175080","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"263Iuyk08ks1v6FIudUIGD","Timestamp":"2019-08-21 15:35:21 UTC","Track":"Get Off Of My Cloud - Mono Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bridges To Babylon (Remastered)","AlbumCover":"https://i.scdn.co/image/ea9c332a69cc0f2671895c9c1f6f6047eaa95ac6","Artist":"The Rolling Stones","CreatedAt":"2019-08-21 14:15:16 UTC","Duration":"271160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tXr9v3K7nWW1aebWqR1B7","Timestamp":"2019-08-21 13:47:08 UTC","Track":"Anybody Seen My Baby? - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Singles 1965-1967","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2a9c393a2d7e477e81486216b74d54d5.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-09 17:30:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-09 17:30:55 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Singles 1965-1967","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2a9c393a2d7e477e81486216b74d54d5.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-09 16:37:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-09 16:37:22 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Singles 1965-1967","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2a9c393a2d7e477e81486216b74d54d5.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-09 15:43:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-09 15:43:48 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Rolling Stones Singles Box Set (1971-2006)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/31d2467b523d4596c54c328489533485.png","Artist":"The Rolling Stones","CreatedAt":"2013-06-21 15:48:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-06-21 15:48:23 UTC","Track":"Ruby Tuesday - live","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Rolling Stones Singles Box Set (1971-2006)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/31d2467b523d4596c54c328489533485.png","Artist":"The Rolling Stones","CreatedAt":"2013-06-21 15:43:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-06-21 15:43:50 UTC","Track":"Angie","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Doom and Gloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/650f99c78bff4891a6058b7d5b8986f8.png","Artist":"The Rolling Stones","CreatedAt":"2015-02-14 15:04:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-14 15:04:55 UTC","Track":"Doom And Gloom - Benny Benassi Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Doom and Gloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/650f99c78bff4891a6058b7d5b8986f8.png","Artist":"The Rolling Stones","CreatedAt":"2013-12-06 00:23:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-06 00:23:34 UTC","Track":"Doom And Gloom - Benny Benassi Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Doom and Gloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/650f99c78bff4891a6058b7d5b8986f8.png","Artist":"The Rolling Stones","CreatedAt":"2013-11-30 14:35:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-30 14:35:03 UTC","Track":"Doom And Gloom - Benny Benassi Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Doom and Gloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/650f99c78bff4891a6058b7d5b8986f8.png","Artist":"The Rolling Stones","CreatedAt":"2013-11-26 19:38:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-26 19:38:39 UTC","Track":"Doom And Gloom - Benny Benassi Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Doom and Gloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/650f99c78bff4891a6058b7d5b8986f8.png","Artist":"The Rolling Stones","CreatedAt":"2013-11-25 20:11:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-25 20:11:33 UTC","Track":"Doom And Gloom - Benny Benassi Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AFTERMATH (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/65516363f73348f0c85244af71772c05.png","Artist":"The Rolling Stones","CreatedAt":"2018-10-06 19:51:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-10-06 19:51:37 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AFTERMATH (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/65516363f73348f0c85244af71772c05.png","Artist":"The Rolling Stones","CreatedAt":"2018-10-06 16:58:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-10-06 16:58:37 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AFTERMATH (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/65516363f73348f0c85244af71772c05.png","Artist":"The Rolling Stones","CreatedAt":"2018-04-10 15:27:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 15:27:46 UTC","Track":"Paint It Black","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GRRR! (Deluxe Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8200d4d761624eac93c6c55bd9169451.png","Artist":"The Rolling Stones","CreatedAt":"2014-04-24 20:29:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-04-24 20:29:34 UTC","Track":"Undercover Of The Night","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-20 18:00:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-20 18:00:21 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-20 17:01:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-20 17:01:26 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-11 10:32:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-11 10:32:46 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-10 22:35:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 22:35:26 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-10 15:26:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 15:26:14 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-08 19:03:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 19:03:01 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-08 12:16:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 12:16:35 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-08 07:25:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 07:25:17 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sticky Fingers (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/98233e0fc1d4d96fece149cad34f4742.png","Artist":"The Rolling Stones","CreatedAt":"2016-12-07 11:07:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-07 11:07:23 UTC","Track":"Wild Horses - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-06-04 16:37:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-06-04 16:37:08 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-30 16:09:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-30 16:09:51 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-28 18:49:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-28 18:49:18 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-24 11:49:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-24 11:49:16 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-18 17:32:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-18 17:32:57 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-17 21:08:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-17 21:08:19 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-17 20:11:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-17 20:11:44 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-17 20:00:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-17 20:00:08 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-17 17:01:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2017-05-17 17:01:07 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2016-11-18 21:12:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2016-11-18 21:12:05 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2015-12-24 14:42:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2015-12-24 14:42:13 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2015-12-03 20:57:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2015-12-03 20:57:45 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2015-02-26 20:37:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2015-02-26 20:37:39 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let It Bleed","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb90486e912e42f9c250a12b8d45149e.png","Artist":"The Rolling Stones","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6H3kDe7CGoWYBabAeVWGiD","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Gimme Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Out of Our Heads (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1ceed9cb0c2a84c887df7d106497a63.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-17 17:16:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-17 17:16:23 UTC","Track":"(I Can't Get No) Satisfaction - Mono Version / Remastered 2002","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Out of Our Heads (Remastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d1ceed9cb0c2a84c887df7d106497a63.png","Artist":"The Rolling Stones","CreatedAt":"2017-05-16 21:58:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-16 21:58:03 UTC","Track":"(I Can't Get No) Satisfaction - Mono Version / Remastered 2002","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-30 17:16:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-30 17:16:56 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-24 17:04:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-24 17:04:26 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-19 18:01:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-19 18:01:09 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-15 18:31:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-15 18:31:27 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-14 16:59:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-14 16:59:51 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-13 15:56:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-13 15:56:22 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-10 05:51:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-10 05:51:09 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-09 14:47:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-09 14:47:58 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-07 20:31:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-07 20:31:50 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-07 13:46:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-07 13:46:03 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-06 18:07:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-06 18:07:18 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-06 17:20:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-06 17:20:10 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-06 15:52:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-06 15:52:42 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-06 14:57:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-06 14:57:35 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-06 13:57:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-06 13:57:14 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-05 16:32:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-05 16:32:20 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-05 15:31:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-05 15:31:56 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tattoo You (2009 Re-Mastered)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f5c5de980e224db7990e2d60d39957ed.png","Artist":"The Rolling Stones","CreatedAt":"2018-08-04 22:39:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-04 22:39:35 UTC","Track":"Heaven - Remastered","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

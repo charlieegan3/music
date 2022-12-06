@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Morgan Page - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Morgan Page</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Lost Dreams","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-03-21 22:33:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-21 22:33:42 UTC","Track":"Lost Dreams","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-08-02 18:23:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-02 18:23:05 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-08-02 16:36:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-02 16:36:04 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-08-02 08:31:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-08-02 08:31:20 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-30 10:37:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-30 10:37:41 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-30 10:37:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-30 10:37:36 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-29 14:09:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-29 14:09:38 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-28 21:33:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-28 21:33:22 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-27 08:06:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-27 08:06:56 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-27 08:03:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-27 08:03:53 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lost Dreams (Remixes)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-26 14:30:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-26 14:30:07 UTC","Track":"Lost Dreams - B-Sides Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beautiful Disaster (Futuristic Polar Bears Remix)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-04-03 09:22:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-03 09:22:15 UTC","Track":"Beautiful Disaster - Futuristic Polar Bears Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beautiful Disaster (Futuristic Polar Bears Remix)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-04-02 13:18:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-02 13:18:42 UTC","Track":"Beautiful Disaster - Futuristic Polar Bears Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beautiful Disaster (Futuristic Polar Bears Remix)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-03-29 14:25:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-29 14:25:26 UTC","Track":"Beautiful Disaster - Futuristic Polar Bears Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beautiful Disaster (Futuristic Polar Bears Remix)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-03-28 16:28:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-28 16:28:58 UTC","Track":"Beautiful Disaster - Futuristic Polar Bears Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Beautiful Disaster (Futuristic Polar Bears Remix)","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-03-21 20:27:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-21 20:27:41 UTC","Track":"Beautiful Disaster - Futuristic Polar Bears Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-08-25 19:28:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-25 19:28:44 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-07-11 21:39:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 21:39:14 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-04-13 08:43:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-13 08:43:03 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-03-22 21:20:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-22 21:20:52 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-03-10 22:14:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-10 22:14:14 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-02-01 22:20:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-01 22:20:04 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-02-01 11:10:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-01 11:10:46 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-29 18:46:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-29 18:46:55 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-27 19:40:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-27 19:40:06 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-24 13:10:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 13:10:30 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-23 15:43:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-23 15:43:31 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-21 10:49:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-21 10:49:24 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-21 10:04:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-21 10:04:44 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-19 10:41:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-19 10:41:29 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-17 11:37:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-17 11:37:33 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Issaya Siamese Club","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2015-01-07 22:40:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-07 22:40:46 UTC","Track":"Addicted (feat. Greg Laswell)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Fly EP","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-26 13:12:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-26 13:12:37 UTC","Track":"Habit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Fly EP","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2018-07-25 20:16:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-25 20:16:17 UTC","Track":"Habit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Receive You","AlbumCover":"","Artist":"Morgan Page","CreatedAt":"2014-12-20 13:07:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-12-20 13:07:28 UTC","Track":"We Receive You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://i.scdn.co/image/15e910aef6b096fc472c3b98ded355752f77a44a","Artist":"Morgan Page","CreatedAt":"2018-10-29 23:30:14 UTC","Duration":"236706","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4JIYvt01Fibhd7Tgeb9VAq","Timestamp":"2018-10-29 23:29:05 UTC","Track":"Fight For You - Sultan \u0026 Ned Shephard Remix Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Believe (Bonus Track Version)","AlbumCover":"https://i.scdn.co/image/3bd979942a032696f8371fa2b66851e5cafee0c3","Artist":"Morgan Page","CreatedAt":"2018-10-29 23:45:07 UTC","Duration":"237760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2018-10-29 23:33:02 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Condition","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730e4d7bf188c7c222ac49c73b","Artist":"Morgan Page","CreatedAt":"2020-04-11 19:02:18 UTC","Duration":"213546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53gU1D9rFr0OkiJRxc4xYX","Timestamp":"2020-04-11 19:01:31 UTC","Track":"Strange Condition - Inpetto Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-25 12:14:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-25 12:14:11 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-17 16:36:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-17 16:36:37 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-17 07:22:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-17 07:22:53 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-14 17:47:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-14 17:47:51 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-05 14:58:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-05 14:58:43 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-05 11:32:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-05 11:32:04 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-03 15:05:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-03 15:05:48 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DC to Light","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/051adff037980755cfbc5ea268f8a0d0.png","Artist":"Morgan Page","CreatedAt":"2017-07-02 16:58:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-02 16:58:25 UTC","Track":"Save You (feat. David Jackson)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2016-07-21 22:34:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2016-07-21 22:34:52 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2016-01-22 12:26:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2016-01-22 12:26:46 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2016-01-18 17:01:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2016-01-18 17:01:25 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2016-01-08 00:33:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2016-01-08 00:33:36 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-11-20 22:46:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-11-20 22:46:18 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-11-19 22:50:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-11-19 22:50:37 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-10-22 11:35:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-10-22 11:35:07 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-10-08 21:32:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-10-08 21:32:57 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-06-07 13:33:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-06-07 13:33:20 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-21 09:58:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-21 09:58:48 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-20 14:06:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-20 14:06:00 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-19 14:21:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-19 14:21:08 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-17 15:51:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-17 15:51:58 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-16 22:10:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-16 22:10:47 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-05-05 21:48:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-05-05 21:48:02 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-04-26 10:21:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-04-26 10:21:37 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-04-25 20:11:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-04-25 20:11:32 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-04-25 14:36:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-04-25 14:36:37 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-04-24 13:45:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-04-24 13:45:44 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-04-03 09:43:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-04-03 09:43:18 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-03-23 10:22:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-03-23 10:22:10 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-03-21 08:52:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-03-21 08:52:01 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-03-11 10:23:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-03-11 10:23:02 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-03-09 09:45:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-03-09 09:45:12 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-27 16:59:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-27 16:59:19 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-26 23:00:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-26 23:00:21 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-20 15:51:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-20 15:51:36 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-14 22:51:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-14 22:51:50 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-08 19:54:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-08 19:54:33 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-08 16:51:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-08 16:51:02 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-02-04 17:10:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-02-04 17:10:28 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-01-06 23:28:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-01-06 23:28:31 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2015-01-04 16:54:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2015-01-04 16:54:31 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-31 11:44:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-31 11:44:25 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-28 15:24:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-28 15:24:26 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-21 11:24:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-21 11:24:46 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-20 13:17:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-20 13:17:51 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-18 12:10:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-18 12:10:41 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-17 23:13:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-17 23:13:20 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-17 22:53:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-17 22:53:17 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-17 16:32:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-17 16:32:44 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-17 15:16:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-17 15:16:31 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-13 21:59:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-13 21:59:29 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-12 20:33:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-12 20:33:05 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 17:16:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 17:16:01 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 16:34:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 16:34:25 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 15:32:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 15:32:10 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 14:33:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 14:33:35 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 12:46:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 12:46:32 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-11 12:16:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-11 12:16:46 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-09 20:34:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-09 20:34:26 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 23:23:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 23:23:35 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 22:46:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 22:46:20 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 22:14:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 22:14:33 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 22:07:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 22:07:21 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 22:03:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 22:03:05 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-08 15:27:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-08 15:27:37 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-07 20:47:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-07 20:47:50 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fight For You","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8cd6a432bc2c4164c10c08bd55e42a14.png","Artist":"Morgan Page","CreatedAt":"2014-12-07 19:49:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"20soab2IrsPOE5JXqJsURk","Timestamp":"2014-12-07 19:49:37 UTC","Track":"Fight for You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Give Up","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cf01a64959c1c34aa29a6b56d691acac.png","Artist":"Morgan Page","CreatedAt":"2017-07-02 17:38:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-02 17:38:16 UTC","Track":"Don't Give Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Elevate","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e835c6b8a98642da89128bb40b87f71b.png","Artist":"Morgan Page","CreatedAt":"2015-12-01 15:03:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-01 15:03:25 UTC","Track":"The Longest Road - (Album Version)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Elevate","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e835c6b8a98642da89128bb40b87f71b.png","Artist":"Morgan Page","CreatedAt":"2015-11-30 22:51:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-30 22:51:49 UTC","Track":"The Longest Road - (Album Version)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Till Tomorrow (feat. Angelika Vee) [Remixes]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f8aa09df5270f944ada92851b0b9a7f8.png","Artist":"Morgan Page","CreatedAt":"2017-07-04 13:11:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-04 13:11:43 UTC","Track":"Safe Till Tomorrow (feat. Angelika Vee) - Lash Remix","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Amy Shark - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Amy Shark</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2021-01-03 17:37:15 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2021-01-03 17:35:54 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-28 01:20:09 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-28 00:10:34 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-23 13:44:37 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-23 13:11:25 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-23 00:04:11 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-22 21:58:17 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-17 17:48:12 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-17 17:47:10 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-16 19:45:52 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-16 19:36:29 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-11 01:53:12 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-11 00:32:58 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Said Hi","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ce9087cfd83aa9d2d1fc538","Artist":"Amy Shark","CreatedAt":"2020-12-11 02:15:16 UTC","Duration":"168664","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MuOQdl7uyEteKYCQtG4XE","Timestamp":"2020-12-11 00:27:55 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mess Her Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27323c9661fb39246c98a9419e9","Artist":"Amy Shark","CreatedAt":"2020-08-18 15:03:53 UTC","Duration":"205670","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3TZgPOKPqzvj2pS4AeGTAu","Timestamp":"2020-08-18 15:02:34 UTC","Track":"Mess Her Up - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Everybody Rise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735488144ce2fa23bd91d4725f","Artist":"Amy Shark","CreatedAt":"2020-12-12 01:59:27 UTC","Duration":"190322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3eGmv9sxK60p8XIBLhBtC0","Timestamp":"2020-12-11 23:59:37 UTC","Track":"Everybody Rise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Everybody Rise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735488144ce2fa23bd91d4725f","Artist":"Amy Shark","CreatedAt":"2020-08-18 15:03:52 UTC","Duration":"190322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3eGmv9sxK60p8XIBLhBtC0","Timestamp":"2020-08-18 14:50:22 UTC","Track":"Everybody Rise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27356bb5daea8dab10126661bc5","Artist":"Amy Shark","CreatedAt":"2021-06-17 22:02:27 UTC","Duration":"181213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2xRUyAQeYVYCohZrEBpbiu","Timestamp":"2021-06-17 21:28:33 UTC","Track":"Worst Day of My Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27356bb5daea8dab10126661bc5","Artist":"Amy Shark","CreatedAt":"2021-06-17 21:52:11 UTC","Duration":"190573","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0iASWKzwLiBx1hhIMoyYMj","Timestamp":"2021-06-17 21:22:40 UTC","Track":"Everybody Rise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Baby Steps","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27393320f3fc3c474ea024d5508","Artist":"Amy Shark","CreatedAt":"2021-06-17 21:52:12 UTC","Duration":"191920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3vEbegJiPxQ80EnEhObLLv","Timestamp":"2021-06-17 21:35:26 UTC","Track":"Baby Steps","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Singles","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273974e0982fa4e66517fa1d0f2","Artist":"Amy Shark","CreatedAt":"2020-08-19 13:16:17 UTC","Duration":"246701","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0P9RpXoU2UnYmjzrEMlupy","Timestamp":"2020-08-18 15:19:00 UTC","Track":"Teenage Dirtbag - Recorded at Spotify Studios NYC","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:46:00 UTC","Duration":"181213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2xRUyAQeYVYCohZrEBpbiu","Timestamp":"2021-05-13 11:02:37 UTC","Track":"Worst Day of My Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 13:54:35 UTC","Duration":"168506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"55g2pNJRHkbG1jWgDI9s4n","Timestamp":"2021-05-13 12:06:28 UTC","Track":"Lonely Still","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:46:01 UTC","Duration":"196333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1XyaXnOLoQRV9in2gXWvbe","Timestamp":"2021-05-13 11:22:35 UTC","Track":"You'll Never Meet Anyone Like Me Again","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 14:50:37 UTC","Duration":"177200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Cr8T4ljHQReeZ3OvfoFbo","Timestamp":"2021-05-13 11:09:14 UTC","Track":"All the Lies About Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 12:25:34 UTC","Duration":"191920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17Hae8Er3V3XVerIRxXxAN","Timestamp":"2021-05-13 12:09:40 UTC","Track":"Baby Steps","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:27:50 UTC","Duration":"207320","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6tVHVyecZPkn7ZZRo1Q6uy","Timestamp":"2021-05-13 11:19:19 UTC","Track":"I'll Be Yours","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:27:49 UTC","Duration":"176040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"51xBSrTwURqcMVmmUl85yR","Timestamp":"2021-05-13 11:12:11 UTC","Track":"Miss You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 13:06:05 UTC","Duration":"187026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0AEdy1BYx9Yw3uyE04Q0BP","Timestamp":"2021-05-13 12:12:48 UTC","Track":"Amy Shark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 12:25:33 UTC","Duration":"172640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23CLgId3wvHJm5MmfFeQOD","Timestamp":"2021-05-13 10:56:25 UTC","Track":"The Wolves","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:27:51 UTC","Duration":"147013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3Yve6otbwSMOQbHGeBUObi","Timestamp":"2021-05-13 11:25:02 UTC","Track":"That Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cry Forever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd7ef6499147dc9f2c60c7b2","Artist":"Amy Shark","CreatedAt":"2021-05-13 11:01:17 UTC","Duration":"190573","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0iASWKzwLiBx1hhIMoyYMj","Timestamp":"2021-05-13 10:59:36 UTC","Track":"Everybody Rise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-18 15:18:40 UTC","Duration":"185160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1l2WkPJeLEuQtBzp0DMuMX","Timestamp":"2020-08-18 15:05:40 UTC","Track":"Adore","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-27 17:19:02 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-27 17:12:10 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-23 22:25:49 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-23 22:05:47 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-23 21:16:09 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-23 20:16:39 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-22 21:29:40 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-22 16:36:29 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-21 11:03:58 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-21 10:58:07 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-20 18:27:18 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-20 18:03:41 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-19 17:19:43 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-19 16:37:16 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-19 15:35:49 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-19 15:10:04 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-18 15:18:41 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6914ZWSnIGPlQkNgQldTmT","Timestamp":"2020-08-18 15:09:10 UTC","Track":"All Loved Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-06-17 21:40:00 UTC","Duration":"170413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4gvPqK7RifS2F45o9Obo5B","Timestamp":"2021-06-17 21:25:31 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-18 15:27:16 UTC","Duration":"170413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4gvPqK7RifS2F45o9Obo5B","Timestamp":"2020-08-18 14:59:08 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-18 14:53:38 UTC","Duration":"170413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4gvPqK7RifS2F45o9Obo5B","Timestamp":"2020-08-18 14:53:13 UTC","Track":"I Said Hi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-10-27 19:34:35 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-10-27 18:44:28 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 19:45:52 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 17:52:09 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:17:03 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:59:01 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:43:10 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:55:32 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 08:54:19 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:52:03 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:58:53 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:48:35 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 08:54:18 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:45:06 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 10:30:16 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:41:37 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:17:02 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:38:02 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:58:52 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:34:33 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 08:31:42 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:31:04 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:43:09 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:27:36 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 08:54:17 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:24:08 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 10:51:20 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:20:39 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 08:31:41 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:17:10 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:43:08 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:13:42 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2021-05-13 09:17:01 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-05-13 08:10:13 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-23 02:55:22 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-22 22:32:29 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-21 21:49:43 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-21 21:46:53 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-18 18:40:57 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-18 18:22:54 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-16 17:51:28 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-16 17:01:21 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-14 22:58:19 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-14 22:54:36 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-12-14 19:17:10 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-12-14 19:04:36 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-27 17:36:06 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-27 17:15:39 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-24 18:37:41 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-24 18:14:13 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-23 22:17:21 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-23 22:09:16 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-23 20:22:45 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-23 20:20:07 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-23 17:35:38 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-23 17:22:17 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-22 12:56:41 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-22 12:50:55 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-21 11:03:59 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-21 11:01:36 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-20 18:44:26 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-20 18:07:09 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-20 16:38:35 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-20 16:36:15 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-19 16:54:27 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-19 16:40:46 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-19 15:18:58 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-19 15:13:32 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-19 12:31:14 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-19 12:30:16 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d8b44ee2b3636fd5e9287eac","Artist":"Amy Shark","CreatedAt":"2020-08-18 19:53:20 UTC","Duration":"208240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2020-08-18 19:49:26 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All the Lies About Me","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db9c5271bb8eb07be3e33513","Artist":"Amy Shark","CreatedAt":"2021-06-18 10:38:41 UTC","Duration":"177200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6T22O43SIRQ6Kgu7NvcnTy","Timestamp":"2021-06-17 21:40:34 UTC","Track":"All the Lies About Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Monster","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/8943cecaa7e2ebe1cc77b3b42827a2d5.jpg","Artist":"Amy Shark","CreatedAt":"2021-11-17 08:54:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3YlTwBFSI2kfMjGh1BWsEl","Timestamp":"2021-10-27 18:40:50 UTC","Track":"Mess Her Up","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

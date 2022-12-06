@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MS MR - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>MS MR</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Radio adidas Original Presents: Hits \u0026 Remixes, Vol. 2","AlbumCover":"","Artist":"MS MR","CreatedAt":"2016-11-06 17:34:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-11-06 17:34:59 UTC","Track":"Hurricane - Chvrches Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27362a8c0067be594bd8352dee5","Artist":"MS MR","CreatedAt":"2021-09-13 22:04:25 UTC","Duration":"208293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Tumt07EyqqtHdv8ROUV9F","Timestamp":"2021-09-13 22:01:23 UTC","Track":"Fantasy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27362a8c0067be594bd8352dee5","Artist":"MS MR","CreatedAt":"2021-07-23 20:59:22 UTC","Duration":"208293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Tumt07EyqqtHdv8ROUV9F","Timestamp":"2021-07-23 20:24:18 UTC","Track":"Fantasy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27362a8c0067be594bd8352dee5","Artist":"MS MR","CreatedAt":"2021-09-13 23:29:57 UTC","Duration":"226373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2021-09-13 22:44:46 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"How Does It Feel","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739a2eab947f5a2c355fff3cde","Artist":"MS MR","CreatedAt":"2021-09-13 22:25:51 UTC","Duration":"225373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Aeh42a4loddk27Oe3pSF2","Timestamp":"2021-09-13 22:24:57 UTC","Track":"Painted","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2022-02-10 01:43:43 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2022-02-09 23:37:30 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-24 18:47:31 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-24 17:03:28 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-22 19:28:45 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-22 17:54:31 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-22 17:56:43 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-22 16:09:52 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-13 19:34:14 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-13 17:18:22 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-13 16:58:01 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-13 15:55:12 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-11 11:09:08 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-11 11:08:09 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-11 07:50:35 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-10 22:51:55 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-10 21:46:09 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-10 21:26:08 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-10 18:39:05 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-10 17:58:44 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-10 17:26:37 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-10 15:53:11 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Sessions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9911a535eaf50a76375c848","Artist":"MS MR","CreatedAt":"2021-09-08 21:44:19 UTC","Duration":"243146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NCoHPNLQaCfnH6bAkWBOQ","Timestamp":"2021-09-08 21:35:52 UTC","Track":"Hurricane - Spotify Sessions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-07-11 21:30:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 21:30:08 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-26 22:40:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-26 22:40:47 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-22 20:08:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-22 20:08:30 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-19 22:44:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-19 22:44:11 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-17 21:52:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-17 21:52:30 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-15 19:07:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-15 19:07:55 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-09 19:47:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-09 19:47:17 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-08 20:47:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-08 20:47:12 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-07 20:49:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-07 20:49:07 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-06 23:23:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-06 23:23:22 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-06 00:01:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-06 00:01:50 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-05 21:55:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-05 21:55:57 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 16:02:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 16:02:33 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:20:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:20:22 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:17:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:17:08 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:13:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:13:54 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:10:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:10:41 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:07:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:07:27 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:04:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:04:13 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 00:01:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 00:01:00 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-02 23:57:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-02 23:57:46 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-02 23:54:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-02 23:54:33 UTC","Track":"Ash Tree Lane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-07-11 22:07:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 22:07:23 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-26 22:43:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-26 22:43:55 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-19 22:47:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-19 22:47:25 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-17 21:55:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-17 21:55:43 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-15 22:00:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-15 22:00:08 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-14 20:35:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-14 20:35:27 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-13 16:57:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-13 16:57:48 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-09 19:50:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-09 19:50:31 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-08 20:50:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-08 20:50:25 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-07 20:53:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-07 20:53:41 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-06 23:26:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-06 23:26:36 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-05 23:57:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-05 23:57:35 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-05 21:59:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-05 21:59:10 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-03 16:05:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 16:05:46 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Candy Bar Creep Show","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3ed14bbd2be756f4db2e1647674e15a.png","Artist":"MS MR","CreatedAt":"2015-03-02 17:35:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-02 17:35:00 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""},{"Album":"How Does It Feel","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d5a11e17427849e39d7a29cd47671a45.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:27:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-01 14:27:09 UTC","Track":"All the Things Lost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"How Does It Feel","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d5a11e17427849e39d7a29cd47671a45.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:40:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-01 14:40:04 UTC","Track":"Wrong Victory","YoutubeCategoryId":"","YoutubeId":""},{"Album":"How Does It Feel","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d5a11e17427849e39d7a29cd47671a45.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:33:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-01 14:33:16 UTC","Track":"Criminals","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:36:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Tumt07EyqqtHdv8ROUV9F","Timestamp":"2017-09-01 14:36:35 UTC","Track":"Fantasy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:18:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2017-09-01 14:18:22 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-05-30 20:59:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2016-05-30 20:59:33 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-08-01 22:49:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-08-01 22:49:14 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-07-07 08:33:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-07-07 08:33:40 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-03-10 22:01:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-03-10 22:01:42 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-28 21:53:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-28 21:53:55 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-19 20:43:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-19 20:43:46 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-19 15:24:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-19 15:24:21 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-10 22:54:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-10 22:54:30 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-09 11:10:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-09 11:10:58 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-08 15:45:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-08 15:45:56 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-08 12:57:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-08 12:57:22 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-08 11:22:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-08 11:22:26 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-07 20:48:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-07 20:48:50 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-07 16:54:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-07 16:54:42 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-07 14:29:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-07 14:29:25 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-07 11:31:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-07 11:31:06 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-05 22:24:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-05 22:24:16 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-05 20:31:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-05 20:31:17 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-05 11:24:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-05 11:24:12 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-04 14:56:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-04 14:56:47 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-03 22:06:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-03 22:06:07 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-02 22:16:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-02 22:16:13 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-02 20:19:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-02 20:19:28 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2015-02-02 16:57:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"35aNHKBZWXXbL9KQK7O5Nk","Timestamp":"2015-02-02 16:57:46 UTC","Track":"Hurricane","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:30:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-01 14:30:24 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-28 14:02:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-28 14:02:25 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-27 19:10:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 19:10:15 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-27 16:28:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 16:28:53 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-27 15:15:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-27 15:15:56 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-26 16:01:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 16:01:34 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-26 11:50:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-26 11:50:20 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-25 09:33:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-25 09:33:21 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-24 19:54:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-24 19:54:24 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-24 11:13:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-24 11:13:50 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-23 20:03:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-23 20:03:18 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-22 23:53:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-22 23:53:11 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-22 20:16:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-22 20:16:21 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-22 13:23:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-22 13:23:59 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-22 10:19:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-22 10:19:09 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-21 20:11:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-21 20:11:25 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-21 15:35:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-21 15:35:41 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-21 13:58:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-21 13:58:22 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-20 22:46:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-20 22:46:18 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2016-03-20 20:04:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-20 20:04:30 UTC","Track":"Dark Doo Wop","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Secondhand Rapture","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/dd54fb2834e0481a8ef0df5028a35e2d.png","Artist":"MS MR","CreatedAt":"2017-09-01 14:22:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-01 14:22:07 UTC","Track":"Bones","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

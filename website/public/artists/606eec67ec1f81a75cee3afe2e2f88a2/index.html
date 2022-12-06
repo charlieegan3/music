@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Allie X - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Allie X</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Too Much to Dream","AlbumCover":"https://i.scdn.co/image/13828f48316554e53e2d741156870d042910fab4","Artist":"Allie X","CreatedAt":"2019-09-25 12:15:19 UTC","Duration":"197135","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5TjIZCIDgYdsQimJdMpCJ2","Timestamp":"2019-09-25 11:02:18 UTC","Track":"Too Much to Dream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-09-23 11:45:19 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-09-23 04:48:13 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-09-08 21:45:26 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-09-08 21:42:57 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-06-28 08:30:07 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-06-28 07:35:32 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-06-27 16:15:10 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-06-27 15:52:08 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-06-27 12:45:11 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-06-27 12:41:45 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-29 09:30:07 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-29 08:17:48 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-22 23:00:05 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-22 22:24:47 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-14 12:00:15 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-14 11:45:45 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-08 17:15:04 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-08 16:05:21 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-06 21:45:12 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-06 19:22:02 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-04 20:00:17 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-04 19:59:23 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-04 15:15:07 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-04 14:49:24 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-04 11:01:05 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-04 10:50:17 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-03 21:45:07 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-03 21:06:26 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-03 12:45:05 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-03 11:37:28 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/35d74a02ce3e3c48fc6ec7e10ad8f5cc764d8b85","Artist":"Allie X","CreatedAt":"2019-01-02 17:15:09 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2019-01-02 16:10:16 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"CollXtion II","AlbumCover":"https://i.scdn.co/image/733b0d60ef1947bffacea2fbf2ebc35d3722f862","Artist":"Allie X","CreatedAt":"2019-09-25 07:45:21 UTC","Duration":"197673","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2QffgsYVZkvMQsZmQdgf2L","Timestamp":"2019-09-25 07:41:55 UTC","Track":"Paper Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"CollXtion II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730cebcb8a3bfcaf66125a6fc0","Artist":"Allie X","CreatedAt":"2021-09-09 15:17:00 UTC","Duration":"237164","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ckUvSqW1Oaucm19P6VmIK","Timestamp":"2021-09-09 15:16:01 UTC","Track":"Downtown","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-03 22:22:43 UTC","Duration":"256507","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e9vLBXvr5KWCBI07dVgYf","Timestamp":"2020-06-03 22:21:29 UTC","Track":"Rings a Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-03 15:52:09 UTC","Duration":"256507","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e9vLBXvr5KWCBI07dVgYf","Timestamp":"2020-06-03 15:51:10 UTC","Track":"Rings a Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-02 11:08:32 UTC","Duration":"256507","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e9vLBXvr5KWCBI07dVgYf","Timestamp":"2020-06-02 11:07:54 UTC","Track":"Rings a Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-05-29 14:26:26 UTC","Duration":"256507","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e9vLBXvr5KWCBI07dVgYf","Timestamp":"2020-05-29 14:25:34 UTC","Track":"Rings a Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-05-19 21:53:16 UTC","Duration":"256507","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1e9vLBXvr5KWCBI07dVgYf","Timestamp":"2020-05-19 21:52:29 UTC","Track":"Rings a Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-08-31 10:09:02 UTC","Duration":"213173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0178e3xmFBH9dboFXVeNya","Timestamp":"2020-08-31 10:06:29 UTC","Track":"Sarah Come Home","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-10-27 17:31:53 UTC","Duration":"236045","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"59OLI17MahTupGhjyxaslJ","Timestamp":"2020-10-27 17:17:02 UTC","Track":"Fresh Laundry","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-02 13:55:08 UTC","Duration":"236045","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"59OLI17MahTupGhjyxaslJ","Timestamp":"2020-06-02 13:54:16 UTC","Track":"Fresh Laundry","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-20 20:29:08 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-20 20:28:40 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-20 19:29:30 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-20 19:28:48 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-19 14:52:13 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-19 14:52:06 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-18 10:01:10 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-18 10:00:58 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-13 21:03:07 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-13 21:02:23 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-03 20:03:15 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-03 20:02:16 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-03 11:37:24 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-03 11:36:33 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-06-02 13:12:26 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-06-02 13:08:03 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-05-29 21:46:12 UTC","Duration":"221783","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2N9pECqK6IWg5XMFstXQWA","Timestamp":"2020-05-29 21:45:41 UTC","Track":"Regulars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27315e9d0b5437f77aad88af2fd","Artist":"Allie X","CreatedAt":"2020-05-15 20:47:14 UTC","Duration":"172880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4GSqiK9YdVNhilXMFtCiQB","Timestamp":"2020-05-15 20:46:40 UTC","Track":"Devil I Know","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332ef63bcb552e1e9c1ecf475","Artist":"Allie X","CreatedAt":"2022-01-31 11:47:21 UTC","Duration":"236045","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"59OLI17MahTupGhjyxaslJ","Timestamp":"2022-01-31 11:10:51 UTC","Track":"Fresh Laundry","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27338ca3814f34fb27d4fb45e90","Artist":"Allie X","CreatedAt":"2022-01-31 11:47:22 UTC","Duration":"221527","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4VNW25fHV42tvOdPLmJYaT","Timestamp":"2022-01-31 11:34:12 UTC","Track":"Limited Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27338ca3814f34fb27d4fb45e90","Artist":"Allie X","CreatedAt":"2022-01-31 10:55:59 UTC","Duration":"188086","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kky1AX6SfKvqkbqpnuMpq","Timestamp":"2022-01-31 10:45:19 UTC","Track":"Anchor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cape God (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27338ca3814f34fb27d4fb45e90","Artist":"Allie X","CreatedAt":"2022-08-09 13:52:09 UTC","Duration":"210102","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UXU0TkzArLcCdJBhVKczv","Timestamp":"2022-08-09 13:02:52 UTC","Track":"Milk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2022-08-03 22:53:56 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2022-08-03 22:25:13 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2022-07-31 19:19:30 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2022-07-31 18:30:47 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2022-01-31 14:12:13 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2022-01-31 12:13:04 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2021-10-01 20:31:12 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2021-10-01 19:43:42 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2021-09-29 10:28:05 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2021-09-29 09:54:19 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2021-07-20 07:20:09 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2021-07-19 20:29:58 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2021-02-08 19:19:49 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2021-02-08 16:30:34 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GLAM!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734f3aa3dee729f1540cc5998c","Artist":"Allie X","CreatedAt":"2021-02-08 16:44:15 UTC","Duration":"221917","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IazlP0NMBXhS1hF6H7et6","Timestamp":"2021-02-08 14:48:49 UTC","Track":"GLAM!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2022-01-31 21:02:01 UTC","Duration":"235879","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OteeaJa1FSjBA6o1Ixwfq","Timestamp":"2022-01-31 13:16:53 UTC","Track":"Science","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2022-08-03 23:12:35 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2022-08-03 22:52:11 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2022-01-31 19:54:57 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2022-01-31 12:39:32 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2022-01-03 21:35:37 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2022-01-03 21:02:48 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2021-11-16 19:18:08 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2021-11-16 19:13:37 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2021-10-01 21:42:09 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2021-10-01 21:09:37 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2021-09-09 14:53:53 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2021-09-09 13:55:10 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2021-01-06 19:01:28 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2021-01-06 17:37:24 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736cb6665fe5265df171bc2b93","Artist":"Allie X","CreatedAt":"2020-12-07 18:23:37 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-12-07 17:44:48 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Collxtion I","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f8106e65de780d01077bc68","Artist":"Allie X","CreatedAt":"2019-09-30 09:00:15 UTC","Duration":"225876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1SZM0TLV6HW5xwApECIbdN","Timestamp":"2019-09-30 08:35:52 UTC","Track":"Catch","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Collxtion I","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f8106e65de780d01077bc68","Artist":"Allie X","CreatedAt":"2019-09-24 16:30:18 UTC","Duration":"225876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1SZM0TLV6HW5xwApECIbdN","Timestamp":"2019-09-24 16:27:40 UTC","Track":"Catch","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Collxtion I","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f8106e65de780d01077bc68","Artist":"Allie X","CreatedAt":"2019-09-24 16:00:18 UTC","Duration":"225876","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1SZM0TLV6HW5xwApECIbdN","Timestamp":"2019-09-24 13:18:27 UTC","Track":"Catch","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-03 21:55:34 UTC","Duration":"235879","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OteeaJa1FSjBA6o1Ixwfq","Timestamp":"2020-06-03 21:54:40 UTC","Track":"Science","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-03 15:01:09 UTC","Duration":"235879","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OteeaJa1FSjBA6o1Ixwfq","Timestamp":"2020-06-03 15:00:26 UTC","Track":"Science","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-07-13 10:02:08 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-07-13 10:01:40 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-13 23:21:10 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-06-13 23:20:31 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-04 10:30:10 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-06-04 10:29:35 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-03 23:05:08 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-06-03 23:04:55 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-06-02 15:26:23 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-06-02 15:25:54 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-05-26 20:06:07 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-05-26 20:05:25 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-28 13:15:12 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-28 13:15:03 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-25 14:18:30 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-25 14:17:46 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-24 16:01:13 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-24 16:00:57 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-17 19:26:15 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-17 19:25:47 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-16 19:55:31 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-16 19:55:15 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-14 16:52:59 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-14 16:52:36 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-14 14:12:12 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-14 14:11:29 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-14 08:27:28 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-14 08:27:07 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-06 21:08:13 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-06 21:07:41 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-06 20:21:13 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-06 20:20:27 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-06 19:12:18 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-06 19:11:17 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 16:14:08 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 16:14:00 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 15:40:18 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 15:39:20 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 15:05:15 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 15:04:39 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 14:30:32 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 14:29:59 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 13:55:31 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 13:55:18 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 13:06:28 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 13:05:28 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-04 12:31:43 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-04 12:30:48 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 17:23:21 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 17:22:11 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 16:48:17 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 16:47:31 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 16:13:14 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 16:12:51 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 15:39:13 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 15:38:10 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 15:04:16 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 15:03:29 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 14:29:10 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 14:28:49 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Super Sunset","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bacd4a35933c3a26ea89b048","Artist":"Allie X","CreatedAt":"2020-04-03 14:02:15 UTC","Duration":"224083","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2994N2DpvyCy4gIRS06wLb","Timestamp":"2020-04-03 14:02:01 UTC","Track":"Girl Of The Year","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e0c84f4d265af05d2226c9f4","Artist":"Allie X","CreatedAt":"2020-09-16 13:27:09 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2020-09-16 13:03:45 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e0c84f4d265af05d2226c9f4","Artist":"Allie X","CreatedAt":"2020-09-16 01:29:50 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2020-09-16 00:00:27 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Little Things","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e0c84f4d265af05d2226c9f4","Artist":"Allie X","CreatedAt":"2020-09-15 21:22:29 UTC","Duration":"188114","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uKmb8JqyQ8BYMesmlpsRL","Timestamp":"2020-09-15 20:55:39 UTC","Track":"Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Collxtion I","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f7641d247238167c945cc547","Artist":"Allie X","CreatedAt":"2021-10-01 20:42:59 UTC","Duration":"228299","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5s1VKglR9uPZL6H3VVNK9P","Timestamp":"2021-10-01 20:37:11 UTC","Track":"Hello","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

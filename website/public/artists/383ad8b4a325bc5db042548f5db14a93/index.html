@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Sigurt - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Sigurt</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Breathless / Adventures","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 15:28:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 15:28:52 UTC","Track":"Adventures","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Breathless / Adventures","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 15:18:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 15:18:08 UTC","Track":"Adventures","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dephrecords Catalogue Vol. I","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:53:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:53:34 UTC","Track":"Superhighway - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-10-02 14:37:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 14:37:22 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-05-01 14:49:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-01 14:49:32 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-28 11:19:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-28 11:19:06 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-27 12:53:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-27 12:53:55 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-25 15:40:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-25 15:40:35 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-23 21:47:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-23 21:47:14 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-17 22:25:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-17 22:25:09 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-17 09:29:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-17 09:29:29 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-16 21:53:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-16 21:53:22 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-15 20:08:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-15 20:08:54 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-14 09:11:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-14 09:11:46 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 19:37:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 19:37:53 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 18:37:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 18:37:14 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 13:58:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 13:58:24 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-12 15:59:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-12 15:59:36 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-12 13:43:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-12 13:43:21 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 19:33:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 19:33:53 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 19:02:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 19:02:26 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 09:36:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 09:36:07 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-10 19:28:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-10 19:28:54 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-10 13:47:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-10 13:47:03 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Golden Team","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:38:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:38:07 UTC","Track":"You Will See - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"CrossBase Spring 2012","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 14:44:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 14:44:19 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-10-02 14:18:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 14:18:21 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-05-01 14:54:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-01 14:54:45 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-28 11:24:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-28 11:24:19 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-27 12:59:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-27 12:59:08 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-25 15:45:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-25 15:45:48 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-23 21:52:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-23 21:52:27 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-17 22:30:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-17 22:30:22 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-17 09:34:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-17 09:34:42 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-16 21:58:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-16 21:58:35 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-15 20:14:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-15 20:14:07 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-14 09:16:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-14 09:16:59 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 19:43:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 19:43:06 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 18:42:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 18:42:27 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-13 14:03:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-13 14:03:37 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-12 16:04:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-12 16:04:49 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-12 13:48:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-12 13:48:35 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 19:39:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 19:39:06 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 19:07:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 19:07:39 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-11 09:41:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-11 09:41:20 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-10 19:34:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-10 19:34:07 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-10 13:52:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-10 13:52:15 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Road To Seaside","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:20:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:20:47 UTC","Track":"Hold On - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Alone","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 15:38:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 15:38:55 UTC","Track":"Alone - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Alone","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 15:12:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 15:12:55 UTC","Track":"Alone - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Alone","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:48:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:48:21 UTC","Track":"Alone - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-24 15:01:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 15:01:03 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-24 07:53:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 07:53:46 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-23 15:55:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-23 15:55:37 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-17 21:29:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-17 21:29:03 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-17 15:51:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-17 15:51:34 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 18:33:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 18:33:34 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 14:50:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 14:50:26 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Holy Rollers / Stars","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:43:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:43:20 UTC","Track":"Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Underground Drum \u0026 Bass Sessions Vol. 3","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2018-01-14 15:02:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 15:02:30 UTC","Track":"Need You - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Underground Drum \u0026 Bass Sessions Vol. 3","AlbumCover":"","Artist":"Sigurt","CreatedAt":"2016-04-09 21:59:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:59:20 UTC","Track":"Need You - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 20:45:18 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:28:10 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:32:42 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:26:48 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:46:10 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:21:09 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:32:41 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:15:29 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:57:59 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:09:46 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:05:29 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 17:04:06 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2021-07-05 17:46:09 UTC","Duration":"338965","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2021-07-05 16:58:20 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2018-01-24 14:55:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2018-01-24 14:55:23 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2018-01-23 15:49:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2018-01-23 15:49:57 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2018-01-19 16:46:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2018-01-19 16:46:46 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2018-01-17 15:45:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2018-01-17 15:45:54 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2018-01-14 14:55:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2018-01-14 14:55:25 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-10-02 14:31:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-10-02 14:31:44 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-05-01 14:43:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-05-01 14:43:52 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-28 11:13:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-28 11:13:27 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-27 12:48:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-27 12:48:15 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-25 15:34:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-25 15:34:02 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-23 21:41:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-23 21:41:35 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-22 22:20:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-22 22:20:33 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-17 22:19:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-17 22:19:29 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-17 09:23:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-17 09:23:49 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-16 21:47:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-16 21:47:42 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-15 20:03:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-15 20:03:14 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-14 09:06:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-14 09:06:06 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-13 19:32:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-13 19:32:14 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-13 18:31:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-13 18:31:35 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-13 13:52:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-13 13:52:45 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-12 15:53:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-12 15:53:57 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-12 13:37:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-12 13:37:42 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-11 19:28:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-11 19:28:15 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-11 18:56:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-11 18:56:46 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-11 09:30:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-11 09:30:27 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-10 19:15:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-10 19:15:46 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-10 13:35:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-10 13:35:55 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Big Brilliant","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273512737830fa27d1fa465276f","Artist":"Sigurt","CreatedAt":"2016-04-09 21:32:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7ev59HPp58S91LStSPVdMa","Timestamp":"2016-04-09 21:32:28 UTC","Track":"Into my eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Breathless / Adventures","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273944319f09669c7e67a538e25","Artist":"Sigurt","CreatedAt":"2019-10-14 18:30:17 UTC","Duration":"304000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5KWBsHA1fiPGw8W7fyWfou","Timestamp":"2019-10-14 17:19:53 UTC","Track":"Breathless","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Breathless / Adventures","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273944319f09669c7e67a538e25","Artist":"Sigurt","CreatedAt":"2018-01-14 15:23:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5KWBsHA1fiPGw8W7fyWfou","Timestamp":"2018-01-14 15:23:48 UTC","Track":"Breathless","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Breathless / Adventures","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273944319f09669c7e67a538e25","Artist":"Sigurt","CreatedAt":"2018-01-14 15:07:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5KWBsHA1fiPGw8W7fyWfou","Timestamp":"2018-01-14 15:07:51 UTC","Track":"Breathless","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2015-07-27 21:16:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-27 21:16:00 UTC","Track":"Colorful (Original)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2013-04-28 14:47:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-04-28 14:47:37 UTC","Track":"Colorful (Original)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 14:04:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 14:04:57 UTC","Track":"Colorful - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 13:53:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 13:53:00 UTC","Track":"Colorful - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 13:35:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 13:35:35 UTC","Track":"Colorful - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-04-09 21:15:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:15:00 UTC","Track":"Colorful - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2015-07-27 21:21:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-27 21:21:47 UTC","Track":"When (Original)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2013-02-23 12:17:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-23 12:17:22 UTC","Track":"When (Original)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"When (Original)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 14:10:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 14:10:45 UTC","Track":"When - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 13:58:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 13:58:45 UTC","Track":"When - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-10-02 13:41:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-02 13:41:22 UTC","Track":"When - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colorful","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fcb3d60f40a844019c886f90ccf56471.png","Artist":"Sigurt","CreatedAt":"2016-04-09 21:26:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-09 21:26:17 UTC","Track":"When - Original","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

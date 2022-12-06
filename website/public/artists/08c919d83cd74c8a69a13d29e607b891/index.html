@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Dezza - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Dezza</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Wake Your Mind Radio 222","AlbumCover":"","Artist":"Dezza","CreatedAt":"2018-07-30 14:27:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-30 14:27:20 UTC","Track":"Intro84 (WYM222)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"","Artist":"Dezza","CreatedAt":"2018-07-31 14:31:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-31 14:31:26 UTC","Track":"Law of Attraction","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"","Artist":"Dezza","CreatedAt":"2018-07-31 14:27:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-31 14:27:00 UTC","Track":"Law of Attraction","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Meekix / Derry","AlbumCover":"","Artist":"Dezza","CreatedAt":"2017-08-02 15:41:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-02 15:41:56 UTC","Track":"Derry","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2019-08-07 14:15:17 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2019-08-07 13:45:59 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2019-07-20 20:00:15 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2019-07-20 19:59:13 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2019-07-19 16:00:09 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2019-07-19 15:57:36 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2019-07-03 18:30:08 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2019-07-03 18:03:23 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-11-02 18:45:12 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-11-02 18:37:03 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-10-31 10:30:09 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-10-31 10:11:26 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-10-28 22:00:18 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-10-28 21:59:46 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-10-27 21:00:17 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-10-27 20:45:56 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-10-26 23:45:17 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-10-26 23:36:18 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/1de4c852001568542f620611b9349dfacca0e2a2","Artist":"Dezza","CreatedAt":"2018-10-25 09:00:15 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2018-10-25 08:57:02 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://i.scdn.co/image/2384745cd8566349db8128484d1876680edb9edd","Artist":"Dezza","CreatedAt":"2019-05-31 11:15:11 UTC","Duration":"227636","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2019-05-31 11:14:07 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://i.scdn.co/image/2384745cd8566349db8128484d1876680edb9edd","Artist":"Dezza","CreatedAt":"2019-05-07 12:45:13 UTC","Duration":"227636","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2019-05-07 12:39:40 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://i.scdn.co/image/2384745cd8566349db8128484d1876680edb9edd","Artist":"Dezza","CreatedAt":"2018-10-25 08:45:09 UTC","Duration":"227636","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2018-10-25 08:36:55 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Are You Gone / Visions","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735b7a76a6ef427d93a112ee44","Artist":"Dezza","CreatedAt":"2022-02-11 14:45:31 UTC","Duration":"220150","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"63aB8sCfGCbuYozeZhlLdx","Timestamp":"2022-02-11 13:12:38 UTC","Track":"Are You Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unified Vol.8","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739887e1d76036f24dde732e79","Artist":"Dezza","CreatedAt":"2019-12-03 09:00:27 UTC","Duration":"238773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3b6tG18t0QGIvU9UflSav8","Timestamp":"2019-12-03 08:34:59 UTC","Track":"All I Need","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2020-10-26 20:26:38 UTC","Duration":"270476","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2020-10-26 19:06:53 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-07-24 15:41:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-07-24 15:41:30 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-07-24 15:37:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-07-24 15:37:00 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-07-24 15:22:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-07-24 15:22:23 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-07-24 15:08:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-07-24 15:08:49 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-06-25 10:27:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-06-25 10:27:30 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-06-25 10:27:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-06-25 10:27:29 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-06-19 16:48:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-06-19 16:48:52 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2018-01-04 21:43:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2018-01-04 21:43:32 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-12-10 16:47:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-12-10 16:47:54 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-12-09 13:27:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-12-09 13:27:24 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-12-09 11:19:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-12-09 11:19:19 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-29 12:55:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-29 12:55:02 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-25 09:26:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-25 09:26:01 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-20 21:46:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-20 21:46:06 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-20 17:28:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-20 17:28:21 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-20 14:07:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-20 14:07:12 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-19 16:54:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-19 16:54:02 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-12 18:14:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-12 18:14:18 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-10 22:14:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-10 22:14:19 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-10 12:24:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-10 12:24:18 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-09 10:26:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-09 10:26:48 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-08 16:21:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-08 16:21:08 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-07 12:24:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-07 12:24:58 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-07 10:47:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-07 10:47:18 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-04 10:22:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-04 10:22:45 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-02 14:09:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-02 14:09:53 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-02 11:22:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-02 11:22:57 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c1c3716cc2de81878b512f95","Artist":"Dezza","CreatedAt":"2017-08-02 11:16:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2017-08-02 11:16:13 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Are You Gone / Visions","AlbumCover":"https://i.scdn.co/image/cf22aae7719622c94679bc8ae36d4997f99c7ed1","Artist":"Dezza","CreatedAt":"2019-08-07 15:45:15 UTC","Duration":"220150","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"63aB8sCfGCbuYozeZhlLdx","Timestamp":"2019-08-07 15:33:05 UTC","Track":"Are You Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Are You Gone / Visions","AlbumCover":"https://i.scdn.co/image/cf22aae7719622c94679bc8ae36d4997f99c7ed1","Artist":"Dezza","CreatedAt":"2018-07-31 14:14:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"63aB8sCfGCbuYozeZhlLdx","Timestamp":"2018-07-31 14:14:24 UTC","Track":"Are You Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Are You Gone / Visions","AlbumCover":"https://i.scdn.co/image/cf22aae7719622c94679bc8ae36d4997f99c7ed1","Artist":"Dezza","CreatedAt":"2018-07-31 14:10:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"63aB8sCfGCbuYozeZhlLdx","Timestamp":"2018-07-31 14:10:48 UTC","Track":"Are You Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/d936af1e04eb2943dd1f705be13a2a7e7058a911","Artist":"Dezza","CreatedAt":"2019-05-31 10:45:11 UTC","Duration":"252708","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MFq4ur5GRrKo9dYeIcYmX","Timestamp":"2019-05-31 10:41:18 UTC","Track":"Would U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/d936af1e04eb2943dd1f705be13a2a7e7058a911","Artist":"Dezza","CreatedAt":"2018-10-27 23:15:13 UTC","Duration":"252708","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MFq4ur5GRrKo9dYeIcYmX","Timestamp":"2018-10-27 23:13:21 UTC","Track":"Would U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AC35 / Would U","AlbumCover":"https://i.scdn.co/image/d936af1e04eb2943dd1f705be13a2a7e7058a911","Artist":"Dezza","CreatedAt":"2019-04-02 21:00:11 UTC","Duration":"270476","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WsUAvP3F4rLtsmIjxVnGb","Timestamp":"2019-04-02 20:31:31 UTC","Track":"AC35","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"https://i.scdn.co/image/f50bd375977264767ad6238cccc9835e91ad1a87","Artist":"Dezza","CreatedAt":"2019-07-05 15:45:15 UTC","Duration":"228612","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7Jx3dCF62qQicecR82VQxI","Timestamp":"2019-07-05 15:36:05 UTC","Track":"In Tents","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"https://i.scdn.co/image/f50bd375977264767ad6238cccc9835e91ad1a87","Artist":"Dezza","CreatedAt":"2019-05-31 11:15:09 UTC","Duration":"228612","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7Jx3dCF62qQicecR82VQxI","Timestamp":"2019-05-31 10:16:46 UTC","Track":"In Tents","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"https://i.scdn.co/image/f50bd375977264767ad6238cccc9835e91ad1a87","Artist":"Dezza","CreatedAt":"2018-07-30 14:49:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7Jx3dCF62qQicecR82VQxI","Timestamp":"2018-07-30 14:49:04 UTC","Track":"In Tents","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Tents/Law Of Attraction","AlbumCover":"https://i.scdn.co/image/f50bd375977264767ad6238cccc9835e91ad1a87","Artist":"Dezza","CreatedAt":"2018-07-30 14:48:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7Jx3dCF62qQicecR82VQxI","Timestamp":"2018-07-30 14:48:59 UTC","Track":"In Tents","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Close Your Eyes","AlbumCover":"https://i.scdn.co/image/f7b9461b09303bfe248d95b68468fde3e92f22ad","Artist":"Dezza","CreatedAt":"2020-01-13 16:45:20 UTC","Duration":"205375","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4gWclnSFNWdKWWvRS9eQbr","Timestamp":"2020-01-13 16:44:59 UTC","Track":"Close Your Eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-10-30 21:15:17 UTC","Duration":"360250","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lKgBp3WI71RYCtx9QxlHU","Timestamp":"2019-10-30 19:34:02 UTC","Track":"Cosmos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-10-28 19:15:20 UTC","Duration":"360250","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lKgBp3WI71RYCtx9QxlHU","Timestamp":"2019-10-28 18:53:12 UTC","Track":"Cosmos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-10-28 16:45:25 UTC","Duration":"360250","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0lKgBp3WI71RYCtx9QxlHU","Timestamp":"2019-10-28 15:35:39 UTC","Track":"Cosmos","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2020-07-24 22:49:13 UTC","Duration":"199416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-24 22:48:44 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2020-07-24 20:05:09 UTC","Duration":"199416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-24 20:04:45 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-12-11 11:03:32 UTC","Duration":"199416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2019-12-11 10:52:28 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-12-09 12:01:12 UTC","Duration":"199416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2019-12-09 11:39:28 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://i.scdn.co/image/fa5720561baa5a979a06204a07c97e8d5cd92738","Artist":"Dezza","CreatedAt":"2019-12-09 08:45:19 UTC","Duration":"199416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2019-12-09 08:43:42 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"March of the Bird","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4b1834a49dea53dd3ec221c79fa27964.png","Artist":"Dezza","CreatedAt":"2018-07-30 15:38:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-30 15:38:00 UTC","Track":"March of the Bird - Jaytech Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"March of the Bird","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4b1834a49dea53dd3ec221c79fa27964.png","Artist":"Dezza","CreatedAt":"2018-07-30 15:37:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-30 15:37:54 UTC","Track":"March of the Bird - Jaytech Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Are You Gone / Visions","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c1ed5f1c3853f623e4d3970103b12e25.png","Artist":"Dezza","CreatedAt":"2017-08-07 13:26:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"63aB8sCfGCbuYozeZhlLdx","Timestamp":"2017-08-07 13:26:42 UTC","Track":"Are You Gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c29e7177d424858ca9a5591d2cd0b5dc.png","Artist":"Dezza","CreatedAt":"2018-07-30 14:07:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2018-07-30 14:07:34 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c29e7177d424858ca9a5591d2cd0b5dc.png","Artist":"Dezza","CreatedAt":"2018-07-30 14:00:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2018-07-30 14:00:04 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Abyss / Holonya / Once In A Lifetime","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c29e7177d424858ca9a5591d2cd0b5dc.png","Artist":"Dezza","CreatedAt":"2018-07-30 13:59:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0Py1X6Ip44nVV52nhxNNSx","Timestamp":"2018-07-30 13:59:59 UTC","Track":"Once In A Lifetime","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/592a4f63222e17765579e27f921ec1df.jpg","Artist":"Dezza","CreatedAt":"2020-07-23 22:31:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-21 10:37:51 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/592a4f63222e17765579e27f921ec1df.jpg","Artist":"Dezza","CreatedAt":"2020-07-23 22:31:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-20 23:04:15 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/592a4f63222e17765579e27f921ec1df.jpg","Artist":"Dezza","CreatedAt":"2020-07-23 22:31:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-20 21:00:35 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cosmos","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/592a4f63222e17765579e27f921ec1df.jpg","Artist":"Dezza","CreatedAt":"2020-07-23 22:31:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6UitR4UzbU4qCVJstIxxVU","Timestamp":"2020-07-20 16:44:58 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

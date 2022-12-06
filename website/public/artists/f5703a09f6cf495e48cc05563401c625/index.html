@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Bleachers - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Bleachers</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2022-11-24 14:42:30 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2022-11-24 14:41:51 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2022-11-15 15:57:39 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2022-11-15 15:39:33 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2022-08-29 21:11:45 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2022-08-29 20:55:49 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2022-02-28 20:10:02 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2022-02-28 19:28:25 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-12-22 10:37:47 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-12-22 10:36:50 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-12-10 13:29:58 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-12-10 13:01:35 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-12-06 09:41:48 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-12-06 09:22:28 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-12-03 03:25:08 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-12-03 00:09:58 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-26 14:27:29 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-26 13:04:32 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-24 16:53:58 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-24 15:44:01 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-22 19:16:52 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-22 19:11:32 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-22 17:04:14 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-22 16:55:01 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-22 15:59:12 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-22 15:00:56 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-20 23:32:35 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-20 23:22:39 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-19 21:16:20 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-19 21:08:44 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-19 12:40:04 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-19 12:39:03 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-17 18:42:10 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-17 17:47:56 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-17 17:13:35 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-17 16:05:14 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-17 15:19:57 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-17 15:19:18 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-16 13:48:55 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-16 11:22:00 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-13 19:08:51 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-13 17:41:46 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-13 17:23:08 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-13 16:18:35 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-13 14:57:12 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-13 14:54:24 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-13 14:33:08 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-13 12:43:08 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-13 08:07:47 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-13 07:56:23 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-11 10:52:12 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-11 10:17:47 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-11 07:35:07 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-11 06:35:18 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-10 21:58:00 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-10 21:52:33 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-10 18:52:00 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-10 18:22:08 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-10 16:37:05 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-10 14:53:42 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-08 07:49:50 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-08 07:30:26 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-07 17:48:40 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-07 16:24:06 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-07 18:01:03 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-07 15:27:46 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-07 14:31:38 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-07 14:31:27 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-07 14:19:01 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-07 13:35:06 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-07 12:48:17 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-07 12:38:47 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-06 19:17:38 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-06 19:04:06 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-06 20:15:03 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-06 18:11:38 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-06 17:49:03 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-06 16:55:58 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-06 17:15:15 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-06 15:59:27 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-06 16:09:34 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-06 14:56:35 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-04 11:12:31 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-04 10:31:13 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-04 07:28:22 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-04 07:17:11 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-03 23:36:39 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-03 23:18:01 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-03 20:32:49 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-03 20:21:08 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-03 19:41:39 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-03 19:39:32 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-03 19:00:35 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-03 18:57:57 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-02 19:17:46 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-02 19:16:45 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-02 17:04:15 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-02 16:07:42 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-02 12:53:31 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-02 12:25:33 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-02 12:16:34 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-02 12:01:31 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-02 11:53:19 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-02 11:22:49 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Strange Desire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273aa31c98f0add81591375af01","Artist":"Bleachers","CreatedAt":"2021-09-01 18:54:20 UTC","Duration":"188866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6bhgCp71wzepvwmEPxUlK8","Timestamp":"2021-09-01 17:40:03 UTC","Track":"Rollercoaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Take The Money","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c2caba02dc9d408e0057942d","Artist":"Bleachers","CreatedAt":"2020-12-11 13:31:23 UTC","Duration":"215539","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0d3BJRrklQ6sTfbmrojuZI","Timestamp":"2020-12-11 13:30:38 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-12-23 16:51:12 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-12-23 14:36:30 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-26 13:41:47 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-26 13:37:29 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-24 16:53:59 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-24 16:26:11 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-22 17:45:01 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-22 17:17:10 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-22 16:37:01 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-22 15:23:06 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-17 18:23:57 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-17 18:10:06 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-16 12:18:24 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-16 11:44:09 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-13 18:36:11 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-13 16:40:45 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-13 18:10:35 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-13 15:17:52 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-13 13:44:45 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-13 13:05:19 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-11 10:40:09 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-11 10:39:57 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-10 22:22:01 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-10 22:14:40 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-10 15:32:52 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-10 15:15:51 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-09 10:49:07 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-09 10:46:03 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-08 08:45:19 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-08 07:52:36 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-07 16:50:03 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-07 16:46:16 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-07 15:50:08 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-07 15:49:56 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-07 14:55:39 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-07 14:53:37 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-07 16:49:58 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-07 13:57:17 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-07 14:31:35 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-07 13:00:56 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-06 19:41:41 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-06 18:36:05 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-06 18:48:23 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-06 17:37:34 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-06 16:51:07 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-06 16:21:36 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-06 18:29:35 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-06 15:18:42 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-04 07:40:30 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-04 07:39:20 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-03 20:32:48 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-03 20:01:43 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-03 19:29:42 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-03 19:20:07 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-02 19:54:42 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-02 19:51:38 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-02 17:58:24 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-02 17:47:07 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d92afcf66072c83e4b28c6bb","Artist":"Bleachers","CreatedAt":"2021-09-02 12:16:35 UTC","Duration":"215546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2021-09-02 12:15:06 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Gone Now","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b39adc65380fd240746dc6a64a337aa6.png","Artist":"Bleachers","CreatedAt":"2017-09-01 12:56:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ySU5vwQB33iGulwcUL9qQ","Timestamp":"2017-09-01 12:56:18 UTC","Track":"Don't Take The Money","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

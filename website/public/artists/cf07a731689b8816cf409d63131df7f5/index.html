@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Adam Young - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Adam Young</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Project Excelsior","AlbumCover":"https://i.scdn.co/image/9eb44325025016c36174443b7a3c0467c811b436","Artist":"Adam Young","CreatedAt":"2019-04-03 09:45:06 UTC","Duration":"223786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2019-04-03 08:48:29 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://i.scdn.co/image/9eb44325025016c36174443b7a3c0467c811b436","Artist":"Adam Young","CreatedAt":"2019-04-02 23:00:12 UTC","Duration":"223786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2019-04-02 22:39:21 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://i.scdn.co/image/9eb44325025016c36174443b7a3c0467c811b436","Artist":"Adam Young","CreatedAt":"2019-01-18 12:15:12 UTC","Duration":"223786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2019-01-18 11:17:50 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f61b9e787fe306e07ab1724b","Artist":"Adam Young","CreatedAt":"2019-12-15 18:30:30 UTC","Duration":"223786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2019-12-15 18:04:17 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f61b9e787fe306e07ab1724b","Artist":"Adam Young","CreatedAt":"2019-12-11 08:30:27 UTC","Duration":"223786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2019-12-11 07:47:59 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:20:01 UTC","Track":"Ocean Camp","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2017-01-04 15:58:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 15:58:01 UTC","Track":"Shackleton","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:06:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:06:23 UTC","Track":"Shackleton","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:12:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:12:41 UTC","Track":"The Weddell Sea","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:15:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:15:54 UTC","Track":"Abandon Ship","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:36:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:36:19 UTC","Track":"800 Miles","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:27:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:27:25 UTC","Track":"The March","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:31:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:31:52 UTC","Track":"Elephant Island","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:39:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:39:49 UTC","Track":"South Georgia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:24:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:24:05 UTC","Track":"She's Going, Boys","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Endurance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1c9ee97d82d684fc9532b97663823258.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:09:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:09:32 UTC","Track":"Hoist Sail","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Voyager 1","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/39acdd1ea73421351d90e8e9c549e5b1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:37:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:37:45 UTC","Track":"Jupiter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Voyager 1","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/39acdd1ea73421351d90e8e9c549e5b1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:49:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:49:56 UTC","Track":"Saturn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Voyager 1","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/39acdd1ea73421351d90e8e9c549e5b1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:21:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:21:03 UTC","Track":"Titan","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Voyager 1","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/39acdd1ea73421351d90e8e9c549e5b1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:32:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:32:58 UTC","Track":"1977","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Voyager 1","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/39acdd1ea73421351d90e8e9c549e5b1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:41:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:41:44 UTC","Track":"Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:39:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:39:18 UTC","Track":"The Summit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:00:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:00:03 UTC","Track":"Base Camp","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:19:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:19:01 UTC","Track":"Base Camp","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:32:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:32:01 UTC","Track":"South Col","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 15:03:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 15:03:16 UTC","Track":"Khumbu Icefall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:22:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:22:14 UTC","Track":"Khumbu Icefall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:25:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:25:48 UTC","Track":"Western Cwm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-21 12:38:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-21 12:38:17 UTC","Track":"The Hillary Step","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:35:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:35:40 UTC","Track":"The Hillary Step","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Ascent of Everest","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/708d842e262713a29f13e89c6f8f47bc.png","Artist":"Adam Young","CreatedAt":"2016-12-16 11:29:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-16 11:29:05 UTC","Track":"Lhotse Face","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mount Rushmore","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/981b6e7641fa0a3dc05676bd47a40d08.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:07:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:07:53 UTC","Track":"Construction","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mount Rushmore","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/981b6e7641fa0a3dc05676bd47a40d08.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:29:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:29:09 UTC","Track":"Shrine of Democracy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mount Rushmore","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/981b6e7641fa0a3dc05676bd47a40d08.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:39:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:39:51 UTC","Track":"Half a Million Tons of Granite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mount Rushmore","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/981b6e7641fa0a3dc05676bd47a40d08.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:29:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:29:53 UTC","Track":"Gutzon Borglum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mount Rushmore","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/981b6e7641fa0a3dc05676bd47a40d08.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:32:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:32:02 UTC","Track":"Dynamite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:22:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:22:24 UTC","Track":"The Highest Step In The World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-12-14 11:23:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-12-14 11:23:40 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-12-14 09:05:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-12-14 09:05:32 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-12-09 21:52:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-12-09 21:52:42 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-12-08 11:01:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-12-08 11:01:56 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-30 21:09:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-30 21:09:09 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-29 14:38:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-29 14:38:37 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:51:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:51:10 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:47:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:47:26 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:43:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:43:41 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:39:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:39:57 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:36:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:36:13 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-27 17:32:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-27 17:32:30 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-22 14:44:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-22 14:44:29 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-18 14:54:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-18 14:54:50 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-13 14:55:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-13 14:55:07 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-13 12:39:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-13 12:39:31 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-13 10:23:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-13 10:23:53 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-12 23:29:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-12 23:29:36 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-12 16:51:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-12 16:51:50 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-11 12:17:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-11 12:17:30 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-10 18:17:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-10 18:17:55 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-10 14:50:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-10 14:50:08 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-10 12:24:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-10 12:24:31 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-10 08:43:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-10 08:43:16 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-10 08:18:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-10 08:18:52 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-07 14:18:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-07 14:18:21 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:13:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-04 17:13:46 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:04:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3wxb4nCUfXnDc0JCFP1lgo","Timestamp":"2017-01-04 16:04:54 UTC","Track":"The Pilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:43:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:43:10 UTC","Track":"On the Ground","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:25:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:25:07 UTC","Track":"The Descent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:54:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:54:52 UTC","Track":"The Ascent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Project Excelsior","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a1ecc0dff696ac6bd59c7e92dccbcf80.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:25:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:25:40 UTC","Track":"Ground Crew","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:49:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:49:58 UTC","Track":"Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:14:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:14:04 UTC","Track":"Making Water","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:01:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:01:10 UTC","Track":"The Fairchild","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:46:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:46:26 UTC","Track":"The Dead","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:57:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:57:16 UTC","Track":"The Tail","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miracle In The Andes","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a4834383f426f19001d1a5f92072b385.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:04:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:04:44 UTC","Track":"Parrado and Canessa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:18:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:18:13 UTC","Track":"March to the Sea","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:55:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:55:41 UTC","Track":"Up With the Stars","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:08:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:08:39 UTC","Track":"Atlanta","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:33:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:33:24 UTC","Track":"How Sweet the Sound","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:12:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:12:19 UTC","Track":"Fall Of The Confederacy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:46:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:46:41 UTC","Track":"The Deep South","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:58:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:58:37 UTC","Track":"Georgia Boys","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:01:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:01:01 UTC","Track":"Sherman","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Corduroy Road","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b2b6c9188c5ee249b4d1414baad73be1.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:52:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:52:40 UTC","Track":"Country Hymn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Omaha Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c3d3f1facb90bbf6ccc180723727187c.png","Artist":"Adam Young","CreatedAt":"2017-01-04 18:02:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 18:02:11 UTC","Track":"Reinforcements","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Omaha Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c3d3f1facb90bbf6ccc180723727187c.png","Artist":"Adam Young","CreatedAt":"2017-01-04 16:36:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 16:36:16 UTC","Track":"The Longest Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Omaha Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c3d3f1facb90bbf6ccc180723727187c.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:17:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:17:29 UTC","Track":"On the Beach","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Omaha Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c3d3f1facb90bbf6ccc180723727187c.png","Artist":"Adam Young","CreatedAt":"2017-01-04 18:04:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 18:04:40 UTC","Track":"Troops Advance Inland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Omaha Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c3d3f1facb90bbf6ccc180723727187c.png","Artist":"Adam Young","CreatedAt":"2017-01-04 17:11:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-01-04 17:11:13 UTC","Track":"H-Hour","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

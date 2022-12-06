@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Dua Lipa - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Dua Lipa</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Dua Lipa","CreatedAt":"2019-01-04 18:53:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-01-04 18:53:29 UTC","Track":"Scared To Be Lonely","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blow Your Mind (Mwah)","AlbumCover":"https://i.scdn.co/image/0e4574fac3ba5a4de37d349bb83ca04bcf0bc68a","Artist":"Dua Lipa","CreatedAt":"2018-11-26 10:30:11 UTC","Duration":"178583","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7kJlTKjNZVT26iwiDUVhRm","Timestamp":"2018-11-26 09:58:34 UTC","Track":"Blow Your Mind (Mwah)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blow Your Mind (Mwah)","AlbumCover":"https://i.scdn.co/image/0e4574fac3ba5a4de37d349bb83ca04bcf0bc68a","Artist":"Dua Lipa","CreatedAt":"2018-11-16 08:45:14 UTC","Duration":"178583","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7kJlTKjNZVT26iwiDUVhRm","Timestamp":"2018-11-16 08:33:42 UTC","Track":"Blow Your Mind (Mwah)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","AlbumCover":"https://i.scdn.co/image/4e357c9c0693c3e658de841be2d4393e552cfa32","Artist":"Dua Lipa","CreatedAt":"2019-01-24 23:45:11 UTC","Duration":"182074","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5600nq7TiBraBX2jobyJ3l","Timestamp":"2019-01-24 23:44:56 UTC","Track":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Start Now","AlbumCover":"https://i.scdn.co/image/6d61103bd4043701d6cd230a02fa43d916c4f144","Artist":"Dua Lipa","CreatedAt":"2020-01-22 09:10:22 UTC","Duration":"183290","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WrI0LAC5M1Rw2MnX2ZvEg","Timestamp":"2020-01-22 09:09:11 UTC","Track":"Don't Start Now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Start Now","AlbumCover":"https://i.scdn.co/image/6d61103bd4043701d6cd230a02fa43d916c4f144","Artist":"Dua Lipa","CreatedAt":"2020-01-15 14:12:20 UTC","Duration":"183290","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WrI0LAC5M1Rw2MnX2ZvEg","Timestamp":"2020-01-15 14:11:48 UTC","Track":"Don't Start Now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Don't Start Now","AlbumCover":"https://i.scdn.co/image/6d61103bd4043701d6cd230a02fa43d916c4f144","Artist":"Dua Lipa","CreatedAt":"2020-01-13 15:39:11 UTC","Duration":"183290","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6WrI0LAC5M1Rw2MnX2ZvEg","Timestamp":"2020-01-13 15:38:10 UTC","Track":"Don't Start Now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Physical","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27313a6ef8345c14d2eeb2a37ef","Artist":"Dua Lipa","CreatedAt":"2020-12-05 16:33:45 UTC","Duration":"193829","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5px6upUHM3fhOP621Edp4V","Timestamp":"2020-12-05 16:18:04 UTC","Track":"Physical","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We're Good","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273419afedd01696303371e1ba4","Artist":"Dua Lipa","CreatedAt":"2021-02-15 18:27:18 UTC","Duration":"165506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4xAJSIcCHcOCli5m325X2H","Timestamp":"2021-02-15 18:04:06 UTC","Track":"We're Good","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738273394e70d47a9f76a6678f","Artist":"Dua Lipa","CreatedAt":"2021-08-05 16:13:13 UTC","Duration":"212000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4LihUZcWy0B6lGLqcJ8u9B","Timestamp":"2021-08-05 14:39:23 UTC","Track":"New Rules","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b75e062b52a8bbee368b70b6","Artist":"Dua Lipa","CreatedAt":"2019-12-06 11:15:17 UTC","Duration":"182074","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5600nq7TiBraBX2jobyJ3l","Timestamp":"2019-12-06 11:05:41 UTC","Track":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b75e062b52a8bbee368b70b6","Artist":"Dua Lipa","CreatedAt":"2019-12-05 22:45:25 UTC","Duration":"182074","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5600nq7TiBraBX2jobyJ3l","Timestamp":"2019-12-05 22:30:53 UTC","Track":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Swan Song (From the Motion Picture \"Alita: Battle Angel\")","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b75e062b52a8bbee368b70b6","Artist":"Dua Lipa","CreatedAt":"2020-09-15 22:45:11 UTC","Duration":"182074","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5600nq7TiBraBX2jobyJ3l","Timestamp":"2020-09-15 22:43:52 UTC","Track":"Swan Song - From the Motion Picture \"Alita: Battle Angel\"","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bd26ede1ae69327010d49946","Artist":"Dua Lipa","CreatedAt":"2022-05-03 13:07:38 UTC","Duration":"208505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1nYeVF5vIBxMxfPoL0SIWg","Timestamp":"2022-05-03 12:56:12 UTC","Track":"Hallucinate","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cda2c6ad6272aea9c5811a49","Artist":"Dua Lipa","CreatedAt":"2020-09-09 11:53:08 UTC","Duration":"193829","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3AzjcOeAmA57TIOr9zF1ZW","Timestamp":"2020-09-09 10:59:09 UTC","Track":"Physical","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cda2c6ad6272aea9c5811a49","Artist":"Dua Lipa","CreatedAt":"2020-09-03 13:52:53 UTC","Duration":"193829","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3AzjcOeAmA57TIOr9zF1ZW","Timestamp":"2020-09-03 13:39:55 UTC","Track":"Physical","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cda2c6ad6272aea9c5811a49","Artist":"Dua Lipa","CreatedAt":"2020-09-03 11:18:31 UTC","Duration":"193829","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3AzjcOeAmA57TIOr9zF1ZW","Timestamp":"2020-09-03 11:07:03 UTC","Track":"Physical","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cda2c6ad6272aea9c5811a49","Artist":"Dua Lipa","CreatedAt":"2020-12-05 20:31:02 UTC","Duration":"221820","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"017PF4Q3l4DBUiWoXk4OWT","Timestamp":"2020-12-05 19:43:27 UTC","Track":"Break My Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia (The Moonlight Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ef12a4e8cdb297684e197cc4","Artist":"Dua Lipa","CreatedAt":"2021-09-27 19:52:23 UTC","Duration":"165506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1diS6nkxMQc3wwC4G1j0bh","Timestamp":"2021-09-27 19:23:56 UTC","Track":"We're Good","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia (The Moonlight Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ef12a4e8cdb297684e197cc4","Artist":"Dua Lipa","CreatedAt":"2021-06-24 13:58:25 UTC","Duration":"165506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1diS6nkxMQc3wwC4G1j0bh","Timestamp":"2021-06-24 13:39:40 UTC","Track":"We're Good","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/f8fdc7c3f03ab4c29b36aa0461ad19dc6a639253","Artist":"Dua Lipa","CreatedAt":"2019-09-08 22:30:24 UTC","Duration":"212000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4LihUZcWy0B6lGLqcJ8u9B","Timestamp":"2019-09-08 22:29:14 UTC","Track":"New Rules","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/f8fdc7c3f03ab4c29b36aa0461ad19dc6a639253","Artist":"Dua Lipa","CreatedAt":"2019-04-25 17:34:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"4LihUZcWy0B6lGLqcJ8u9B","Timestamp":"2019-04-25 17:34:49 UTC","Track":"New Rules","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/f8fdc7c3f03ab4c29b36aa0461ad19dc6a639253","Artist":"Dua Lipa","CreatedAt":"2019-01-31 18:15:09 UTC","Duration":"212000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4LihUZcWy0B6lGLqcJ8u9B","Timestamp":"2019-01-31 18:01:20 UTC","Track":"New Rules","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/f8fdc7c3f03ab4c29b36aa0461ad19dc6a639253","Artist":"Dua Lipa","CreatedAt":"2019-01-12 22:30:10 UTC","Duration":"212000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4LihUZcWy0B6lGLqcJ8u9B","Timestamp":"2019-01-12 22:00:21 UTC","Track":"New Rules","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dua Lipa (Deluxe)","AlbumCover":"https://i.scdn.co/image/f8fdc7c3f03ab4c29b36aa0461ad19dc6a639253","Artist":"Dua Lipa","CreatedAt":"2019-10-10 11:00:22 UTC","Duration":"187957","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4fTlLuSt6R3OnjAj0Ty5OC","Timestamp":"2019-10-10 10:57:31 UTC","Track":"Hotter Than Hell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be The One","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/03f9b494b87c7d6ed593599d04a515ee.png","Artist":"Dua Lipa","CreatedAt":"2016-07-01 21:57:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-07-01 21:57:22 UTC","Track":"Be The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be The One","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/03f9b494b87c7d6ed593599d04a515ee.png","Artist":"Dua Lipa","CreatedAt":"2016-06-28 08:37:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-28 08:37:22 UTC","Track":"Be The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be The One","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/03f9b494b87c7d6ed593599d04a515ee.png","Artist":"Dua Lipa","CreatedAt":"2016-06-27 11:34:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 11:34:48 UTC","Track":"Be The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be The One","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/03f9b494b87c7d6ed593599d04a515ee.png","Artist":"Dua Lipa","CreatedAt":"2016-06-27 09:21:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-27 09:21:32 UTC","Track":"Be The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be The One","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/03f9b494b87c7d6ed593599d04a515ee.png","Artist":"Dua Lipa","CreatedAt":"2016-06-26 22:12:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-06-26 22:12:24 UTC","Track":"Be The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-03-01 00:03:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-01 00:03:55 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-29 12:26:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-29 12:26:56 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-28 22:50:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-28 22:50:54 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-27 15:14:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-27 15:14:15 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-26 11:27:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-26 11:27:39 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-25 17:23:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-25 17:23:41 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-24 17:28:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-24 17:28:32 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-24 14:38:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-24 14:38:12 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-23 11:21:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-23 11:21:22 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-22 15:43:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-22 15:43:36 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-21 14:22:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-21 14:22:14 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Last Dance","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5e9c230dbcb200938c01fa7b36cda075.png","Artist":"Dua Lipa","CreatedAt":"2016-02-20 11:10:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-20 11:10:49 UTC","Track":"Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Be the One (Netsky Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8866cc9b1a9e3fd94f7c354a4b2a10ba.png","Artist":"Dua Lipa","CreatedAt":"2018-09-18 08:11:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-09-18 08:11:23 UTC","Track":"Be the One - Netsky Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Future Nostalgia","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/2a91bc0382f6ab66220be0e79000bc4d.jpg","Artist":"Dua Lipa","CreatedAt":"2022-11-24 17:20:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2022-11-24 15:59:47 UTC","Track":"Pretty Please","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

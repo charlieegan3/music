@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Altan - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Altan</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Celtic wonder","AlbumCover":"","Artist":"Altan","CreatedAt":"2018-04-10 16:24:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:24:39 UTC","Track":"Dulaman","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Blue Idol","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05ac649231023dbdd17213970c59dc1e.png","Artist":"Altan","CreatedAt":"2017-10-27 10:45:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:45:04 UTC","Track":"The Pretty Young Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Blue Idol","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05ac649231023dbdd17213970c59dc1e.png","Artist":"Altan","CreatedAt":"2017-10-27 11:07:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 11:07:48 UTC","Track":"An cailín deas óg","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Blue Idol","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05ac649231023dbdd17213970c59dc1e.png","Artist":"Altan","CreatedAt":"2018-04-10 16:09:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:09:06 UTC","Track":"Daily Growing","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Runaway Sunday","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/388b244591e4d55484537e37a359ba0e.png","Artist":"Altan","CreatedAt":"2017-10-27 10:58:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:58:12 UTC","Track":"Australian Waters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Runaway Sunday","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/388b244591e4d55484537e37a359ba0e.png","Artist":"Altan","CreatedAt":"2017-10-27 10:39:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:39:44 UTC","Track":"Suil Ghorm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Another Sky","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3a7a9eaa93b94e3ebcd3b6d81610c0d4.png","Artist":"Altan","CreatedAt":"2017-10-27 10:53:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:53:53 UTC","Track":"Beidh Aonach Amárach (There's A Fair Tomorrow)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Another Sky","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3a7a9eaa93b94e3ebcd3b6d81610c0d4.png","Artist":"Altan","CreatedAt":"2017-10-27 10:49:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:49:44 UTC","Track":"Island Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Another Sky","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3a7a9eaa93b94e3ebcd3b6d81610c0d4.png","Artist":"Altan","CreatedAt":"2017-10-27 11:01:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 11:01:40 UTC","Track":"The Dispute At The Crossroads/Columbia Ward's/Siun's Reel (Medley)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Another Sky","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3a7a9eaa93b94e3ebcd3b6d81610c0d4.png","Artist":"Altan","CreatedAt":"2018-04-10 16:28:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:28:24 UTC","Track":"Girl From The North Country","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Local Ground","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/87a626c8965f37a7707474107178227c.png","Artist":"Altan","CreatedAt":"2017-10-27 10:14:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:14:15 UTC","Track":"The Roseville","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2017-10-27 10:10:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:10:04 UTC","Track":"Mo Choill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:20:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:20:12 UTC","Track":"Mo Choill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 21:04:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 21:04:23 UTC","Track":"Mo Choill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:16:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:16:12 UTC","Track":"Mo Choill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2018-04-10 16:12:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:12:16 UTC","Track":"Drowsy Maggie/Rakish Paddy/Harvest Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2016-02-11 16:41:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-11 16:41:38 UTC","Track":"Drowsy Maggie/Rakish Paddy/Harvest Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:26:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:26:36 UTC","Track":"Drowsy Maggie/Rakish Paddy/Harvest Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:33:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:33:23 UTC","Track":"Drowsy Maggie/Rakish Paddy/Harvest Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:43:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:43:31 UTC","Track":"Drowsy Maggie/Rakish Paddy/Harvest Storm","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:29:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:29:33 UTC","Track":"'Si Do Mhaimeo I","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:36:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:36:20 UTC","Track":"'Si Do Mhaimeo I","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:46:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:46:28 UTC","Track":"'Si Do Mhaimeo I","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:37:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:37:47 UTC","Track":"A Nobleman's Wedding","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:53:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:53:37 UTC","Track":"A Nobleman's Wedding","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:00:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:00:45 UTC","Track":"A Nobleman's Wedding","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-07 22:56:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-07 22:56:53 UTC","Track":"Seamus O'Shanahan's/Walking In Liffey Street","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:44:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:44:40 UTC","Track":"Seamus O'Shanahan's/Walking In Liffey Street","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:54:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:54:47 UTC","Track":"Seamus O'Shanahan's/Walking In Liffey Street","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:32:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:32:23 UTC","Track":"McFarley's/Mill Na Maidi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:39:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:39:10 UTC","Track":"McFarley's/Mill Na Maidi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:49:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:49:18 UTC","Track":"McFarley's/Mill Na Maidi","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:47:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:47:39 UTC","Track":"Bog An Lochain/Margaree Reel/The Humours Of Westport","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:47:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:47:08 UTC","Track":"Bog An Lochain/Margaree Reel/The Humours Of Westport","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:57:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:57:16 UTC","Track":"Bog An Lochain/Margaree Reel/The Humours Of Westport","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-07 22:45:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-07 22:45:41 UTC","Track":"Pretty Peg/New Ships A Sailing/The Bird's Nest/The Man From Bundoran","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 21:11:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 21:11:22 UTC","Track":"Pretty Peg/New Ships A Sailing/The Bird's Nest/The Man From Bundoran","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:23:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:23:11 UTC","Track":"Pretty Peg/New Ships A Sailing/The Bird's Nest/The Man From Bundoran","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:33:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:33:19 UTC","Track":"Pretty Peg/New Ships A Sailing/The Bird's Nest/The Man From Bundoran","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:52:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:52:09 UTC","Track":"Dobbin's Flowery Vale","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 21:00:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 21:00:08 UTC","Track":"Dobbin's Flowery Vale","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:07:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:07:16 UTC","Track":"Dobbin's Flowery Vale","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:34:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:34:49 UTC","Track":"The Rosses Highlands","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 21:08:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 21:08:29 UTC","Track":"The Rosses Highlands","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:20:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:20:17 UTC","Track":"The Rosses Highlands","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-08 13:24:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-08 13:24:23 UTC","Track":"The Snowy Path","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:31:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:31:10 UTC","Track":"The Snowy Path","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:41:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:41:18 UTC","Track":"The Snowy Path","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2018-04-10 16:15:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:15:13 UTC","Track":"Donal agus Morag","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-07 22:49:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-07 22:49:17 UTC","Track":"Donal agus Morag","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:26:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:26:48 UTC","Track":"Donal agus Morag","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:36:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:36:56 UTC","Track":"Donal agus Morag","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-12-07 22:53:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-07 22:53:44 UTC","Track":"King of the Pipers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 20:41:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 20:41:31 UTC","Track":"King of the Pipers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Storm","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a27904c61a25b41127313c08a787e8e5.png","Artist":"Altan","CreatedAt":"2015-10-24 19:51:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-24 19:51:39 UTC","Track":"King of the Pipers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Widening Gyre","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ae9eeaa27a394a98ca4f74f05253f942.png","Artist":"Altan","CreatedAt":"2018-04-10 16:36:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:36:17 UTC","Track":"The Triple T","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Widening Gyre","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ae9eeaa27a394a98ca4f74f05253f942.png","Artist":"Altan","CreatedAt":"2017-10-27 10:30:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:30:42 UTC","Track":"White Birds","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Widening Gyre","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ae9eeaa27a394a98ca4f74f05253f942.png","Artist":"Altan","CreatedAt":"2018-04-10 16:05:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:05:30 UTC","Track":"Maggie’s Pancakes/Píobaire an Chéide/The Friel Deal (Reels)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Widening Gyre","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ae9eeaa27a394a98ca4f74f05253f942.png","Artist":"Altan","CreatedAt":"2018-01-01 01:00:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-01 01:00:46 UTC","Track":"Maggie’s Pancakes/Píobaire an Chéide/The Friel Deal (Reels)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Widening Gyre","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ae9eeaa27a394a98ca4f74f05253f942.png","Artist":"Altan","CreatedAt":"2017-10-27 10:03:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:03:23 UTC","Track":"Maggie’s Pancakes/Píobaire an Chéide/The Friel Deal (Reels)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blackwater","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cca310abcfa6f07e3ca5bad4de2a0667.png","Artist":"Altan","CreatedAt":"2017-10-27 10:26:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:26:33 UTC","Track":"An Gasur Mor/Bunker Hill/Dogs Among The Bushes (Medley)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blackwater","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cca310abcfa6f07e3ca5bad4de2a0667.png","Artist":"Altan","CreatedAt":"2018-04-10 16:19:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:19:41 UTC","Track":"Ta Me 'Mo Shui","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blackwater","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cca310abcfa6f07e3ca5bad4de2a0667.png","Artist":"Altan","CreatedAt":"2017-10-27 10:21:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:21:35 UTC","Track":"Ta Me 'Mo Shui","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blackwater","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cca310abcfa6f07e3ca5bad4de2a0667.png","Artist":"Altan","CreatedAt":"2017-10-27 10:16:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:16:37 UTC","Track":"Ta Me 'Mo Shui","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blackwater","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cca310abcfa6f07e3ca5bad4de2a0667.png","Artist":"Altan","CreatedAt":"2017-10-27 11:04:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 11:04:57 UTC","Track":"'Stor, A Stor, A Ghra","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of Altan - The Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/daaaf9c5e56641beb9b6221490296776.png","Artist":"Altan","CreatedAt":"2017-10-27 10:35:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:35:22 UTC","Track":"Beidh Aonach Amárach (There's A Fair Tomorrow)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of Altan - The Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/daaaf9c5e56641beb9b6221490296776.png","Artist":"Altan","CreatedAt":"2017-10-27 10:06:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:06:58 UTC","Track":"Ten Thousand Miles","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of Altan - The Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/daaaf9c5e56641beb9b6221490296776.png","Artist":"Altan","CreatedAt":"2017-10-27 10:42:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-27 10:42:28 UTC","Track":"Molly Na Gcuach Ni Chuilleanain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of Altan - The Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/daaaf9c5e56641beb9b6221490296776.png","Artist":"Altan","CreatedAt":"2016-02-11 16:44:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-11 16:44:36 UTC","Track":"Girl From The North Country","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of Altan - The Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/daaaf9c5e56641beb9b6221490296776.png","Artist":"Altan","CreatedAt":"2014-10-13 19:44:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-13 19:44:10 UTC","Track":"Girl From The North Country","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Gap of Dreams","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f8a6dd5d0e9ce957da8ef651a553a6ba.png","Artist":"Altan","CreatedAt":"2018-04-10 15:57:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 15:57:47 UTC","Track":"Port Alex","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Gap of Dreams","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f8a6dd5d0e9ce957da8ef651a553a6ba.png","Artist":"Altan","CreatedAt":"2018-04-10 16:31:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:31:51 UTC","Track":"Fare Thee Well, a Stór","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Gap of Dreams","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f8a6dd5d0e9ce957da8ef651a553a6ba.png","Artist":"Altan","CreatedAt":"2018-04-10 16:00:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-10 16:00:09 UTC","Track":"The Gap of Dreams / Nia’s Jig / The Beekeeper","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

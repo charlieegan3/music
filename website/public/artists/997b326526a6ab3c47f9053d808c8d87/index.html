@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Tom Petty and The Heartbreakers - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Tom Petty and The Heartbreakers</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/099cb28950ba96313a6463695e687aeee0df6e5f","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2019-08-21 13:45:16 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2019-08-21 13:42:36 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/099cb28950ba96313a6463695e687aeee0df6e5f","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2019-04-02 21:00:12 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2019-04-02 20:56:12 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327bd7d234a31296df34b9a64","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2022-07-13 05:22:13 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2022-07-13 05:10:16 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327bd7d234a31296df34b9a64","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2021-04-07 21:55:07 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2021-04-07 21:30:59 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327bd7d234a31296df34b9a64","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2020-10-26 18:47:52 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2020-10-26 18:45:26 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327bd7d234a31296df34b9a64","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2020-06-25 13:51:16 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2020-06-25 13:51:08 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737e42a53ea7f2ad4f36ab23a5","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2020-06-25 16:05:28 UTC","Duration":"214733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2020-06-25 16:04:50 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737e42a53ea7f2ad4f36ab23a5","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2020-01-18 13:07:29 UTC","Duration":"214733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2020-01-18 13:07:01 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ac12f3443932a2ccc6270726f2bb93763f5a826b","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2019-12-15 18:45:17 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2019-12-15 18:08:20 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into The Great Wide Open","AlbumCover":"https://i.scdn.co/image/ac12f3443932a2ccc6270726f2bb93763f5a826b","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2019-12-11 08:00:33 UTC","Duration":"242106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2019-12-11 07:52:01 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-20 17:43:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-20 17:43:12 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-13 18:06:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-13 18:06:30 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-11 10:50:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-11 10:50:17 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-10 22:57:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 22:57:01 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-10 15:43:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 15:43:44 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-08 18:45:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 18:45:52 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-08 12:34:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 12:34:05 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Southern Accents (UK Mid Price)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/04933845503de827db6cf13dbad5b3e0.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-08 07:08:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 07:08:08 UTC","Track":"Rebels","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-03-01 21:21:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-01 21:21:51 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-20 18:44:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-20 18:44:23 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-11 22:54:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-11 22:54:03 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-11 09:48:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-11 09:48:32 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-10 21:52:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 21:52:34 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-10 14:41:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 14:41:25 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-10 13:42:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 13:42:34 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-08 16:52:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 16:52:11 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-08 11:22:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 11:22:58 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-12-07 13:21:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-07 13:21:18 UTC","Track":"Mary Jane's Last Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Greatest Hits","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/05600d9c77a9288add89fac53d3482e7.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-11-17 18:41:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-17 18:41:01 UTC","Track":"Even the Losers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-08-02 08:02:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-08-02 08:02:06 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-31 22:05:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-31 22:05:32 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-31 22:02:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-31 22:02:03 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-31 18:57:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-31 18:57:40 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-31 18:24:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-31 18:24:33 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-30 13:19:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-30 13:19:51 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-30 13:19:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-30 13:19:47 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-28 21:25:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2018-07-28 21:25:27 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-11-25 15:57:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2016-11-25 15:57:25 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-11-24 21:28:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2016-11-24 21:28:43 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tom Petty \u0026 The Heartbreakers","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2c8c5992e54271062c5d83d90c5d3862.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2016-11-23 15:18:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7MRyJPksH3G2cXHN8UKYzP","Timestamp":"2016-11-23 15:18:56 UTC","Track":"American Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-24 16:27:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2018-07-24 16:27:37 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-07-24 13:44:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2018-07-24 13:44:06 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-06-23 08:07:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2018-06-23 08:07:22 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2018-06-19 08:26:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2018-06-19 08:26:49 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-12-14 11:27:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-12-14 11:27:24 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-12-14 09:09:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-12-14 09:09:16 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-12-11 12:06:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-12-11 12:06:05 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-12-09 22:15:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-12-09 22:15:45 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-12-08 11:05:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-12-08 11:05:40 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-17 04:34:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-17 04:34:53 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 14:00:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 14:00:54 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 13:56:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 13:56:51 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 13:52:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 13:52:49 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 13:48:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 13:48:46 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 13:44:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 13:44:44 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-10-03 13:40:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-10-03 13:40:42 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-09-28 05:36:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-09-28 05:36:01 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-07-15 21:13:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-07-15 21:13:17 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-07-12 22:21:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-07-12 22:21:58 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-24 22:05:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-24 22:05:00 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-24 21:08:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-24 21:08:41 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-24 01:30:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-24 01:30:05 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-18 14:23:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-18 14:23:21 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-18 12:52:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-18 12:52:23 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-17 20:29:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-17 20:29:27 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-09 15:08:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-09 15:08:49 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-09 13:58:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-09 13:58:58 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-08 16:13:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-08 16:13:30 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-08 14:52:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-08 14:52:52 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-08 11:30:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-08 11:30:02 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-07 17:13:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-07 17:13:01 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-07 14:57:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-07 14:57:35 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-07 08:12:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-07 08:12:17 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-07 07:05:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-07 07:05:39 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Into the Great Wide Open","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3b0f9765858442aaabb1ce55191244ad.png","Artist":"Tom Petty and The Heartbreakers","CreatedAt":"2017-06-06 22:18:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"17S4XrLvF5jlGvGCJHgF51","Timestamp":"2017-06-06 22:18:57 UTC","Track":"Learning to Fly","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

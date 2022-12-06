@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>So Below - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>So Below</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-25 09:00:13 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-25 08:46:32 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-24 19:00:06 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-24 18:33:36 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-21 17:15:12 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-21 17:14:02 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-21 18:15:06 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-21 16:17:33 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-21 16:15:11 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-21 16:08:42 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-19 16:30:06 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-19 16:03:43 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-19 13:30:08 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-19 12:30:19 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-18 17:00:09 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-18 16:53:57 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-18 16:30:13 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-18 15:03:34 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-15 17:00:08 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-15 15:49:47 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-15 11:00:09 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-15 10:58:51 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ruin","AlbumCover":"https://i.scdn.co/image/1551c30f9503d8f40cf5d02b098755ecdb077bf9","Artist":"So Below","CreatedAt":"2019-02-14 22:45:15 UTC","Duration":"295221","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3mKpLHDQyA8ssES4B4qMHp","Timestamp":"2019-02-14 22:17:51 UTC","Track":"Ruin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Us","AlbumCover":"https://i.scdn.co/image/834a9a1627e02266a87942eb4936deaf1ef5ed4c","Artist":"So Below","CreatedAt":"2019-10-02 17:45:19 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YbNzHo7CMk2ZT6Jb7jMHz","Timestamp":"2019-10-02 10:37:26 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Us","AlbumCover":"https://i.scdn.co/image/834a9a1627e02266a87942eb4936deaf1ef5ed4c","Artist":"So Below","CreatedAt":"2019-10-01 18:00:52 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YbNzHo7CMk2ZT6Jb7jMHz","Timestamp":"2019-10-01 17:55:58 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Us","AlbumCover":"https://i.scdn.co/image/834a9a1627e02266a87942eb4936deaf1ef5ed4c","Artist":"So Below","CreatedAt":"2019-09-30 17:00:16 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YbNzHo7CMk2ZT6Jb7jMHz","Timestamp":"2019-09-30 16:51:38 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Us","AlbumCover":"https://i.scdn.co/image/834a9a1627e02266a87942eb4936deaf1ef5ed4c","Artist":"So Below","CreatedAt":"2019-09-30 14:45:13 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YbNzHo7CMk2ZT6Jb7jMHz","Timestamp":"2019-09-30 13:21:51 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Us","AlbumCover":"https://i.scdn.co/image/834a9a1627e02266a87942eb4936deaf1ef5ed4c","Artist":"So Below","CreatedAt":"2019-09-30 12:00:48 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YbNzHo7CMk2ZT6Jb7jMHz","Timestamp":"2019-09-30 10:39:39 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"SGL","AlbumCover":"https://i.scdn.co/image/a99d9310003dbd5dea8332c6625cedde98a629b4","Artist":"So Below","CreatedAt":"2019-02-21 17:45:12 UTC","Duration":"257500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0EN7Zd2LLfvAg60cAryOag","Timestamp":"2019-02-21 17:38:01 UTC","Track":"SGL","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-16 16:58:03 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-07-16 16:16:27 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 15:46:40 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-07-03 15:34:36 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-06-15 13:08:20 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-06-15 13:01:33 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-03-10 17:36:39 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-03-10 16:53:44 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-02-20 20:49:09 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-02-20 20:41:13 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-10 19:17:36 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-01-10 17:59:05 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-06 00:23:27 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2022-01-05 23:16:19 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-31 14:19:13 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-31 13:21:15 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-30 19:48:52 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-30 18:19:53 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-30 13:44:36 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-30 11:47:37 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-29 21:26:21 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-29 19:57:14 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-29 19:23:12 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-29 17:51:54 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-29 17:20:57 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-29 15:36:24 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-29 17:20:55 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-29 13:22:40 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2021-03-29 09:48:24 UTC","Duration":"300000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6DdxVfYofYyDyMbUENoiIi","Timestamp":"2021-03-29 09:46:42 UTC","Track":"Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-31 21:55:27 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-31 21:40:18 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-25 18:35:03 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-25 18:21:27 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-25 15:13:46 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-25 15:09:51 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-21 11:52:27 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-21 11:51:41 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-16 08:09:44 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-16 08:00:14 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-15 18:28:30 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-15 18:15:30 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-13 13:32:39 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-13 12:31:46 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-11 18:49:18 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-11 17:09:55 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-08 07:00:24 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-08 06:55:38 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-07 18:51:36 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-07 18:16:28 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-07 13:53:28 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-07 13:01:22 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-07 09:11:38 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-07 08:58:00 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-06 15:59:39 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-06 15:57:57 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-06 06:10:28 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-05 12:32:36 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-05 09:39:08 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-05 09:30:59 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-05 06:54:00 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-05 06:50:55 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-04 21:39:35 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-04 21:20:43 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-04 18:13:08 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-04 18:11:52 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 15:38:19 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-03 15:12:40 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 12:38:10 UTC","Duration":"80512","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2sPsXOtnT4CApNfeL0X11A","Timestamp":"2022-07-03 12:24:41 UTC","Track":"Toll","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-05 08:57:32 UTC","Duration":"280632","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4VuRTlQI9btZdwnf1KU0pB","Timestamp":"2022-07-05 08:16:08 UTC","Track":"Panic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 17:14:34 UTC","Duration":"280632","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4VuRTlQI9btZdwnf1KU0pB","Timestamp":"2022-07-03 17:02:30 UTC","Track":"Panic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-26 19:09:59 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-07-26 18:37:36 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-16 11:20:42 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-07-16 11:13:36 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 16:02:13 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-07-03 15:54:33 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-06-15 14:24:57 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-06-15 14:21:12 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-03-10 16:59:26 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-03-10 16:18:31 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-02-20 20:49:08 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-02-20 20:17:04 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-17 10:24:37 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-17 09:49:02 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-12 17:07:45 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-12 16:37:45 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-12 13:10:26 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-12 12:35:28 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-10 19:29:34 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-10 18:23:11 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-07 14:23:17 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-07 13:46:08 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-01-05 16:29:33 UTC","Duration":"252903","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WQphuGZM7glstWmTxWboB","Timestamp":"2022-01-05 15:51:04 UTC","Track":"Bone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-05 08:16:02 UTC","Duration":"215464","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2RD30Lh2VzqjcGjRjH1HlD","Timestamp":"2022-07-05 07:58:13 UTC","Track":"Over","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Left Behind","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733349587879b9d1c7d82d8467","Artist":"So Below","CreatedAt":"2022-07-03 17:14:33 UTC","Duration":"215464","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2RD30Lh2VzqjcGjRjH1HlD","Timestamp":"2022-07-03 16:36:38 UTC","Track":"Over","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-06-27 15:30:08 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-06-27 15:22:22 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-24 22:15:12 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-24 21:57:57 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-24 18:30:06 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-24 17:49:53 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-21 18:15:07 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-21 17:09:06 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-21 16:15:12 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-21 16:12:38 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-21 14:30:08 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-21 14:24:12 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-19 21:15:12 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-19 20:02:48 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-19 15:30:06 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-19 15:02:22 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-10 19:45:10 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-10 19:44:02 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"II","AlbumCover":"https://i.scdn.co/image/b771fd6329a92a1e9e2d59662970d77ff2c365ee","Artist":"So Below","CreatedAt":"2019-02-09 17:15:11 UTC","Duration":"235906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WEcGzNZSNl43NbyaSbmon","Timestamp":"2019-02-09 16:46:34 UTC","Track":"Visions","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drive","AlbumCover":"https://i.scdn.co/image/c8d959ce58547e058b93cd6ebfe160c0e33d3b04","Artist":"So Below","CreatedAt":"2019-02-24 21:00:05 UTC","Duration":"192500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IInxWddNQb0POYQvOxVwh","Timestamp":"2019-02-24 19:15:58 UTC","Track":"Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drive","AlbumCover":"https://i.scdn.co/image/c8d959ce58547e058b93cd6ebfe160c0e33d3b04","Artist":"So Below","CreatedAt":"2019-02-22 11:30:14 UTC","Duration":"192500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IInxWddNQb0POYQvOxVwh","Timestamp":"2019-02-22 11:27:14 UTC","Track":"Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drive","AlbumCover":"https://i.scdn.co/image/c8d959ce58547e058b93cd6ebfe160c0e33d3b04","Artist":"So Below","CreatedAt":"2019-02-22 08:45:07 UTC","Duration":"192500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IInxWddNQb0POYQvOxVwh","Timestamp":"2019-02-22 08:03:20 UTC","Track":"Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drive","AlbumCover":"https://i.scdn.co/image/c8d959ce58547e058b93cd6ebfe160c0e33d3b04","Artist":"So Below","CreatedAt":"2019-02-21 17:30:09 UTC","Duration":"192500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IInxWddNQb0POYQvOxVwh","Timestamp":"2019-02-21 17:29:06 UTC","Track":"Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drive","AlbumCover":"https://i.scdn.co/image/c8d959ce58547e058b93cd6ebfe160c0e33d3b04","Artist":"So Below","CreatedAt":"2019-02-21 16:45:12 UTC","Duration":"192500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IInxWddNQb0POYQvOxVwh","Timestamp":"2019-02-21 16:32:37 UTC","Track":"Drive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crying on the Bathroom Floor","AlbumCover":"https://i.scdn.co/image/caa8a0ed10eb4c2755238fe17cb59f40fdb23cd2","Artist":"So Below","CreatedAt":"2019-02-21 17:45:11 UTC","Duration":"269250","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5s9MOCkHZMuqAs6Vl98B0H","Timestamp":"2019-02-21 17:22:30 UTC","Track":"Crying on the Bathroom Floor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crying on the Bathroom Floor","AlbumCover":"https://i.scdn.co/image/caa8a0ed10eb4c2755238fe17cb59f40fdb23cd2","Artist":"So Below","CreatedAt":"2019-02-21 16:30:08 UTC","Duration":"269250","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5s9MOCkHZMuqAs6Vl98B0H","Timestamp":"2019-02-21 16:26:02 UTC","Track":"Crying on the Bathroom Floor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-25 09:15:08 UTC","Duration":"238125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4jzL9NFEF4nXdzBtHq2R5y","Timestamp":"2019-02-25 08:34:18 UTC","Track":"Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-24 19:15:11 UTC","Duration":"238125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4jzL9NFEF4nXdzBtHq2R5y","Timestamp":"2019-02-24 18:45:32 UTC","Track":"Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-22 08:15:07 UTC","Duration":"238125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4jzL9NFEF4nXdzBtHq2R5y","Timestamp":"2019-02-22 07:56:45 UTC","Track":"Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 17:30:08 UTC","Duration":"238125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4jzL9NFEF4nXdzBtHq2R5y","Timestamp":"2019-02-21 17:18:00 UTC","Track":"Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 17:00:08 UTC","Duration":"238125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4jzL9NFEF4nXdzBtHq2R5y","Timestamp":"2019-02-21 16:21:32 UTC","Track":"Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-25 12:15:13 UTC","Duration":"202125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KNlnvlBMCSK7hOlj4nheR","Timestamp":"2019-02-25 11:21:53 UTC","Track":"Drift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-24 20:30:06 UTC","Duration":"202125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KNlnvlBMCSK7hOlj4nheR","Timestamp":"2019-02-24 19:30:22 UTC","Track":"Drift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-22 08:00:13 UTC","Duration":"202125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KNlnvlBMCSK7hOlj4nheR","Timestamp":"2019-02-22 08:00:07 UTC","Track":"Drift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 18:00:07 UTC","Duration":"202125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KNlnvlBMCSK7hOlj4nheR","Timestamp":"2019-02-21 17:25:53 UTC","Track":"Drift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 16:30:09 UTC","Duration":"202125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KNlnvlBMCSK7hOlj4nheR","Timestamp":"2019-02-21 16:29:24 UTC","Track":"Drift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 19:30:10 UTC","Duration":"207437","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0rgWHz9VzQXCj1GFzSWUzD","Timestamp":"2019-02-21 19:22:38 UTC","Track":"Luna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Below","AlbumCover":"https://i.scdn.co/image/e476175d25dd8a0d071bd1ce2f3595af49f5d4b5","Artist":"So Below","CreatedAt":"2019-02-21 19:15:06 UTC","Duration":"207437","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0rgWHz9VzQXCj1GFzSWUzD","Timestamp":"2019-02-21 18:10:21 UTC","Track":"Luna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hard","AlbumCover":"https://i.scdn.co/image/eee21187ce04f30d5d81f624baaff02e9bc22490","Artist":"So Below","CreatedAt":"2019-02-21 19:30:11 UTC","Duration":"192156","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xfM0ohZC38mYvvfyQmnKu","Timestamp":"2019-02-21 19:25:59 UTC","Track":"Hard","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

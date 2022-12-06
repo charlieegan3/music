@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Maison &amp; Dragen - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Maison &amp; Dragen</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2017-11-12 14:59:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-12 14:59:59 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-02-25 10:10:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-25 10:10:36 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-02-08 23:25:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-08 23:25:30 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-04-25 11:21:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-04-25 11:21:20 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-04-25 11:21:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-04-25 11:21:15 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-03-31 19:27:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-31 19:27:16 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-03-01 19:54:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-03-01 19:54:26 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-20 22:19:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-20 22:19:33 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-19 12:40:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-19 12:40:46 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-19 10:36:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-19 10:36:36 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-18 21:45:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-18 21:45:37 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-15 15:45:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-15 15:45:30 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-13 17:41:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-13 17:41:36 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-13 12:51:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-13 12:51:01 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-12 14:26:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-12 14:26:44 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-09 23:04:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-09 23:04:57 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-08 20:49:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-08 20:49:31 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-07 20:16:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-07 20:16:12 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-07 11:30:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-07 11:30:34 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-06 21:18:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-06 21:18:34 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-06 16:05:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-06 16:05:15 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-04 22:17:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-04 22:17:29 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-04 14:11:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-04 14:11:45 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-03 13:08:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-03 13:08:34 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-03 11:22:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-03 11:22:29 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-02 14:19:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-02 14:19:50 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 21:08:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 21:08:12 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 20:54:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 20:54:40 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 15:27:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 15:27:59 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 11:43:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 11:43:53 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 09:19:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-01 09:19:29 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 18:28:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 18:28:06 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 17:11:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 17:11:37 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 15:54:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 15:54:16 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 12:34:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 12:34:09 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 11:31:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-31 11:31:31 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 22:44:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 22:44:12 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 20:27:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 20:27:44 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 09:28:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 09:28:10 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 08:50:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-30 08:50:13 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 22:33:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 22:33:10 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 21:45:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 21:45:19 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 14:05:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 14:05:32 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 12:51:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 12:51:43 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 12:35:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 12:35:43 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-28 15:31:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-28 15:31:21 UTC","Track":"Wet Dreams (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"https://i.scdn.co/image/1c1106b2a53ab69d61d4d4400757a3cd91015b64","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-04-03 20:15:09 UTC","Duration":"198758","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pCI0GO83tifjPyDub1nhB","Timestamp":"2019-04-03 20:13:56 UTC","Track":"Wet Dreams - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"https://i.scdn.co/image/1c1106b2a53ab69d61d4d4400757a3cd91015b64","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-04-03 10:15:11 UTC","Duration":"198758","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pCI0GO83tifjPyDub1nhB","Timestamp":"2019-04-03 10:00:37 UTC","Track":"Wet Dreams - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio De Janeiro","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27310eab6aaad0afda28855fed9","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-10-16 16:01:31 UTC","Duration":"382421","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2019-10-16 15:59:28 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273eba3a8c314a431359159e23b","Artist":"Maison \u0026 Dragen","CreatedAt":"2020-11-18 17:20:56 UTC","Duration":"198758","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pCI0GO83tifjPyDub1nhB","Timestamp":"2020-11-18 16:07:10 UTC","Track":"Wet Dreams - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wet Dreams","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273eba3a8c314a431359159e23b","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-10-16 08:15:14 UTC","Duration":"198758","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pCI0GO83tifjPyDub1nhB","Timestamp":"2019-10-16 08:04:08 UTC","Track":"Wet Dreams - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chinese New Year","AlbumCover":"https://i.scdn.co/image/b8c5dcaa2fa58ea436b8460edbb63cabab375614","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-04-03 11:15:08 UTC","Duration":"330870","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1RDBAfOr3PIvuG9mdOVd3v","Timestamp":"2019-04-03 10:21:20 UTC","Track":"Chinese New Year - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio De Janeiro","AlbumCover":"https://i.scdn.co/image/fea64240ee0efde2dfd5b656ca8fcfbfe3cdc5cc","Artist":"Maison \u0026 Dragen","CreatedAt":"2019-04-03 11:30:12 UTC","Duration":"184508","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3H4YWf0aTAqE5b1Qnyjlrp","Timestamp":"2019-04-03 10:39:22 UTC","Track":"Rio De Janeiro - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Immortal Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/40f04935850e46abaffc4467fb3741f5.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2016-11-21 18:37:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-11-21 18:37:44 UTC","Track":"Immortal Love - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hour Of The Wolf","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/767902b373f041a4be4271e4f3b8dcc5.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 13:05:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-29 13:05:09 UTC","Track":"Hour Of The Wolf (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-10-27 23:12:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-27 23:12:48 UTC","Track":"Rio De Janeiro (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2017-11-12 17:02:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2017-11-12 17:02:39 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-02-25 10:40:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2015-02-25 10:40:34 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-03-30 20:40:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-03-30 20:40:15 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-25 18:48:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-25 18:48:39 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-21 10:38:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-21 10:38:34 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-19 13:10:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-19 13:10:20 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-18 22:24:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-18 22:24:00 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-14 10:11:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-14 10:11:22 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-09 23:34:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-09 23:34:31 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-08 21:19:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-08 21:19:04 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-07 20:42:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-07 20:42:38 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-07 12:06:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-07 12:06:09 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-06 16:45:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-06 16:45:58 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-06 14:36:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-06 14:36:19 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-04 22:47:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-04 22:47:23 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-03 13:36:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-03 13:36:45 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-02 14:49:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-02 14:49:22 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 21:41:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-01 21:41:51 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 12:13:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-01 12:13:27 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-02-01 09:52:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-02-01 09:52:44 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 18:57:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-31 18:57:40 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-31 13:09:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-31 13:09:53 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 21:00:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-30 21:00:26 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-30 09:57:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-30 09:57:43 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 23:09:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-29 23:09:32 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 14:39:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-29 14:39:35 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-29 12:54:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-29 12:54:58 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-28 11:27:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-28 11:27:15 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-25 22:17:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5CNvstE2UZAc2RbWTaoikM","Timestamp":"2013-01-25 22:17:14 UTC","Track":"Rio De Janeiro - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rio de Janeiro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9bc53485ae0f404a812c782d898cced2.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2013-01-25 22:27:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-25 22:27:08 UTC","Track":"Rio De Janeiro - Club Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-09-24 12:08:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-24 12:08:10 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-09-11 17:54:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-11 17:54:48 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-05-15 14:56:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-15 14:56:49 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-04-23 14:14:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-23 14:14:00 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-04-02 18:47:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-02 18:47:56 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-25 10:33:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-25 10:33:05 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-21 15:54:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-21 15:54:02 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-21 14:42:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-21 14:42:13 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-17 22:55:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-17 22:55:18 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-15 20:46:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-15 20:46:45 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-11 22:54:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-11 22:54:27 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-09 23:19:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-09 23:19:42 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-09 20:53:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-09 20:53:21 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-08 22:15:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-08 22:15:11 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-08 09:40:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-08 09:40:09 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-07 23:19:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-07 23:19:48 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-07 22:01:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-07 22:01:34 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-02 10:31:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-02 10:31:29 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Colosseum","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b1aa3f83179f46159369c6c944d51d9e.png","Artist":"Maison \u0026 Dragen","CreatedAt":"2015-03-01 20:42:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-01 20:42:19 UTC","Track":"Colosseum - Radio Edit","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

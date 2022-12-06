@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Joris Voorn - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Joris Voorn</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-10-09 07:45:14 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-10-09 07:36:04 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-10-05 12:16:24 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-10-05 11:15:26 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-10-04 21:15:15 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-10-04 21:02:48 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-10-04 15:45:18 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-10-04 14:54:17 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-10-04 08:46:41 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-10-04 08:45:07 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-09-29 19:45:11 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-29 16:54:47 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/0a76a5eb9475464fc94176f30ffbd465d47b300f","Artist":"Joris Voorn","CreatedAt":"2019-09-23 01:00:16 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-22 16:00:52 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nobody Knows","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730881c6dc30dadc6115f28a2a","Artist":"Joris Voorn","CreatedAt":"2021-01-21 14:06:56 UTC","Duration":"322013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0M6s1oElQyLnWfE8stuN7w","Timestamp":"2021-01-21 12:41:17 UTC","Track":"Ringo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27335bf9975679ecafa72437d1e","Artist":"Joris Voorn","CreatedAt":"2021-05-25 14:41:32 UTC","Duration":"389929","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0VfUUuAT8TbTRKbRmlxMMo","Timestamp":"2021-05-25 14:21:08 UTC","Track":"Ryo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Psyche","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b75556892ee2aae62e428bbb","Artist":"Joris Voorn","CreatedAt":"2021-12-17 16:38:12 UTC","Duration":"309784","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3yk6KVpcmIlIYgam4WBPoN","Timestamp":"2021-12-17 16:24:36 UTC","Track":"Psyche","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nea Skioni","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de2137de115edd92fe373190","Artist":"Joris Voorn","CreatedAt":"2021-05-02 10:28:09 UTC","Duration":"398062","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CNG3J4eRJ4A7faeYcyB7K","Timestamp":"2021-05-02 10:24:09 UTC","Track":"Nea Skioni","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nea Skioni","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de2137de115edd92fe373190","Artist":"Joris Voorn","CreatedAt":"2021-04-22 11:25:12 UTC","Duration":"398062","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CNG3J4eRJ4A7faeYcyB7K","Timestamp":"2021-04-22 11:21:02 UTC","Track":"Nea Skioni","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nea Skioni","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de2137de115edd92fe373190","Artist":"Joris Voorn","CreatedAt":"2021-04-21 23:30:26 UTC","Duration":"398062","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CNG3J4eRJ4A7faeYcyB7K","Timestamp":"2021-04-21 22:37:05 UTC","Track":"Nea Skioni","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nea Skioni","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de2137de115edd92fe373190","Artist":"Joris Voorn","CreatedAt":"2021-04-21 16:56:38 UTC","Duration":"398062","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CNG3J4eRJ4A7faeYcyB7K","Timestamp":"2021-04-21 16:54:28 UTC","Track":"Nea Skioni","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nea Skioni","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de2137de115edd92fe373190","Artist":"Joris Voorn","CreatedAt":"2021-04-21 08:49:03 UTC","Duration":"398062","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CNG3J4eRJ4A7faeYcyB7K","Timestamp":"2021-04-21 07:53:02 UTC","Track":"Nea Skioni","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Four","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e317d8c112cc1466f8e0d90c","Artist":"Joris Voorn","CreatedAt":"2022-01-04 10:15:44 UTC","Duration":"309746","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LuRbjUYp9uCd3eSlbyzbG","Timestamp":"2022-01-04 10:01:21 UTC","Track":"District Seven - Broken Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Four","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e317d8c112cc1466f8e0d90c","Artist":"Joris Voorn","CreatedAt":"2022-01-03 15:27:01 UTC","Duration":"309746","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LuRbjUYp9uCd3eSlbyzbG","Timestamp":"2022-01-03 15:23:52 UTC","Track":"District Seven - Broken Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Four","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e317d8c112cc1466f8e0d90c","Artist":"Joris Voorn","CreatedAt":"2021-06-22 09:52:25 UTC","Duration":"309746","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1LuRbjUYp9uCd3eSlbyzbG","Timestamp":"2021-06-22 09:33:43 UTC","Track":"District Seven - Broken Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-19 13:45:14 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-19 13:43:47 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-10 19:00:21 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-10 18:56:55 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-10 16:45:25 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-10 15:50:03 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-10 12:45:14 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-10 12:42:26 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-10 10:00:24 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-10 09:58:40 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-10 08:15:19 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-10 08:12:58 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-09 23:00:21 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-09 22:06:01 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-09 13:45:16 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-09 13:16:31 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-05 17:30:16 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-05 16:36:35 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-05 10:15:15 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-05 10:12:53 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-05 08:15:17 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-05 08:07:48 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-03 16:00:25 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-03 15:56:28 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-03 11:15:17 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-03 10:25:09 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-09-01 18:30:21 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-09-01 18:28:48 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-30 17:30:20 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-30 17:17:59 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-30 10:15:15 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-30 10:14:48 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-29 20:15:12 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-29 19:50:19 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-29 14:15:22 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-29 14:04:49 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-29 11:00:21 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-29 10:19:27 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-28 19:45:21 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-28 19:30:41 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-28 16:15:18 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-28 16:01:25 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-28 14:45:18 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-28 12:48:21 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ryo","AlbumCover":"https://i.scdn.co/image/f8d6c2e82df0b8b8f6f804a96424fe200365cdbe","Artist":"Joris Voorn","CreatedAt":"2019-08-28 09:30:11 UTC","Duration":"218711","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7cK1yWYGqZoJv7ELsc0WOg","Timestamp":"2019-08-28 08:33:11 UTC","Track":"Ryo - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nobody Knows","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/67c2b080c2fe436fc3e9f9bed5f5c091.png","Artist":"Joris Voorn","CreatedAt":"2016-08-28 18:35:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-28 18:35:36 UTC","Track":"The Monk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ringo","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6949f4ab422c4ac2981ba4bfe59bcf6c.png","Artist":"Joris Voorn","CreatedAt":"2016-10-29 17:42:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-29 17:42:50 UTC","Track":"Ringo - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ringo","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6949f4ab422c4ac2981ba4bfe59bcf6c.png","Artist":"Joris Voorn","CreatedAt":"2016-10-26 15:42:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-26 15:42:08 UTC","Track":"Ringo - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ringo","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6949f4ab422c4ac2981ba4bfe59bcf6c.png","Artist":"Joris Voorn","CreatedAt":"2016-10-25 14:14:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-25 14:14:33 UTC","Track":"Ringo - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ringo","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6949f4ab422c4ac2981ba4bfe59bcf6c.png","Artist":"Joris Voorn","CreatedAt":"2016-10-25 12:05:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-10-25 12:05:57 UTC","Track":"Ringo - Original","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

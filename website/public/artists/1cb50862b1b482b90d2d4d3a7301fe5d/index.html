@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>中村佳穂 - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>中村佳穂</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Rukakan Town","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ca598fc9b26d1a72f7abc1b","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:26:34 UTC","Duration":"208061","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2d7Pb5ix5G5gSpdVywQlj3","Timestamp":"2022-05-11 09:18:50 UTC","Track":"Rukakan Town","YoutubeCategoryId":"","YoutubeId":""},{"Album":"NIA","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f144d31dc4f3f32c4dac4ce","Artist":"中村佳穂","CreatedAt":"2022-05-11 08:57:30 UTC","Duration":"170132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OekXUo8u8pNfHxFMpQSCY","Timestamp":"2022-05-11 08:45:55 UTC","Track":"KAPO","YoutubeCategoryId":"","YoutubeId":""},{"Album":"NIA","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f144d31dc4f3f32c4dac4ce","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:37:48 UTC","Duration":"220902","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"45YOFD2Sl1uPAPRJtfc85K","Timestamp":"2022-05-11 09:22:31 UTC","Track":"Q日","YoutubeCategoryId":"","YoutubeId":""},{"Album":"NIA","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f144d31dc4f3f32c4dac4ce","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:26:32 UTC","Duration":"228035","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ovTFZCNLiE263FYsx0YWn","Timestamp":"2022-05-11 08:43:05 UTC","Track":"アイミル","YoutubeCategoryId":"","YoutubeId":""},{"Album":"NIA","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f144d31dc4f3f32c4dac4ce","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:14:58 UTC","Duration":"189983","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"20JUEfUxSqB7GIhfF1Qo5P","Timestamp":"2022-05-11 08:39:16 UTC","Track":"NIA","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 08:47:37 UTC","Duration":"246224","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1aleydUWuiBfdhxe8CMyV1","Timestamp":"2022-05-11 08:36:06 UTC","Track":"きっとね!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 09:39:19 UTC","Duration":"246224","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1aleydUWuiBfdhxe8CMyV1","Timestamp":"2022-05-06 09:06:02 UTC","Track":"きっとね!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 09:39:18 UTC","Duration":"220599","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6BvXXHQOsQMrgNdpV1qlkH","Timestamp":"2022-05-06 09:01:56 UTC","Track":"GUM","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:58:51 UTC","Duration":"235505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3OMbfxFSrlAUBcZ3IRqeqz","Timestamp":"2022-05-11 09:26:27 UTC","Track":"忘れっぽい天使","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 09:06:33 UTC","Duration":"158625","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4BBvu2WdeNviVnXDnNMukm","Timestamp":"2022-05-06 08:58:16 UTC","Track":"You may they","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 09:18:02 UTC","Duration":"242720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"01cpBMxDEpHCL613NChelt","Timestamp":"2022-05-06 09:10:04 UTC","Track":"FoolFor日記","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:42:20 UTC","Duration":"209598","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"35sXKaUt1SGr7HMhPTI8VR","Timestamp":"2022-05-11 09:11:29 UTC","Track":"アイアム主人公","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-06-06 06:52:01 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-06-06 06:39:20 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-31 09:48:56 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-31 09:22:06 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-27 19:13:37 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-27 18:34:22 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-23 21:37:46 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-23 21:30:32 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 18:10:29 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:29:12 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:02:07 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:28:48 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:42:13 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:23:55 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:42:12 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:19:01 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 12:45:44 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:14:07 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 12:27:32 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:09:13 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:15:48 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 12:04:20 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 12:01:29 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 11:59:23 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:02:06 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 11:54:32 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 12:12:37 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 11:49:38 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 13:31:03 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 11:44:16 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 11:53:31 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 11:39:22 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-21 12:01:26 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-21 10:31:59 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-17 15:34:25 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-17 15:21:18 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-13 19:44:57 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-13 18:19:28 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-12 07:24:37 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-12 06:36:55 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 21:14:30 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 20:49:10 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 19:43:04 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 19:31:07 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:49:29 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:42:09 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:34:40 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:33:14 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:49:28 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:28:07 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:42:56 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:23:13 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:42:55 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:18:19 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:34:39 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:13:26 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:24:31 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:08:32 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:34:38 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 11:03:38 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:11:57 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:58:45 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:24:30 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:53:51 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 10:51:41 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:48:57 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 11:11:56 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:44:03 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 10:59:16 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:39:10 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 10:51:40 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:34:16 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 10:32:46 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:29:22 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 10:32:44 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 10:06:18 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 08:34:29 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 08:31:59 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-11 08:19:37 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-11 08:05:52 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-10 16:58:51 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-10 16:35:15 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 08:13:37 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-06 07:50:30 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-05 08:36:50 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-05 08:24:28 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-04 20:33:41 UTC","Duration":"293240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XgX9x4zpJJAMpd0F9413R","Timestamp":"2022-05-04 20:14:00 UTC","Track":"そのいのち","YoutubeCategoryId":"","YoutubeId":""},{"Album":"AINOU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273537ec16f6e95f05cba143d89","Artist":"中村佳穂","CreatedAt":"2022-05-06 09:47:36 UTC","Duration":"176905","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Vwqo0fUNdMn2eqJKXT3Lc","Timestamp":"2022-05-06 09:13:01 UTC","Track":"永い言い訳","YoutubeCategoryId":"","YoutubeId":""},{"Album":"MIU","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27386f18ba1c9045a17b4bd4ae7","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:37:47 UTC","Duration":"220997","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1qPp3HgkZDNKXcgSMHlYjc","Timestamp":"2022-05-11 09:02:26 UTC","Track":"MIU","YoutubeCategoryId":"","YoutubeId":""},{"Album":"LINDY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e63cb8b1ccbc6b3b8766127","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:26:33 UTC","Duration":"244302","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2fimckV2Un3wfgE0aVgqGd","Timestamp":"2022-05-11 08:58:45 UTC","Track":"LINDY","YoutubeCategoryId":"","YoutubeId":""},{"Album":"q","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d1599769dfa578d57a610638","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:42:21 UTC","Duration":"223558","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Mp3sBg4pqs11B38TJBvhN","Timestamp":"2022-05-11 09:30:11 UTC","Track":"q","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hank","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d21ff20c063847ed3ae5fd66","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:54:39 UTC","Duration":"231088","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2goChbIPuZYwE4AweOXNKd","Timestamp":"2022-05-11 09:15:21 UTC","Track":"Hank","YoutubeCategoryId":"","YoutubeId":""},{"Album":"さよならクレール","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f2c0cafb05ff4c80019cc508","Artist":"中村佳穂","CreatedAt":"2022-05-11 09:04:44 UTC","Duration":"228449","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0oYXyyHYFmGCJTwCqv0OU3","Timestamp":"2022-05-11 08:54:39 UTC","Track":"さよならクレール","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

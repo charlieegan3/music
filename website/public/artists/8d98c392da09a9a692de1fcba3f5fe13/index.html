@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Years &amp; Years - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Years &amp; Years</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Palo Santo (Deluxe)","AlbumCover":"https://i.scdn.co/image/51a420cc36bb1c0e9c5c6326174057bce769ac59","Artist":"Years \u0026 Years","CreatedAt":"2019-09-24 16:00:20 UTC","Duration":"189000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0p3rzYD9XEIyBBx1QTwg4z","Timestamp":"2019-09-24 15:47:53 UTC","Track":"If You're Over Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Palo Santo (Deluxe)","AlbumCover":"https://i.scdn.co/image/51a420cc36bb1c0e9c5c6326174057bce769ac59","Artist":"Years \u0026 Years","CreatedAt":"2019-09-24 12:45:15 UTC","Duration":"189000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0p3rzYD9XEIyBBx1QTwg4z","Timestamp":"2019-09-24 12:40:50 UTC","Track":"If You're Over Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Palo Santo (Deluxe)","AlbumCover":"https://i.scdn.co/image/51a420cc36bb1c0e9c5c6326174057bce769ac59","Artist":"Years \u0026 Years","CreatedAt":"2019-04-24 19:55:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"0p3rzYD9XEIyBBx1QTwg4z","Timestamp":"2019-04-24 19:55:15 UTC","Track":"If You're Over Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Palo Santo (Deluxe)","AlbumCover":"https://i.scdn.co/image/51a420cc36bb1c0e9c5c6326174057bce769ac59","Artist":"Years \u0026 Years","CreatedAt":"2019-07-24 23:00:15 UTC","Duration":"219640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ehnD9UaRVYK6GeUmBFCez","Timestamp":"2019-07-24 22:49:04 UTC","Track":"All For You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Meteorite (From \"Bridget Jones's Baby\" Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/5e9d776de2bc598690125680179c2179dddcf091","Artist":"Years \u0026 Years","CreatedAt":"2019-09-25 10:45:20 UTC","Duration":"205608","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CuITtPAI0l5CIr86J2jNr","Timestamp":"2019-09-25 09:55:08 UTC","Track":"Meteorite - From \"Bridget Jones's Baby\" Original Motion Picture Soundtrack","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstruck","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27317cb524296459ba0fcfda8ec","Artist":"Years \u0026 Years","CreatedAt":"2022-02-04 18:49:14 UTC","Duration":"207755","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WJVFqVQ3ivhAoAQWzEzeL","Timestamp":"2022-02-04 17:13:46 UTC","Track":"Starstruck","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstruck","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27317cb524296459ba0fcfda8ec","Artist":"Years \u0026 Years","CreatedAt":"2021-09-25 10:59:14 UTC","Duration":"207755","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WJVFqVQ3ivhAoAQWzEzeL","Timestamp":"2021-09-25 10:07:49 UTC","Track":"Starstruck","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Edge Of Glory","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731de6dab6009e00354431d2fb","Artist":"Years \u0026 Years","CreatedAt":"2021-09-30 15:56:03 UTC","Duration":"239095","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iUkK8yFqMoqIp4Q2hBPKZ","Timestamp":"2021-09-30 15:01:38 UTC","Track":"The Edge Of Glory","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738205fc91939f7cfd12c3fe78","Artist":"Years \u0026 Years","CreatedAt":"2020-07-06 14:03:30 UTC","Duration":"215360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2020-07-06 14:02:26 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738205fc91939f7cfd12c3fe78","Artist":"Years \u0026 Years","CreatedAt":"2020-09-17 11:36:01 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2020-09-17 11:29:42 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Palo Santo (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f1764fbbd2ddd22efbf1e8c","Artist":"Years \u0026 Years","CreatedAt":"2019-10-02 16:45:29 UTC","Duration":"193880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2zcPV7NeGyhSZJK0WjETx7","Timestamp":"2019-10-02 10:52:51 UTC","Track":"Karma","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Night Call (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e7523d8a01238dda4e547727","Artist":"Years \u0026 Years","CreatedAt":"2022-08-04 09:46:43 UTC","Duration":"200322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3D5aBwEyq7Y5yPLnmj6AgP","Timestamp":"2022-08-04 09:38:40 UTC","Track":"Sooner Or Later","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-01-17 16:00:05 UTC","Duration":"215360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2019-01-17 15:57:09 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2018-12-28 23:45:05 UTC","Duration":"215360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2018-12-28 23:02:34 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2018-12-06 18:15:14 UTC","Duration":"215360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2018-12-06 18:14:46 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-09-25 10:45:21 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-09-25 10:32:33 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-09-25 07:30:20 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-09-25 07:28:05 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-09-24 16:45:15 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-09-24 16:20:21 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-09-24 13:15:14 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-09-24 13:11:09 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-08-06 16:15:19 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-08-06 16:08:51 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-07-24 17:30:15 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-07-24 16:43:23 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-07-23 22:15:10 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-07-23 22:04:46 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-07-23 16:30:10 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-07-23 15:52:06 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-06-25 20:30:08 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-06-25 20:23:33 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-06-25 15:45:12 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-06-25 15:43:41 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-03-29 13:15:06 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-03-29 11:30:43 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2018-12-17 13:45:14 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-12-17 12:46:10 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/bf46b5410d642900d4640a20bd86db8a3725ef78","Artist":"Years \u0026 Years","CreatedAt":"2019-09-25 09:30:17 UTC","Duration":"198226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2xzzSkFGtf0w5ZATRYa1Tg","Timestamp":"2019-09-25 08:45:55 UTC","Track":"Eyes Shut","YoutubeCategoryId":"","YoutubeId":""},{"Album":"If You're Over Me","AlbumCover":"https://i.scdn.co/image/e07185ca1fc9e5f59ad13a442d452ebea2fa192a","Artist":"Years \u0026 Years","CreatedAt":"2019-02-01 01:15:08 UTC","Duration":"189000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"01k24g94i1JvkFLQmVEdCd","Timestamp":"2019-02-01 00:39:11 UTC","Track":"If You're Over Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion (Deluxe)","AlbumCover":"https://i.scdn.co/image/fe8cf9b11daf5127251bfe453a5b58d79daa4676","Artist":"Years \u0026 Years","CreatedAt":"2019-12-16 08:45:22 UTC","Duration":"255506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2019-12-16 08:06:01 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sanctify","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/159835d908a34f7f87f2f203aaf00d65.png","Artist":"Years \u0026 Years","CreatedAt":"2018-03-30 10:20:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-30 10:20:10 UTC","Track":"Sanctify","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sanctify","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/159835d908a34f7f87f2f203aaf00d65.png","Artist":"Years \u0026 Years","CreatedAt":"2018-03-28 20:35:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-28 20:35:18 UTC","Track":"Sanctify","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sanctify","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/159835d908a34f7f87f2f203aaf00d65.png","Artist":"Years \u0026 Years","CreatedAt":"2018-03-26 18:04:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-26 18:04:55 UTC","Track":"Sanctify","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1d4a34802428ef2e48e4ea2fe7732df5.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-17 16:24:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-17 16:24:41 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1d4a34802428ef2e48e4ea2fe7732df5.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-17 13:53:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-17 13:53:14 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-04 15:17:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2016-01-04 15:17:07 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-24 18:00:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-24 18:00:08 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-24 15:38:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-24 15:38:28 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-23 16:51:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-23 16:51:09 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-23 14:33:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-23 14:33:01 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-22 16:14:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-22 16:14:31 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-22 14:02:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-22 14:02:56 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-22 12:27:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-22 12:27:36 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-21 23:04:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-21 23:04:38 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-21 21:29:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-21 21:29:18 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-21 15:08:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-21 15:08:59 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-21 12:30:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-21 12:30:51 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-20 22:08:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-20 22:08:03 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-20 17:41:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-20 17:41:21 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-20 16:17:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-20 16:17:41 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-19 23:56:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-19 23:56:22 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-19 15:07:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-19 15:07:24 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-19 14:22:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-19 14:22:26 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-19 12:16:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-19 12:16:36 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-18 14:01:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-18 14:01:16 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-18 12:50:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-18 12:50:50 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-18 11:28:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-18 11:28:29 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-17 23:17:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-17 23:17:43 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-17 13:04:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-17 13:04:07 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-17 00:34:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-12-17 00:34:26 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"King","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/2aaa80ae9f6f46bac69540b98218c7df.png","Artist":"Years \u0026 Years","CreatedAt":"2015-08-13 21:30:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3p6u2A85mjpENdBs4cnWR4","Timestamp":"2015-08-13 21:30:56 UTC","Track":"King","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2019-05-30 17:10:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-05-30 17:10:20 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-06 16:05:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-06 16:05:38 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-05 17:10:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-05 17:10:55 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-04 15:57:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-04 15:57:01 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-01 17:44:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-01 17:44:45 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2016-01-01 16:22:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-01 16:22:24 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-31 16:45:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-31 16:45:36 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-31 12:13:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-31 12:13:54 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-30 23:52:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-30 23:52:02 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2015-12-29 23:53:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-29 23:53:38 UTC","Track":"Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-22 18:35:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-22 18:35:03 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-18 19:07:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-18 19:07:55 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-17 16:20:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-17 16:20:24 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-17 13:45:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-17 13:45:57 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-16 18:12:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-16 18:12:32 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-16 13:23:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-16 13:23:31 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-12 21:40:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-12 21:40:46 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-12 21:36:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-12 21:36:30 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-11 14:16:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-11 14:16:51 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-11 11:05:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-11 11:05:01 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-10 18:37:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-10 18:37:41 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-10 16:16:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-10 16:16:22 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-10 07:41:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-10 07:41:25 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-09 19:30:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-09 19:30:06 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-09 17:50:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-09 17:50:08 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-09 17:17:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-09 17:17:13 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Communion","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5d654c79198d7afafe2b9930e4d0b026.png","Artist":"Years \u0026 Years","CreatedAt":"2018-07-09 13:10:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Qrxdjj3nFhjrqcnUU5r6a","Timestamp":"2018-07-09 13:10:06 UTC","Track":"Shine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Shine (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7bb5dc3f1eaf7c15e399c58cb597635b.png","Artist":"Years \u0026 Years","CreatedAt":"2015-08-13 19:39:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-13 19:39:02 UTC","Track":"Shine - Toyboy \u0026 Robin Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Desire (Gryffin Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/832ee885a734216e6c18557a2ca653c0.png","Artist":"Years \u0026 Years","CreatedAt":"2016-04-22 08:04:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-22 08:04:46 UTC","Track":"Desire - Gryffin Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Take Shelter","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/aaf39acb754e4aa3ca363604877b0a32.png","Artist":"Years \u0026 Years","CreatedAt":"2015-09-29 18:06:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-29 18:06:14 UTC","Track":"Take Shelter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kitsuné: Real - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f4c9f9eced154b5fcb6143a2ad5d2781.png","Artist":"Years \u0026 Years","CreatedAt":"2015-05-11 20:31:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-11 20:31:49 UTC","Track":"Real","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kitsuné: Real - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f4c9f9eced154b5fcb6143a2ad5d2781.png","Artist":"Years \u0026 Years","CreatedAt":"2015-05-11 20:39:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-11 20:39:25 UTC","Track":"Real (Tobtok Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kitsuné: Real - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f4c9f9eced154b5fcb6143a2ad5d2781.png","Artist":"Years \u0026 Years","CreatedAt":"2015-05-11 20:35:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-11 20:35:54 UTC","Track":"Real (Radio Edit)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

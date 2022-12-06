@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>A R I Z O N A - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>A R I Z O N A</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 17:34:20 UTC","Duration":"168305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6MhSbUQF8Y0Yslw6E0ck1u","Timestamp":"2020-01-27 17:33:12 UTC","Track":"Where You Are","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:53:20 UTC","Duration":"168305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6MhSbUQF8Y0Yslw6E0ck1u","Timestamp":"2020-01-27 15:52:40 UTC","Track":"Where You Are","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 17:07:21 UTC","Duration":"161680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19fa3duj61UfAXGUNhk44h","Timestamp":"2020-01-27 17:06:54 UTC","Track":"Trouble","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:06:20 UTC","Duration":"161680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19fa3duj61UfAXGUNhk44h","Timestamp":"2020-01-27 16:05:48 UTC","Track":"Trouble","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-02-04 08:34:14 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-02-04 08:33:54 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-02-03 12:56:13 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-02-03 12:55:54 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-30 20:27:21 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-30 20:26:16 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-29 18:24:10 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-29 18:23:36 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 21:17:09 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-27 21:16:24 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:02:12 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-27 15:01:49 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-26 13:43:15 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-26 13:42:38 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-25 15:08:12 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-01-25 15:07:50 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-28 08:35:19 UTC","Duration":"188587","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3nZBR8LOcyeKa9GO7ZdDoG","Timestamp":"2020-01-28 08:34:41 UTC","Track":"Find Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:40:18 UTC","Duration":"188587","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3nZBR8LOcyeKa9GO7ZdDoG","Timestamp":"2020-01-27 15:39:21 UTC","Track":"Find Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2019-10-19 17:00:25 UTC","Duration":"188587","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3nZBR8LOcyeKa9GO7ZdDoG","Timestamp":"2019-10-19 17:00:00 UTC","Track":"Find Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2019-10-19 15:45:17 UTC","Duration":"188587","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3nZBR8LOcyeKa9GO7ZdDoG","Timestamp":"2019-10-19 14:08:38 UTC","Track":"Find Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 20:15:16 UTC","Duration":"183943","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4E2Yf4kLF6rIvh5nl6s5NC","Timestamp":"2020-01-27 20:14:49 UTC","Track":"Don't Leave","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-28 09:04:16 UTC","Duration":"171898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75ylrnob5O80WTKi9ugZ1Z","Timestamp":"2020-01-28 09:03:44 UTC","Track":"Problems","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 19:07:09 UTC","Duration":"171898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75ylrnob5O80WTKi9ugZ1Z","Timestamp":"2020-01-27 19:06:40 UTC","Track":"Problems","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 14:59:19 UTC","Duration":"171898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75ylrnob5O80WTKi9ugZ1Z","Timestamp":"2020-01-27 14:58:46 UTC","Track":"Problems","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:13:14 UTC","Duration":"221322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1SrJocLgM7kL6ti6JdSECA","Timestamp":"2020-01-27 16:12:49 UTC","Track":"Let Me Know","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2019-12-03 08:30:29 UTC","Duration":"221322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1SrJocLgM7kL6ti6JdSECA","Timestamp":"2019-12-03 08:06:37 UTC","Track":"Let Me Know","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 22:11:19 UTC","Duration":"200312","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P4OS6niKRV6zsdPKPcnRM","Timestamp":"2020-01-27 22:10:14 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:05:20 UTC","Duration":"200312","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P4OS6niKRV6zsdPKPcnRM","Timestamp":"2020-01-27 15:05:10 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/19f493a5d6619c1887d1dc0399df47566c4b569a","Artist":"A R I Z O N A","CreatedAt":"2019-10-19 16:45:19 UTC","Duration":"200312","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P4OS6niKRV6zsdPKPcnRM","Timestamp":"2019-10-19 15:34:24 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2019-10-08 15:00:26 UTC","Duration":"200312","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6XNbM0R3MMlZRjH7lHopB4","Timestamp":"2019-10-08 14:55:45 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 20:33:11 UTC","Duration":"219885","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ofu1h1E6U5meL0SNpoS78","Timestamp":"2020-01-27 20:32:27 UTC","Track":"Summer Days","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:19:13 UTC","Duration":"219885","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ofu1h1E6U5meL0SNpoS78","Timestamp":"2020-01-27 15:18:27 UTC","Track":"Summer Days","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-02-01 17:55:20 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-02-01 17:54:44 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-29 18:27:16 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-29 18:27:02 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-28 08:21:11 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-28 08:20:44 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 21:35:19 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-27 21:34:32 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:33:14 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-27 15:32:53 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-26 13:34:13 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-26 13:33:45 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-23 22:32:16 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-23 22:32:05 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2020-01-23 22:29:09 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-01-23 22:28:40 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/6632949a430318d4f3c049adafe186edcf9eced7","Artist":"A R I Z O N A","CreatedAt":"2019-10-19 17:30:20 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2019-10-19 16:32:19 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2019-07-02 11:00:08 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6XNbM0R3MMlZRjH7lHopB4","Timestamp":"2019-07-02 10:20:08 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2019-03-27 17:15:12 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2019-03-27 16:46:08 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2019-02-07 16:30:08 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2019-02-07 15:05:09 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2018-10-29 17:15:10 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-29 17:07:21 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2018-10-28 17:30:15 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-28 17:28:58 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2018-10-24 05:15:09 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-24 02:39:05 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2018-10-23 21:15:13 UTC","Duration":"199635","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-23 21:05:50 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2019-09-08 19:30:15 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2019-09-08 19:01:09 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"What She Wants","AlbumCover":"https://i.scdn.co/image/71f7529305e8bdd07ca740c38832829c012b701c","Artist":"A R I Z O N A","CreatedAt":"2019-01-15 16:30:06 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2019-01-15 16:23:34 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-28 00:01:22 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-27 22:45:16 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-23 16:58:47 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-23 16:56:56 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-23 14:51:25 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-23 14:39:38 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-21 23:01:13 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-21 22:44:07 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-17 23:49:21 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-17 21:42:15 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-16 21:50:34 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-16 21:07:10 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-15 19:00:07 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-15 18:58:01 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-15 18:06:13 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-15 17:27:14 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-15 00:34:00 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-15 00:08:36 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-14 11:45:32 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-14 11:42:32 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732d7912dd2aec4b37f1db6509","Artist":"A R I Z O N A","CreatedAt":"2020-12-11 14:50:37 UTC","Duration":"205100","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4uf9vttaZb5rehtxzrL4Dx","Timestamp":"2020-12-11 13:08:35 UTC","Track":"What She Wants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 17:52:14 UTC","Duration":"226640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2PaNQL6MhyTLquEuvdNKbo","Timestamp":"2020-01-27 17:51:46 UTC","Track":"Brave Enough","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 20:51:19 UTC","Duration":"207400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"76viqO3tGyWHYbJgmV2gfN","Timestamp":"2020-01-27 20:50:41 UTC","Track":"Ain't Gonna Leave","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:03:14 UTC","Duration":"207400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"76viqO3tGyWHYbJgmV2gfN","Timestamp":"2020-01-27 16:03:06 UTC","Track":"Ain't Gonna Leave","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 18:52:20 UTC","Duration":"194013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6A8dnC0xkiuWN4BshmTB2I","Timestamp":"2020-01-27 18:51:57 UTC","Track":"Oceans Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:09:17 UTC","Duration":"194013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6A8dnC0xkiuWN4BshmTB2I","Timestamp":"2020-01-27 15:08:25 UTC","Track":"Oceans Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-28 08:51:13 UTC","Duration":"87720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6pm0czk8DMm7oV35jWkEki","Timestamp":"2020-01-28 08:50:37 UTC","Track":"Not a Single Day (Interlude)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 21:48:19 UTC","Duration":"201946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2driOHZZnMIlaUIt9e3SRD","Timestamp":"2020-01-27 21:47:31 UTC","Track":"Feed the Beast","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:26:18 UTC","Duration":"218760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4FjPJhlEIWB9QVKFTc78Nn","Timestamp":"2020-01-27 15:25:45 UTC","Track":"Cross My Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2019-05-03 11:21:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"4FjPJhlEIWB9QVKFTc78Nn","Timestamp":"2019-05-03 11:21:33 UTC","Track":"Cross My Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:29:19 UTC","Duration":"181920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1iUqqJrrk98kuvtLM0yfA7","Timestamp":"2020-01-27 16:29:00 UTC","Track":"Running","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 20:18:21 UTC","Duration":"184093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wqUIEuO44HNZxRGlaOMWq","Timestamp":"2020-01-27 20:17:54 UTC","Track":"Are You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:50:24 UTC","Duration":"184093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3wqUIEuO44HNZxRGlaOMWq","Timestamp":"2020-01-27 16:49:39 UTC","Track":"Are You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:50:18 UTC","Duration":"186800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5j4mKTvOu0cr4cooq57sm3","Timestamp":"2020-01-27 15:49:51 UTC","Track":"Where I Wanna Be","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 18:39:18 UTC","Duration":"198493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0AS090YJNo3vh75GrFxwbX","Timestamp":"2020-01-27 18:38:09 UTC","Track":"Electric Touch","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:37:10 UTC","Duration":"198493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0AS090YJNo3vh75GrFxwbX","Timestamp":"2020-01-27 15:36:12 UTC","Track":"Electric Touch","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27350a25f1cb71018982b81ca2b","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:10:27 UTC","Duration":"199960","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6se160dvONwrpI4G51bnVE","Timestamp":"2020-01-27 16:09:08 UTC","Track":"Annie","YoutubeCategoryId":"","YoutubeId":""},{"Album":"People Crying Every Night","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352711a936b82420f49d06c45","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:47:18 UTC","Duration":"221550","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XBWT6qciUWR1HCmiPwrEV","Timestamp":"2020-01-27 15:46:44 UTC","Track":"People Crying Every Night","YoutubeCategoryId":"","YoutubeId":""},{"Album":"People Crying Every Night","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352711a936b82420f49d06c45","Artist":"A R I Z O N A","CreatedAt":"2019-12-03 16:45:25 UTC","Duration":"221550","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XBWT6qciUWR1HCmiPwrEV","Timestamp":"2019-12-03 16:09:48 UTC","Track":"People Crying Every Night","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Singles","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735b742e69a7fde20b9461c99a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 22:28:20 UTC","Duration":"221642","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"32s8Fw4H89EkJ5DPKEWnWY","Timestamp":"2020-01-27 22:27:32 UTC","Track":"Passionfruit - Recorded at Spotify Studios NYC","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Spotify Singles","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735b742e69a7fde20b9461c99a","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 16:00:15 UTC","Duration":"221642","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"32s8Fw4H89EkJ5DPKEWnWY","Timestamp":"2020-01-27 15:59:38 UTC","Track":"Passionfruit - Recorded at Spotify Studios NYC","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hold The Line (Acoustic)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735fc7cc7b47bccc2d4cc624c5","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 22:07:20 UTC","Duration":"195561","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pd5gGxcHxErpWzbYxNi15","Timestamp":"2020-01-27 22:06:53 UTC","Track":"Hold The Line - Acoustic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hold The Line (Acoustic)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735fc7cc7b47bccc2d4cc624c5","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:56:11 UTC","Duration":"195561","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5pd5gGxcHxErpWzbYxNi15","Timestamp":"2020-01-27 15:55:56 UTC","Track":"Hold The Line - Acoustic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Let Me Touch Your Fire","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736b15cc86df2c8df5d9cc3204","Artist":"A R I Z O N A","CreatedAt":"2020-01-27 15:43:09 UTC","Duration":"218734","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0bRXBPQ4uL0N3aGV8SVIk7","Timestamp":"2020-01-27 15:43:02 UTC","Track":"Let Me Touch Your Fire","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-11-18 20:04:23 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-11-18 20:02:37 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-09-29 15:36:22 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-09-29 15:33:53 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-09-24 22:28:28 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-09-24 22:13:03 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-09-23 21:47:45 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-09-23 21:47:37 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-07-08 15:38:32 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-07-08 15:38:16 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-30 14:04:38 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-30 14:04:33 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-26 17:33:08 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-26 17:33:06 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-25 13:19:07 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-25 13:18:44 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-23 16:10:24 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-23 16:10:17 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-14 18:16:14 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-14 18:16:09 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-05-13 14:48:16 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65SjaqhfKeFhmXprzlzyn4","Timestamp":"2020-05-13 14:48:01 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-10-03 20:45:38 UTC","Duration":"171898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75ylrnob5O80WTKi9ugZ1Z","Timestamp":"2020-10-03 20:45:30 UTC","Track":"Problems","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-08-29 22:34:06 UTC","Duration":"171898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75ylrnob5O80WTKi9ugZ1Z","Timestamp":"2020-08-29 22:31:24 UTC","Track":"Problems","YoutubeCategoryId":"","YoutubeId":""},{"Album":"ASYLUM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737198e1eb3af6236a70ba76af","Artist":"A R I Z O N A","CreatedAt":"2020-06-23 12:40:45 UTC","Duration":"200312","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P4OS6niKRV6zsdPKPcnRM","Timestamp":"2020-06-23 12:40:19 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Oceans Away","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27385035c3434523a54d54714fd","Artist":"A R I Z O N A","CreatedAt":"2019-10-10 10:00:16 UTC","Duration":"193981","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4NJpJ17Dgm5r4OYExFbxLk","Timestamp":"2019-10-10 08:15:33 UTC","Track":"Oceans Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Nostalgic","AlbumCover":"https://i.scdn.co/image/ed69e713a83aa0cd511fce5b79be7fa977b0afe1","Artist":"A R I Z O N A","CreatedAt":"2019-10-08 17:30:18 UTC","Duration":"182667","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1pBO9JDqh1y3TbCKEO1OvG","Timestamp":"2019-10-08 15:47:47 UTC","Track":"Nostalgic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Find Someone","AlbumCover":"https://i.scdn.co/image/eeb22c4fd40ba3c627eb66375153c9febe5da943","Artist":"A R I Z O N A","CreatedAt":"2019-10-08 16:00:16 UTC","Duration":"188587","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"654BH5npNnfbFZyHD4c2RC","Timestamp":"2019-10-08 15:20:53 UTC","Track":"Find Someone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"GALLERY","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/369c8164e8e4d3a0a164c63e63fee84d.png","Artist":"A R I Z O N A","CreatedAt":"2018-10-08 15:55:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6pm0czk8DMm7oV35jWkEki","Timestamp":"2018-10-08 15:55:40 UTC","Track":"Not a Single Day (Interlude)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b6643cb94db4020365b50da7c2279ce7.png","Artist":"A R I Z O N A","CreatedAt":"2018-10-10 06:48:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-10 06:48:50 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b6643cb94db4020365b50da7c2279ce7.png","Artist":"A R I Z O N A","CreatedAt":"2018-10-09 20:31:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-09 20:31:59 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"COLD NIGHTS // SUMMER DAYS","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b6643cb94db4020365b50da7c2279ce7.png","Artist":"A R I Z O N A","CreatedAt":"2018-10-08 16:42:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5boqkVlc0CWhfTjksnpc1X","Timestamp":"2018-10-08 16:42:04 UTC","Track":"Freaking Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Was Wrong","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cbb83a4f6cf03ead5814315f6ff40e34.png","Artist":"A R I Z O N A","CreatedAt":"2016-05-10 11:25:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-10 11:25:38 UTC","Track":"I Was Wrong","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Was Wrong","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/cbb83a4f6cf03ead5814315f6ff40e34.png","Artist":"A R I Z O N A","CreatedAt":"2016-03-01 15:11:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-03-01 15:11:57 UTC","Track":"I Was Wrong","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

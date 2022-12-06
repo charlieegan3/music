@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Peter Nashel, Eric V. Hachikian - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Peter Nashel, Eric V. Hachikian</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-09-25 15:30:23 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-09-25 15:27:56 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-09-25 14:30:17 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-09-25 14:23:46 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 14:45:14 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-08-27 14:21:29 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 13:15:14 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-08-27 13:07:51 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 11:15:18 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-08-27 11:12:44 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 11:45:13 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-08-27 11:02:12 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 10:15:12 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-08-27 09:54:57 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-04-02 18:15:07 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-04-02 18:12:13 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-03-05 17:00:09 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-03-05 17:00:01 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-03-05 15:00:13 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-03-05 14:55:59 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-02-17 15:15:08 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-02-17 14:19:07 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-01-25 16:15:08 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-01-25 16:01:52 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2018-12-17 12:30:08 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2018-12-17 12:28:07 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2018-12-17 11:30:09 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2018-12-17 11:25:43 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2018-12-10 10:00:14 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2018-12-10 09:59:59 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-09-25 16:45:19 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-09-25 16:40:39 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-09-25 16:45:18 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-09-25 15:21:28 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-09-25 15:00:22 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-09-25 14:15:13 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 14:15:16 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-08-27 14:15:01 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 13:15:13 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-08-27 13:01:24 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 11:30:12 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-08-27 11:01:32 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-08-27 10:00:14 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-08-27 09:48:29 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-04-02 18:15:06 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-04-02 17:46:29 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-03-05 15:30:13 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-03-05 15:17:00 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-02-17 14:15:09 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-02-17 14:12:40 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2018-12-17 12:30:05 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2018-12-17 11:34:51 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/1aead146ae6ea585ea4985685865c30967f9b2db","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2018-12-10 09:45:08 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2018-12-10 09:41:45 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d00004851324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-10-16 09:27:28 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2022-10-14 17:36:18 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d00004851324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-10-14 17:51:08 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2022-10-14 17:35:14 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-09-23 15:07:07 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2022-09-23 15:02:47 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 17:28:52 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-12-14 17:13:10 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 18:19:45 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-12-14 16:11:36 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 17:28:43 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-12-14 15:10:01 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-10-04 20:32:47 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-10-04 19:14:36 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-10-04 19:18:02 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-10-04 17:29:37 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 13:34:58 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-05-08 13:20:29 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 13:58:19 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-05-08 12:18:35 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 11:36:13 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-05-08 11:15:49 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-02-17 13:34:48 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2021-02-17 12:04:55 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 22:32:11 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 21:58:51 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 21:20:37 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 20:57:10 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 22:13:47 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 20:07:27 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 18:53:08 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 18:50:51 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 17:54:46 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 17:49:10 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 17:28:31 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 16:47:29 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 15:45:35 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 15:43:04 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 15:28:25 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 14:37:15 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 13:36:12 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-09-14 13:35:33 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-08-09 20:18:11 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-08-09 20:12:44 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-04-12 17:24:10 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-04-12 17:23:27 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-03-22 15:10:24 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-03-22 15:09:47 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-01-28 10:50:25 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2020-01-28 10:49:57 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-10-08 17:30:20 UTC","Duration":"387106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rcqIGEbcnDJGCFgrIB3ED","Timestamp":"2019-10-08 17:28:05 UTC","Track":"Chabi's Rejection / Jing Fei's Dance","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-09-23 16:55:55 UTC","Duration":"116426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1XqnxgRn2vFTjDGsm21ojr","Timestamp":"2022-09-23 16:27:19 UTC","Track":"Marco in Venice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-09-23 15:34:08 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2022-09-23 14:56:19 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 18:54:28 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-12-14 17:06:44 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 16:24:35 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-12-14 16:05:09 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-12-14 15:53:43 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-12-14 15:03:34 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-10-04 20:44:34 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-10-04 20:19:32 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-10-04 20:16:37 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-10-04 19:08:08 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-10-04 18:47:55 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-10-04 17:23:09 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 14:24:20 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-05-08 13:14:02 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 12:35:03 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-05-08 12:12:05 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2021-05-08 12:35:00 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2021-05-08 11:09:21 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 21:55:00 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 21:52:23 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 20:52:31 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 20:50:42 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 20:16:29 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 20:00:59 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 18:44:44 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 18:44:24 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 17:46:04 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 17:42:43 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 16:43:47 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 16:41:01 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 15:36:53 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 15:36:36 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 14:33:08 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 14:30:47 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-09-14 13:44:46 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-09-14 13:29:05 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-04-12 18:19:09 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-04-12 18:18:40 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-04-12 17:17:12 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-04-12 17:16:59 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2020-03-22 15:04:09 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2020-03-22 15:03:19 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2019-10-08 17:00:20 UTC","Duration":"121760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1yiW2sBmeCeL5sr3YHxDS9","Timestamp":"2019-10-08 16:46:13 UTC","Track":"It is Coming at Dawn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-09-23 15:34:10 UTC","Duration":"55546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1RJrs5d17EGeQraGHdilTE","Timestamp":"2022-09-23 15:31:39 UTC","Track":"Marco and Kokachin Ride","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Marco Polo (Music from the Netflix Original Series)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273324af94961b06ccbad82c1f3","Artist":"Peter Nashel, Eric V. Hachikian","CreatedAt":"2022-09-23 17:57:09 UTC","Duration":"130426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4nfhII9EeRyJiJPq6xTS0r","Timestamp":"2022-09-23 16:55:16 UTC","Track":"Yusuf Investigates","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

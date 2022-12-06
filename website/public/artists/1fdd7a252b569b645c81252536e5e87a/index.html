@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Alexandre Desplat - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Alexandre Desplat</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 01:15:18 UTC","Duration":"30720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50dPLKDiA9Yajf5kg26PZN","Timestamp":"2018-12-02 23:56:46 UTC","Track":"Lot 117","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:15:14 UTC","Duration":"70440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2rG4ZOv7W6qZdqUItaxRbN","Timestamp":"2018-12-03 00:07:58 UTC","Track":"Cleared Of All Charges","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:14 UTC","Duration":"104146","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2XOGa9LqNikOr0iW1PV3Oc","Timestamp":"2018-12-02 23:39:19 UTC","Track":"Night Train To Nebelsbad","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:45:23 UTC","Duration":"88800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1RziS5pFahsy6Cc1nwNmQt","Timestamp":"2018-12-02 23:44:14 UTC","Track":"J.G. Jopling, Private Inquiry Agent","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:45:08 UTC","Duration":"136866","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7f6FUsWJfCUCO01WqTgs1u","Timestamp":"2018-12-02 23:37:07 UTC","Track":"Last Will And Testament","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 01:00:18 UTC","Duration":"86346","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"42KRxmxkFnGdrWY5ItrjRD","Timestamp":"2018-12-03 00:09:25 UTC","Track":"The Mystical Union","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:16 UTC","Duration":"132546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4qgXaamMhtPwCSRRfWMkjh","Timestamp":"2018-12-02 23:50:05 UTC","Track":"Escape Concerto","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:15:13 UTC","Duration":"92026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3iryCckGuw7aDdi0xlYMXZ","Timestamp":"2018-12-02 23:52:39 UTC","Track":"No Safe-House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:30:13 UTC","Duration":"201186","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5QACbpHAaeH9jNFTGHCExA","Timestamp":"2018-12-03 00:13:07 UTC","Track":"Traditional Arrangement: \"Moonshine\"","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-27 23:00:15 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-27 22:54:21 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-13 09:15:14 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-13 09:08:32 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 21:45:17 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-12 21:44:25 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-07 15:00:12 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-07 14:35:54 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-06 13:00:17 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-06 10:24:32 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 01:00:17 UTC","Duration":"167213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1DSFSydoUrOX8Ca3V7rOx9","Timestamp":"2018-12-02 23:47:52 UTC","Track":"The Cold-Blooded Murder Of Deputy Vilmos Kovacs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-27 23:30:14 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-27 22:51:33 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-13 09:30:16 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-13 09:05:45 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 21:45:16 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-12 21:41:37 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-07 14:45:09 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-07 14:33:06 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-06 12:30:13 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-06 10:21:45 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:45:21 UTC","Duration":"136906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Fn4SF8joVQDmPPlmtga6r","Timestamp":"2018-12-02 23:32:29 UTC","Track":"Daylight Express To Lutz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 01:15:17 UTC","Duration":"109666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4egbYxKCPHqnkzMPSIwhbA","Timestamp":"2018-12-02 23:34:50 UTC","Track":"The Family Desgoffe Und Taxis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-27 22:45:10 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-27 22:39:13 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-13 09:30:15 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-13 08:53:23 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 21:30:10 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-12 21:29:17 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 21:45:13 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-12 20:50:48 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-07 15:00:11 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-07 14:22:46 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-06 12:45:14 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-06 10:09:25 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-04 18:30:12 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-04 17:09:44 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:30:20 UTC","Duration":"183813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2018-12-02 23:23:11 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:15:11 UTC","Duration":"80840","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7dhn9OHK1EvIKrkjZIiwtu","Timestamp":"2018-12-02 23:25:01 UTC","Track":"A Prayer For Madame D","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:15 UTC","Duration":"92000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1VjujdzoWrTfUfgQfRdlLj","Timestamp":"2018-12-02 23:45:45 UTC","Track":"A Dash Of Salt (Ludwig's Theme)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-13 15:00:06 UTC","Duration":"318173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5W29zAC8IgwiBUCtszh5fj","Timestamp":"2018-12-13 09:27:44 UTC","Track":"A Troops Barracks (Requiem For The Grand Budapest)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 22:00:11 UTC","Duration":"318173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5W29zAC8IgwiBUCtszh5fj","Timestamp":"2018-12-12 21:55:19 UTC","Track":"A Troops Barracks (Requiem For The Grand Budapest)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-06 12:45:16 UTC","Duration":"318173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5W29zAC8IgwiBUCtszh5fj","Timestamp":"2018-12-06 10:35:26 UTC","Track":"A Troops Barracks (Requiem For The Grand Budapest)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:45:22 UTC","Duration":"49600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4SCXZrwrbGbWjdPqqR6jqq","Timestamp":"2018-12-02 23:40:09 UTC","Track":"The Lutz Police Militia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:30:21 UTC","Duration":"137853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"36vACHS1iPv2oGJ3rBH6ju","Timestamp":"2018-12-02 23:27:19 UTC","Track":"The New Lobby Boy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:30:10 UTC","Duration":"32173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5tI8l60GcPFS5wSsZZxfki","Timestamp":"2018-12-02 23:33:01 UTC","Track":"Schloss Lutz Overture","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:30:11 UTC","Duration":"141026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"788AsrrUg8qdmX9SVZ1zKI","Timestamp":"2018-12-02 23:55:00 UTC","Track":"The Society Of The Crossed Keys","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:17 UTC","Duration":"61640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3YQW2tdTlNUaaGPZi0Svxb","Timestamp":"2018-12-02 23:51:07 UTC","Track":"The War (Zero's Theme)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:45:09 UTC","Duration":"75200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7kkoIZfBMVYkC1dQpm8hmg","Timestamp":"2018-12-02 23:56:15 UTC","Track":"M. Ivan","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:18 UTC","Duration":"80653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4sFLuk71ffQXrz6aGPxsdv","Timestamp":"2018-12-02 23:58:06 UTC","Track":"Third Class Carriage","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-02 23:45:19 UTC","Duration":"30013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6GlWbkmzLk1MaYvdf9JSUC","Timestamp":"2018-12-02 23:23:41 UTC","Track":"Overture: M. Gustave H","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:13 UTC","Duration":"36826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5DFXfpqWozRmUU5g0a4Q7z","Timestamp":"2018-12-02 23:20:07 UTC","Track":"The Alpine Sudetenwaltz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-13 09:15:15 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-13 09:14:08 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-12 23:00:10 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-12 21:50:00 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-07 14:45:10 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-07 14:42:36 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-06 14:00:17 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-06 10:30:08 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:30:12 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-03 00:03:18 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://i.scdn.co/image/b4b0e7dc99abb7b5f7999b04b740da974dfd556f","Artist":"Alexandre Desplat","CreatedAt":"2018-12-03 00:00:19 UTC","Duration":"335026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1w3bpz8NvESU3A2jd9e22a","Timestamp":"2018-12-02 23:59:41 UTC","Track":"Canto At Gabelmeister's Peak","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Grand Budapest Hotel (Original Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f11b95710124b5dcbac842cfccae901.png","Artist":"Alexandre Desplat","CreatedAt":"2015-04-13 16:56:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1uNhvxpkPrNHUNfeclo6xD","Timestamp":"2015-04-13 16:56:27 UTC","Track":"Mr. Moustafa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harry Potter and the Deathly Hallows - Part 2: Original Motion Picture Soundtrack","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/64ad9381be0f4817bb2cf4744e549830.png","Artist":"Alexandre Desplat","CreatedAt":"2016-11-04 15:21:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-11-04 15:21:11 UTC","Track":"Lily's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Imitation Game (Original Motion Picture Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d8c738f6a117c00bb6bdb79198cd5b90.png","Artist":"Alexandre Desplat","CreatedAt":"2017-11-22 17:36:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-22 17:36:29 UTC","Track":"Alan Turing's Legacy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Imitation Game (Original Motion Picture Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d8c738f6a117c00bb6bdb79198cd5b90.png","Artist":"Alexandre Desplat","CreatedAt":"2017-11-22 15:57:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-22 15:57:35 UTC","Track":"The Imitation Game","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Imitation Game (Original Motion Picture Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d8c738f6a117c00bb6bdb79198cd5b90.png","Artist":"Alexandre Desplat","CreatedAt":"2016-08-28 14:24:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-28 14:24:17 UTC","Track":"The Imitation Game","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Imitation Game (Original Motion Picture Soundtrack)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d8c738f6a117c00bb6bdb79198cd5b90.png","Artist":"Alexandre Desplat","CreatedAt":"2016-08-27 17:14:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-27 17:14:45 UTC","Track":"The Imitation Game","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

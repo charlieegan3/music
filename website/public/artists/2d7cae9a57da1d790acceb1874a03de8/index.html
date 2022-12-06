@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>VÉRITÉ - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>VÉRITÉ</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-30 09:00:16 UTC","Duration":"232440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2la6yeTdIIZ1krJuNBLcDr","Timestamp":"2019-09-30 08:47:18 UTC","Track":"Wasteland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-25 09:15:22 UTC","Duration":"232440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2la6yeTdIIZ1krJuNBLcDr","Timestamp":"2019-09-25 09:12:01 UTC","Track":"Wasteland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 21:00:17 UTC","Duration":"232440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2la6yeTdIIZ1krJuNBLcDr","Timestamp":"2019-09-24 20:16:27 UTC","Track":"Wasteland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 16:30:14 UTC","Duration":"232440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2la6yeTdIIZ1krJuNBLcDr","Timestamp":"2019-09-24 14:26:29 UTC","Track":"Wasteland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 14:45:15 UTC","Duration":"232440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2la6yeTdIIZ1krJuNBLcDr","Timestamp":"2019-09-24 14:22:32 UTC","Track":"Wasteland","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-25 08:01:55 UTC","Duration":"237840","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3I3Hlj0aJM6zdVX2OeO1ho","Timestamp":"2019-09-25 07:45:53 UTC","Track":"Sentiment","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 17:30:18 UTC","Duration":"237840","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3I3Hlj0aJM6zdVX2OeO1ho","Timestamp":"2019-09-24 16:31:38 UTC","Track":"Sentiment","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sentiment","AlbumCover":"https://i.scdn.co/image/53db48b34f012884206745f783dc109047859151","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 13:30:17 UTC","Duration":"237840","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3I3Hlj0aJM6zdVX2OeO1ho","Timestamp":"2019-09-24 13:22:25 UTC","Track":"Sentiment","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Underdressed","AlbumCover":"https://i.scdn.co/image/8c661151af6d52a724606e73b48f51f2543775ba","Artist":"VÉRITÉ","CreatedAt":"2019-09-25 13:30:21 UTC","Duration":"234202","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0v9W4BfBwrxFLzRqWnqXPZ","Timestamp":"2019-09-25 13:21:48 UTC","Track":"Underdressed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d000048517d82faca5bb29b94f652f8fa","Artist":"VÉRITÉ","CreatedAt":"2022-10-31 18:54:29 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4eL7QfinP4e6vqjj2eEAdP","Timestamp":"2022-10-31 18:48:24 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"new skin","AlbumCover":"https://i.scdn.co/image/ab67616d00004851d014235b0720b27e3792b514","Artist":"VÉRITÉ","CreatedAt":"2022-11-03 14:02:39 UTC","Duration":"132013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Xk3woedbuw1RY4jwPoeNT","Timestamp":"2022-11-03 13:35:47 UTC","Track":"new skin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"new skin","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27388c55473fe9e243a54687a74","Artist":"VÉRITÉ","CreatedAt":"2020-05-30 13:14:31 UTC","Duration":"238118","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3GUbNKdTVlN201ZaSeVWTI","Timestamp":"2020-05-29 23:18:37 UTC","Track":"gone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-08-03 21:10:19 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-08-03 20:49:25 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-07-22 22:17:32 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-07-22 21:43:48 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-07-03 15:54:07 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-07-03 15:21:30 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-06-15 10:51:32 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-06-15 10:28:37 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-06-15 08:46:23 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-06-15 08:12:10 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-05-11 15:43:33 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-05-11 15:22:59 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-05-03 12:41:46 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-05-03 12:27:36 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-04-29 13:25:29 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-04-29 13:07:44 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-22 22:36:35 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-22 22:35:27 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-21 20:16:03 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-21 19:34:17 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-21 17:19:49 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-21 17:08:06 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-21 15:54:03 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-21 14:33:09 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-21 12:57:20 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-21 12:07:20 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-21 10:25:58 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-21 09:41:31 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-17 11:57:37 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-17 11:43:27 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-16 20:28:35 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-16 20:23:46 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-16 12:38:31 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-16 12:05:19 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-15 14:57:20 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-15 14:41:28 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-14 16:56:48 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-14 16:12:57 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-12 21:09:51 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-12 20:33:57 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-11 19:30:06 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-11 19:15:20 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-11 16:23:26 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-11 15:45:48 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-10 22:07:50 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-10 21:48:29 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-10 13:59:23 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-10 13:43:21 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-09 14:34:31 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-09 14:12:50 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-03-09 11:31:23 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-03-09 11:28:53 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-02-28 19:44:49 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-02-28 19:14:41 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"by now","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f23b62e7bdb4cbda7e5bd0c","Artist":"VÉRITÉ","CreatedAt":"2022-01-28 17:21:58 UTC","Duration":"196868","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"66dnCZswVnW74JV3aI2yj6","Timestamp":"2022-01-28 17:16:03 UTC","Track":"by now","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Somebody Else","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ce94afb9aa5d73f00852a45b","Artist":"VÉRITÉ","CreatedAt":"2020-06-23 13:56:35 UTC","Duration":"233076","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"34i4yxPrHWquuR4kjiivFO","Timestamp":"2020-06-23 13:55:35 UTC","Track":"Somebody Else","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Somewhere in Between","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e9fe0cc337df756814dbc984","Artist":"VÉRITÉ","CreatedAt":"2019-09-25 11:15:21 UTC","Duration":"201160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ShBgThQYkfc5BXXvnDCek","Timestamp":"2019-09-25 10:52:32 UTC","Track":"Saint","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Somewhere in Between","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e9fe0cc337df756814dbc984","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 21:00:19 UTC","Duration":"201160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ShBgThQYkfc5BXXvnDCek","Timestamp":"2019-09-24 20:57:04 UTC","Track":"Saint","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Somewhere in Between","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e9fe0cc337df756814dbc984","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 15:00:20 UTC","Duration":"201160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ShBgThQYkfc5BXXvnDCek","Timestamp":"2019-09-24 14:58:55 UTC","Track":"Saint","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Somewhere in Between","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e9fe0cc337df756814dbc984","Artist":"VÉRITÉ","CreatedAt":"2019-09-24 16:00:19 UTC","Duration":"220880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"464RqpLRMBnZAmGsUQmI9D","Timestamp":"2019-09-24 15:20:22 UTC","Track":"Death of Me","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

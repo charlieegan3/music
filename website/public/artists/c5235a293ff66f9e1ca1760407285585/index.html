@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Chris Malinchak - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Chris Malinchak</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Chris Malinchak","CreatedAt":"2019-05-31 17:49:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-05-31 17:49:14 UTC","Track":"So Good to Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Wash My Soul EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273112586bb87140b47f0386f56","Artist":"Chris Malinchak","CreatedAt":"2020-04-27 14:30:19 UTC","Duration":"213966","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6sLJO8WXCkjtZTNP2DL50S","Timestamp":"2020-04-27 14:29:43 UTC","Track":"Wash My Soul","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When The World Stops Turning","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732579669185e55c706d92a316","Artist":"Chris Malinchak","CreatedAt":"2020-10-19 17:53:18 UTC","Duration":"295963","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1CjzPEwLDQi2K6UMAi6IGR","Timestamp":"2020-10-19 17:23:19 UTC","Track":"When The World Stops Turning","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When The World Stops Turning","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732579669185e55c706d92a316","Artist":"Chris Malinchak","CreatedAt":"2020-10-19 15:30:42 UTC","Duration":"295963","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1CjzPEwLDQi2K6UMAi6IGR","Timestamp":"2020-10-19 15:24:13 UTC","Track":"When The World Stops Turning","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lore EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a6ac4af1d054b2c1af01b9e","Artist":"Chris Malinchak","CreatedAt":"2021-05-25 13:26:58 UTC","Duration":"209406","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5cZhGl84mK2JzltfSzqJR9","Timestamp":"2021-05-25 13:14:48 UTC","Track":"Can’t Quite Understand","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a4a8ca1bc7ab61adb3c08b08","Artist":"Chris Malinchak","CreatedAt":"2021-05-25 19:43:58 UTC","Duration":"286271","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2C8c1RN9BDuwR7DiIXqYNY","Timestamp":"2021-05-25 18:49:08 UTC","Track":"Blue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-16 14:09:51 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-16 13:58:02 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-15 11:49:58 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-15 11:48:07 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-13 17:30:16 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-13 17:18:43 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-13 14:59:36 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-13 14:39:04 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-12 20:09:41 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-12 20:03:34 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Pick You Up","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ad5825ef19be134cb01a512d","Artist":"Chris Malinchak","CreatedAt":"2021-04-12 17:06:42 UTC","Duration":"206814","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZiBr9J2CFBKLDkwJANSHD","Timestamp":"2021-04-12 17:06:32 UTC","Track":"Pick You Up","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Letter EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ca1a3110c72ec39c18259238","Artist":"Chris Malinchak","CreatedAt":"2022-01-03 16:41:05 UTC","Duration":"235435","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Drks6dbqYCZ303NPH4c6T","Timestamp":"2022-01-03 16:09:27 UTC","Track":"The Letter","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crash","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ec47dd04c6772315bfeda4da","Artist":"Chris Malinchak","CreatedAt":"2022-02-11 15:08:32 UTC","Duration":"232981","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FXlhqcYaiw6KuUYtXdtAi","Timestamp":"2022-02-11 13:27:49 UTC","Track":"Crash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When The World Stops Turning (Quiet Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f6ad4e643eb1854ad0fa4e77","Artist":"Chris Malinchak","CreatedAt":"2021-05-26 15:07:48 UTC","Duration":"227520","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ek1kNO1a5EJCNIUvNs5XI","Timestamp":"2021-05-26 11:15:03 UTC","Track":"When The World Stops Turning - Quiet Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When The World Stops Turning (Quiet Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f6ad4e643eb1854ad0fa4e77","Artist":"Chris Malinchak","CreatedAt":"2021-05-24 13:54:47 UTC","Duration":"227520","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ek1kNO1a5EJCNIUvNs5XI","Timestamp":"2021-05-24 13:53:20 UTC","Track":"When The World Stops Turning - Quiet Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-07-18 11:15:08 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-07-18 10:49:52 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-30 15:30:12 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-30 15:06:41 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-28 07:45:05 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-28 07:42:39 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-27 16:30:06 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-27 16:01:13 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-23 15:45:12 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-23 15:42:25 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-23 12:45:10 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-23 12:32:32 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-23 08:45:12 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-23 08:39:25 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-22 16:45:07 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-22 16:06:49 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-22 12:00:11 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-22 11:48:38 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-21 19:45:06 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-21 17:36:10 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-20 18:00:13 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-20 17:54:36 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-20 15:15:13 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-20 15:09:30 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-20 11:30:14 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-20 10:37:59 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-17 21:45:05 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-17 15:49:47 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-17 09:15:08 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-17 09:13:38 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-17 08:00:08 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-17 07:35:22 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-16 09:15:19 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-16 08:38:30 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-15 20:30:07 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-15 20:27:46 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-15 20:30:06 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-15 20:02:30 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-15 15:15:09 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-15 14:51:10 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-15 13:15:12 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-15 13:14:24 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-15 11:00:08 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-15 10:35:30 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue","AlbumCover":"https://i.scdn.co/image/b017322c08ebd7d07223427bc1b75b6de6719876","Artist":"Chris Malinchak","CreatedAt":"2019-05-14 16:15:06 UTC","Duration":"287747","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0etSTgLdildEpWqv6KJPOI","Timestamp":"2019-05-14 16:05:24 UTC","Track":"What Matters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-17 12:15:07 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-17 11:54:47 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-08 12:45:10 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-08 12:37:43 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-08 12:00:11 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-08 10:21:41 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-06 15:15:13 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-06 15:00:46 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-06 13:30:13 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-06 13:29:17 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-05 17:00:11 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-05 15:39:31 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-05 15:15:13 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-05 14:08:03 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-05 09:00:05 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-05 07:45:23 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-06-03 08:00:17 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-06-03 07:45:20 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-05-31 21:00:07 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-05-31 20:45:56 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes)","AlbumCover":"https://i.scdn.co/image/f00f7ea82de467ebf48a10fc3bb229d5cf90d51d","Artist":"Chris Malinchak","CreatedAt":"2019-05-31 19:45:12 UTC","Duration":"158677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4YYODVaWvNDvqsYiQtJJrM","Timestamp":"2019-05-31 19:44:56 UTC","Track":"So Good to Me - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crash","AlbumCover":"https://i.scdn.co/image/fa9cd50f1e458de8c8ede42fa7a607f5d89ceea6","Artist":"Chris Malinchak","CreatedAt":"2019-09-04 15:01:49 UTC","Duration":"232981","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FXlhqcYaiw6KuUYtXdtAi","Timestamp":"2019-09-04 14:18:05 UTC","Track":"Crash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crash","AlbumCover":"https://i.scdn.co/image/fa9cd50f1e458de8c8ede42fa7a607f5d89ceea6","Artist":"Chris Malinchak","CreatedAt":"2019-07-16 15:45:09 UTC","Duration":"232981","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FXlhqcYaiw6KuUYtXdtAi","Timestamp":"2019-07-16 15:40:32 UTC","Track":"Crash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crash","AlbumCover":"https://i.scdn.co/image/fa9cd50f1e458de8c8ede42fa7a607f5d89ceea6","Artist":"Chris Malinchak","CreatedAt":"2018-11-19 14:45:10 UTC","Duration":"232981","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FXlhqcYaiw6KuUYtXdtAi","Timestamp":"2018-11-19 14:45:04 UTC","Track":"Crash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Good To Me (Remixes) - EP","AlbumCover":"https://images.shazam.com/coverart/t88618480-i1216909351_s400.jpg","Artist":"Chris Malinchak","CreatedAt":"2019-05-31 20:00:16 UTC","Duration":"0","ShazamId":"88618480","ShazamPermalink":"https://www.shazam.com/track/88618480/so-good-to-me-extended-mix","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"","Timestamp":"2019-05-31 17:47:20 UTC","Track":"So Good To Me (Extended Mix)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

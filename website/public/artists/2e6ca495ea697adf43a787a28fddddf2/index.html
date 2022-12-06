@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>John Murphy - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>John Murphy</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Kick-Ass: The Score","AlbumCover":"https://i.scdn.co/image/09ccff705a83b05aad459bc59e39753cb3bc1f56","Artist":"John Murphy","CreatedAt":"2019-03-20 18:00:12 UTC","Duration":"78560","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2019-03-20 17:58:58 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the House - In a Heartbeat","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27318d434f009f3bf0f4115290c","Artist":"John Murphy","CreatedAt":"2021-04-09 17:02:54 UTC","Duration":"258173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cWPe8mPRyLMxxe94eRVzs","Timestamp":"2021-04-09 15:26:01 UTC","Track":"In the House - In a Heartbeat","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the House - In a Heartbeat","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27318d434f009f3bf0f4115290c","Artist":"John Murphy","CreatedAt":"2021-04-05 15:54:43 UTC","Duration":"258173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0cWPe8mPRyLMxxe94eRVzs","Timestamp":"2021-04-05 13:53:35 UTC","Track":"In the House - In a Heartbeat","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Automatic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2733b7ac2e2240691d4a4d152f6","Artist":"John Murphy","CreatedAt":"2021-04-05 17:33:16 UTC","Duration":"190586","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4tJzs0b8TAVGnTWIUTCDDY","Timestamp":"2021-04-05 16:18:01 UTC","Track":"Automatic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kanada's Death Pt.2 (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738c7a6401ce8396c8f21a0428","Artist":"John Murphy","CreatedAt":"2021-05-05 18:01:36 UTC","Duration":"178478","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1BGN3u8E1rx4B79lnudI56","Timestamp":"2021-05-05 16:55:12 UTC","Track":"Kanada's Death Pt.2 (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-28 15:47:59 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-28 08:17:03 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-19 13:16:53 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-19 11:14:22 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-18 19:32:37 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-18 17:39:48 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-18 18:39:18 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-18 16:14:15 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-12 18:44:30 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-12 15:34:41 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-11 16:56:51 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-11 16:43:09 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-11 18:51:31 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-11 15:52:20 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-11 19:44:54 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-11 15:01:32 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-11 14:09:40 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-11 14:02:44 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-10 20:45:38 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-10 20:37:50 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-10 17:59:52 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-10 17:58:57 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-10 21:51:18 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-10 17:08:09 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-10 15:34:06 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-10 15:31:00 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-09 22:52:35 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-09 21:16:42 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-09 19:43:04 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-09 19:16:51 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-09 18:41:36 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-09 18:32:01 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-06 12:36:50 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-06 11:56:26 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-06 12:36:47 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-06 11:12:31 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-06 11:47:35 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-06 10:28:35 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-05 20:51:35 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-05 20:47:43 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-05 20:25:30 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-05 19:43:33 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-05 19:00:39 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-05 18:23:52 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Adagio in D Minor (Orchestra Mix)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a66d35eed784c6b18f4d14b9","Artist":"John Murphy","CreatedAt":"2021-05-05 19:25:21 UTC","Duration":"261252","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qy856POBAiprmG4eGy51G","Timestamp":"2021-05-05 16:46:43 UTC","Track":"Adagio in D Minor (Orchestra Mix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2022-07-01 07:38:50 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2022-07-01 07:11:26 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2021-04-05 13:36:51 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2021-04-05 13:16:55 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2021-04-04 19:06:24 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2021-04-04 17:30:47 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2021-04-04 13:40:31 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2021-04-04 13:28:56 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2021-04-03 21:25:14 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2021-04-03 20:33:23 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Sunshine (Adagio in D Minor)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fe1506a52e1ab3a911b8805c","Artist":"John Murphy","CreatedAt":"2021-04-03 22:23:41 UTC","Duration":"284834","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50ExtKr8j9cHTY3OEw282G","Timestamp":"2021-04-03 20:20:27 UTC","Track":"Sunshine (Adagio in D Minor)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2018-06-12 11:51:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2018-06-12 11:51:28 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2018-02-28 13:43:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2018-02-28 13:43:18 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-12-06 16:33:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-12-06 16:33:21 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-12-05 15:57:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-12-05 15:57:16 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-11-13 18:20:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-11-13 18:20:08 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-11-01 21:21:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-11-01 21:21:27 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-10-09 17:45:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-10-09 17:45:12 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2015-04-20 13:34:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2015-04-20 13:34:37 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-10-18 16:51:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-10-18 16:51:14 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-21 08:07:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-21 08:07:58 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-12 05:06:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-12 05:06:49 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-01 20:13:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-01 20:13:00 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-01 12:03:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-01 12:03:02 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-01 11:42:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-01 11:42:14 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-01 11:25:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-01 11:25:31 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-09-01 06:51:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-09-01 06:51:12 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-08-31 21:01:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-08-31 21:01:59 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-08-31 20:40:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-08-31 20:40:52 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Kick-Ass: The Score","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3dcbd82cb6dd46d39e7cc311376d0fe4.png","Artist":"John Murphy","CreatedAt":"2013-08-31 16:04:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2NYieOyJBQRRmiimtdHXCT","Timestamp":"2013-08-31 16:04:12 UTC","Track":"Leaving Rasul's","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

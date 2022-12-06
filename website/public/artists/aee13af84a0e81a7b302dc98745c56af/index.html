@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Neil Young - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Neil Young</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Harvest Moon","AlbumCover":"https://i.scdn.co/image/54a35960d4cb76d81780a8fdd434026abbd185ad","Artist":"Neil Young","CreatedAt":"2018-10-28 14:45:13 UTC","Duration":"303213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5l9c6bJmzvftumhz4TMPgk","Timestamp":"2018-10-28 14:31:15 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://i.scdn.co/image/54a35960d4cb76d81780a8fdd434026abbd185ad","Artist":"Neil Young","CreatedAt":"2018-10-28 15:00:15 UTC","Duration":"343893","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"24bkMDDMZfCL6gbSOlpSzE","Timestamp":"2018-10-28 14:50:31 UTC","Track":"War Of Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Sad Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a4d00071abef72fa9b10f44","Artist":"Neil Young","CreatedAt":"2022-03-13 20:22:29 UTC","Duration":"188600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IUzbuO59zVZ1FCrpNRMzC","Timestamp":"2022-03-13 20:00:02 UTC","Track":"Only Love Can Break Your Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Sad Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a4d00071abef72fa9b10f44","Artist":"Neil Young","CreatedAt":"2022-03-13 20:00:36 UTC","Duration":"123186","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4xyaNLTiyDTpUmpAM7ooLH","Timestamp":"2022-03-13 19:52:13 UTC","Track":"The Needle and the Damage Done - 2009 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-07-13 08:53:29 UTC","Duration":"188440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2022-07-13 08:44:05 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-07-13 08:44:33 UTC","Duration":"188440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2022-07-13 08:40:09 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-07-12 19:52:00 UTC","Duration":"188440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2022-07-12 19:47:17 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-03-13 19:37:52 UTC","Duration":"188440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2022-03-13 19:31:08 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-07-12 20:22:41 UTC","Duration":"299106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2nekCvC9XRXQckWNnkIp2l","Timestamp":"2022-07-12 20:15:35 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Eat, Pray, Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273426288df0f8a68ea555c8d97","Artist":"Neil Young","CreatedAt":"2022-03-13 19:45:16 UTC","Duration":"299106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2nekCvC9XRXQckWNnkIp2l","Timestamp":"2022-03-13 19:36:08 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Sad Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736442cba70068cdfa0c5169de","Artist":"Neil Young","CreatedAt":"2022-07-12 22:11:17 UTC","Duration":"188600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IUzbuO59zVZ1FCrpNRMzC","Timestamp":"2022-07-12 21:39:21 UTC","Track":"Only Love Can Break Your Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Sad Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736442cba70068cdfa0c5169de","Artist":"Neil Young","CreatedAt":"2022-07-12 21:45:46 UTC","Duration":"123186","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4xyaNLTiyDTpUmpAM7ooLH","Timestamp":"2022-07-12 21:17:17 UTC","Track":"The Needle and the Damage Done - 2009 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (2009 Remaster)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f1450f3ec5dd82455f266b1","Artist":"Neil Young","CreatedAt":"2020-06-25 17:05:12 UTC","Duration":"187013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1Q1b8eVkUPGlpSArl8JAVw","Timestamp":"2020-06-25 17:04:32 UTC","Track":"Heart of Gold - 2009 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stringman","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273780f4a44839f0043c9a40193","Artist":"Neil Young","CreatedAt":"2021-02-26 17:01:05 UTC","Duration":"211120","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"61L0wVRCmumCrmHlWNDuCF","Timestamp":"2021-02-26 15:23:35 UTC","Track":"Stringman","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cow Palace 1986 (Live)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a15aba71a89bd756ed398485","Artist":"Neil Young","CreatedAt":"2022-04-14 15:59:31 UTC","Duration":"688893","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53XrpUeTOHffFvz0YX9ELm","Timestamp":"2022-04-14 15:55:58 UTC","Track":"Like a Hurricane (Live)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Inherent Vice (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b089402ed16680010d0131d4","Artist":"Neil Young","CreatedAt":"2022-07-12 22:42:36 UTC","Duration":"141906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73uAQw29X3mrO1taWZaOvm","Timestamp":"2022-07-12 22:05:55 UTC","Track":"Journey Through the Past","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Inherent Vice (Original Motion Picture Soundtrack)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b089402ed16680010d0131d4","Artist":"Neil Young","CreatedAt":"2022-03-14 15:12:32 UTC","Duration":"141906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73uAQw29X3mrO1taWZaOvm","Timestamp":"2022-03-13 20:01:12 UTC","Track":"Journey Through the Past","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Classic Rock Songs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e1df6188c078b2db99a45f6c","Artist":"Neil Young","CreatedAt":"2022-03-13 19:52:44 UTC","Duration":"281853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1gp5GlIHJysAgiOGbhoRS1","Timestamp":"2022-03-13 19:40:50 UTC","Track":"Rockin' in the Free World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e7171a8d9c8bf1d8fb661e80","Artist":"Neil Young","CreatedAt":"2021-12-04 13:29:07 UTC","Duration":"303213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5l9c6bJmzvftumhz4TMPgk","Timestamp":"2021-12-04 12:39:37 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e7171a8d9c8bf1d8fb661e80","Artist":"Neil Young","CreatedAt":"2021-10-15 19:50:59 UTC","Duration":"303213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5l9c6bJmzvftumhz4TMPgk","Timestamp":"2021-10-15 19:03:23 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2017-05-15 18:43:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2017-05-15 18:43:35 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-20 17:57:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-20 17:57:13 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-20 16:58:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-20 16:58:20 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-19 18:42:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-19 18:42:36 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-11 10:38:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-11 10:38:29 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-10 22:41:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-10 22:41:08 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-10 15:31:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-10 15:31:56 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-08 18:59:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-08 18:59:53 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-08 12:22:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-08 12:22:17 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-08 07:22:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-08 07:22:10 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-07 11:26:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-07 11:26:30 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-07 11:03:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5vd1QZ0tdXOExiegC55IAS","Timestamp":"2016-12-07 11:03:30 UTC","Track":"Heart of Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2017-05-15 18:46:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-15 18:46:43 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-20 18:37:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-20 18:37:04 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-11 09:57:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-11 09:57:01 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-10 22:01:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 22:01:02 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-10 14:49:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 14:49:53 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-10 13:35:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-10 13:35:15 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-08 17:00:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 17:00:39 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-08 11:31:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-08 11:31:27 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2016-12-07 12:11:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-07 12:11:44 UTC","Track":"Old Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest (Remastered Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0f7e0d24d74a4bd2cba0562df6de2385.png","Artist":"Neil Young","CreatedAt":"2017-05-15 19:01:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-15 19:01:27 UTC","Track":"The Needle and the Damage Done","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/20520278e64046d5c6d77c2bc32ea9a1.png","Artist":"Neil Young","CreatedAt":"2018-01-01 17:13:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-01 17:13:30 UTC","Track":"Unknown Legend","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/20520278e64046d5c6d77c2bc32ea9a1.png","Artist":"Neil Young","CreatedAt":"2018-01-01 17:27:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5l9c6bJmzvftumhz4TMPgk","Timestamp":"2018-01-01 17:27:04 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/20520278e64046d5c6d77c2bc32ea9a1.png","Artist":"Neil Young","CreatedAt":"2017-05-15 18:39:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5l9c6bJmzvftumhz4TMPgk","Timestamp":"2017-05-15 18:39:11 UTC","Track":"Harvest Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/20520278e64046d5c6d77c2bc32ea9a1.png","Artist":"Neil Young","CreatedAt":"2018-01-01 17:23:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-01 17:23:19 UTC","Track":"You and Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harvest Moon","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/20520278e64046d5c6d77c2bc32ea9a1.png","Artist":"Neil Young","CreatedAt":"2018-01-01 17:18:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-01 17:18:02 UTC","Track":"From Hank to Hendrix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Trans","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4cfb7fc1ac304b4dcb0e87853195ceb2.png","Artist":"Neil Young","CreatedAt":"2015-09-26 22:50:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-26 22:50:32 UTC","Track":"Sample And Hold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bob Dylan - 30th Anniversary Concert Celebration (Deluxe Edition) [Remastered]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5203b8a2edec654dc858dd97fb62b833.png","Artist":"Neil Young","CreatedAt":"2015-09-26 22:44:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-26 22:44:23 UTC","Track":"All Along the Watchtower - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"100 Greatest Classic Rock Songs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/92e5d8188cb44398c370b14de4312f94.png","Artist":"Neil Young","CreatedAt":"2017-05-15 18:56:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1gp5GlIHJysAgiOGbhoRS1","Timestamp":"2017-05-15 18:56:45 UTC","Track":"Rockin' in the Free World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rust Never Sleeps","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b8cd76f208fe4274c201e9fe9bbfe3c5.png","Artist":"Neil Young","CreatedAt":"2017-05-15 18:50:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-15 18:50:06 UTC","Track":"My My, Hey Hey (Out of the Blue)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rust Never Sleeps","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b8cd76f208fe4274c201e9fe9bbfe3c5.png","Artist":"Neil Young","CreatedAt":"2016-12-07 16:46:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-07 16:46:33 UTC","Track":"My My, Hey Hey (Out of the Blue)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Rust Never Sleeps","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b8cd76f208fe4274c201e9fe9bbfe3c5.png","Artist":"Neil Young","CreatedAt":"2016-12-07 14:24:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-12-07 14:24:21 UTC","Track":"My My, Hey Hey (Out of the Blue)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

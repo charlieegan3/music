@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>The Waterboys - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>The Waterboys</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"An Appointment with Mr Yeats","AlbumCover":"https://i.scdn.co/image/6354b07230d1d4bb83267391a429f61699e14f25","Artist":"The Waterboys","CreatedAt":"2020-01-21 14:52:09 UTC","Duration":"326746","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3XjF8FlS8FYxD2C4zNaTb9","Timestamp":"2020-01-21 14:52:02 UTC","Track":"Song of Wandering Aengus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/8e715e6992d6d7741f5f1f10b5d6c216fafb3b32","Artist":"The Waterboys","CreatedAt":"2019-08-21 16:45:18 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2019-08-21 16:35:54 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/8e715e6992d6d7741f5f1f10b5d6c216fafb3b32","Artist":"The Waterboys","CreatedAt":"2019-08-21 13:15:15 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2019-08-21 12:50:58 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/8e715e6992d6d7741f5f1f10b5d6c216fafb3b32","Artist":"The Waterboys","CreatedAt":"2019-06-25 20:15:07 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2019-06-25 19:45:26 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735d16b2c0309f32f2c964583f","Artist":"The Waterboys","CreatedAt":"2022-03-25 08:25:54 UTC","Duration":"266666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0i0yTnhVQV2J44vrLVU3dD","Timestamp":"2022-03-25 07:53:49 UTC","Track":"Fisherman's Blues - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735d16b2c0309f32f2c964583f","Artist":"The Waterboys","CreatedAt":"2022-03-25 05:26:28 UTC","Duration":"266666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0i0yTnhVQV2J44vrLVU3dD","Timestamp":"2022-03-25 04:37:59 UTC","Track":"Fisherman's Blues - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735d16b2c0309f32f2c964583f","Artist":"The Waterboys","CreatedAt":"2022-03-25 02:21:07 UTC","Duration":"266666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0i0yTnhVQV2J44vrLVU3dD","Timestamp":"2022-03-25 01:53:43 UTC","Track":"Fisherman's Blues - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735d16b2c0309f32f2c964583f","Artist":"The Waterboys","CreatedAt":"2022-03-24 23:07:19 UTC","Duration":"266666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0i0yTnhVQV2J44vrLVU3dD","Timestamp":"2022-03-24 22:37:53 UTC","Track":"Fisherman's Blues - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2020-01-21 12:00:23 UTC","Duration":"483733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kWMqj68Dm5VHE3PXY7qJv","Timestamp":"2020-01-21 11:59:59 UTC","Track":"Red Army Blues - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2020-10-26 12:58:38 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2020-10-26 11:45:37 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2020-01-21 14:23:11 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2020-01-21 14:22:58 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2020-01-21 14:24:19 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2020-01-21 14:22:58 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2019-12-15 18:30:31 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-12-15 18:21:14 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d49e1aa393cbd37298c5bcb1","Artist":"The Waterboys","CreatedAt":"2019-12-11 08:15:25 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-12-11 08:04:55 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6e127ff66aee167d67e794a","Artist":"The Waterboys","CreatedAt":"2022-05-05 17:50:34 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2022-05-05 17:29:13 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6e127ff66aee167d67e794a","Artist":"The Waterboys","CreatedAt":"2022-03-26 14:29:25 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2022-03-26 13:57:37 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6e127ff66aee167d67e794a","Artist":"The Waterboys","CreatedAt":"2020-01-28 16:56:15 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2020-01-28 16:55:23 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6e127ff66aee167d67e794a","Artist":"The Waterboys","CreatedAt":"2019-10-14 07:46:39 UTC","Duration":"302826","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2019-10-14 07:39:15 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In a Special Place: The Piano Demos for This Is the Sea","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ffba5fad54a5263cc8aa6b35","Artist":"The Waterboys","CreatedAt":"2020-01-21 17:07:12 UTC","Duration":"342213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2B5HCUNSPGSjvEczNIeHMw","Timestamp":"2020-01-21 17:07:04 UTC","Track":"The Whole of the Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In a Special Place: The Piano Demos for This Is the Sea","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ffba5fad54a5263cc8aa6b35","Artist":"The Waterboys","CreatedAt":"2019-06-25 20:49:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"2B5HCUNSPGSjvEczNIeHMw","Timestamp":"2019-06-25 20:49:17 UTC","Track":"The Whole of the Moon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In a Special Place: The Piano Demos for This Is the Sea","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ffba5fad54a5263cc8aa6b35","Artist":"The Waterboys","CreatedAt":"2020-01-21 11:12:14 UTC","Duration":"241653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7dTtMd7YibodjUIfeVqTIS","Timestamp":"2020-01-21 11:11:30 UTC","Track":"Old England","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where The Action Is (Deluxe)","AlbumCover":"https://i.scdn.co/image/ae4088fc1c8b3522ab96b3e7e2db5321422cbe5d","Artist":"The Waterboys","CreatedAt":"2019-05-31 08:45:09 UTC","Duration":"343853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"26zWsJ2K7yvpMi6zZBZPTM","Timestamp":"2019-05-31 08:35:02 UTC","Track":"In My Time on Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where The Action Is (Deluxe)","AlbumCover":"https://i.scdn.co/image/ae4088fc1c8b3522ab96b3e7e2db5321422cbe5d","Artist":"The Waterboys","CreatedAt":"2019-05-29 15:30:14 UTC","Duration":"343853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"26zWsJ2K7yvpMi6zZBZPTM","Timestamp":"2019-05-29 15:17:58 UTC","Track":"In My Time on Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where The Action Is (Deluxe)","AlbumCover":"https://i.scdn.co/image/ae4088fc1c8b3522ab96b3e7e2db5321422cbe5d","Artist":"The Waterboys","CreatedAt":"2019-05-29 14:00:04 UTC","Duration":"343853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"26zWsJ2K7yvpMi6zZBZPTM","Timestamp":"2019-05-29 13:07:49 UTC","Track":"In My Time on Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-08-06 13:15:20 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-08-06 13:14:36 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-08-06 13:30:15 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-08-06 10:06:50 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-07-25 08:00:16 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-07-25 07:47:01 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-07-24 09:45:11 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-07-24 09:16:40 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-07-23 14:45:08 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-07-23 13:50:27 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-06-26 08:15:14 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-06-26 08:07:26 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-06-25 18:30:07 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-06-25 18:05:35 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-06-25 13:00:07 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-06-25 12:54:33 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://i.scdn.co/image/e9eeb564136cf1c74db447e211b95137413b5a9f","Artist":"The Waterboys","CreatedAt":"2019-03-31 22:15:12 UTC","Duration":"314800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2019-03-31 21:17:10 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Out of All This Blue (Deluxe)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/1beecb3f7309fb2b777ffb5da9b24815.png","Artist":"The Waterboys","CreatedAt":"2017-10-17 14:42:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-17 14:42:29 UTC","Track":"If The Answer Is Yeah","YoutubeCategoryId":"","YoutubeId":""},{"Album":"If the Answer Is Yeah","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4909d9a4ca50435287ad0c93840426c1.png","Artist":"The Waterboys","CreatedAt":"2017-08-31 11:55:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-31 11:55:20 UTC","Track":"If The Answer Is Yeah","YoutubeCategoryId":"","YoutubeId":""},{"Album":"If the Answer Is Yeah","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4909d9a4ca50435287ad0c93840426c1.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 16:33:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 16:33:07 UTC","Track":"If The Answer Is Yeah","YoutubeCategoryId":"","YoutubeId":""},{"Album":"If the Answer Is Yeah","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4909d9a4ca50435287ad0c93840426c1.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 10:30:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 10:30:19 UTC","Track":"If The Answer Is Yeah","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-09-23 17:07:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-09-23 17:07:24 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-09-23 10:29:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-09-23 10:29:03 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-08-16 19:10:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-08-16 19:10:46 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-07-24 14:19:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-07-24 14:19:01 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-06-25 10:14:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-06-25 10:14:31 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-06-18 19:55:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-06-18 19:55:48 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2018-06-18 15:37:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2018-06-18 15:37:37 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-12-14 11:39:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-12-14 11:39:06 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-12-14 09:20:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-12-14 09:20:58 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-12-10 15:57:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-12-10 15:57:29 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-12-08 11:17:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-12-08 11:17:22 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-30 18:37:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-30 18:37:17 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-30 18:01:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-30 18:01:25 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-29 14:37:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-29 14:37:48 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-26 22:22:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-26 22:22:15 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-26 19:02:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-26 19:02:55 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-25 16:47:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-25 16:47:14 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-25 08:33:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-25 08:33:47 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-25 08:16:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-25 08:16:55 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 19:47:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 19:47:00 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 16:58:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 16:58:54 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 15:24:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 15:24:38 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 14:24:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 14:24:28 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 12:20:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 12:20:26 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 10:59:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 10:59:39 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-24 10:14:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-24 10:14:28 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-23 21:51:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-23 21:51:02 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-23 16:02:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-23 16:02:45 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-23 11:13:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-23 11:13:09 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-22 16:41:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-22 16:41:33 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-22 11:18:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-22 11:18:08 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Pagan Place","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4fa1ed66ef07495cc976acb507e73d9b.png","Artist":"The Waterboys","CreatedAt":"2017-07-22 09:56:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5FXhdn4JBKlevEAFfKitSg","Timestamp":"2017-07-22 09:56:21 UTC","Track":"A Pagan Place - 2002 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6e5a3ed309f343918336817940a11fe6.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 13:12:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 13:12:31 UTC","Track":"We Will Not Be Lovers - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6e5a3ed309f343918336817940a11fe6.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 13:56:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 13:56:46 UTC","Track":"Sweet Thing - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fisherman's Blues","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6e5a3ed309f343918336817940a11fe6.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 12:19:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0i0yTnhVQV2J44vrLVU3dD","Timestamp":"2017-08-30 12:19:32 UTC","Track":"Fisherman's Blues - 2006 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Best Of the Waterboys (1981-1990)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/75c0cd465d8f2f4ebe454e76d1ae2f64.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 14:35:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 14:35:13 UTC","Track":"A Man Is In Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b136769bba2fe9dab180e1d3de4915db.png","Artist":"The Waterboys","CreatedAt":"2017-07-10 13:41:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"15mZo1Kah03g8CTLbSsWrr","Timestamp":"2017-07-10 13:41:54 UTC","Track":"The Whole of the Moon - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"This Is the Sea (Deluxe Version)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b136769bba2fe9dab180e1d3de4915db.png","Artist":"The Waterboys","CreatedAt":"2017-10-17 15:01:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-10-17 15:01:29 UTC","Track":"Don't Bang the Drum - 2004 Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Payo Payo Chin","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bcba1f8632c500a0f8d51acc76e44655.png","Artist":"The Waterboys","CreatedAt":"2017-08-31 11:11:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-31 11:11:14 UTC","Track":"Payo Payo Chin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Payo Payo Chin","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bcba1f8632c500a0f8d51acc76e44655.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 15:49:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 15:49:57 UTC","Track":"Payo Payo Chin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Payo Payo Chin","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bcba1f8632c500a0f8d51acc76e44655.png","Artist":"The Waterboys","CreatedAt":"2017-08-30 15:08:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-08-30 15:08:43 UTC","Track":"Payo Payo Chin","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

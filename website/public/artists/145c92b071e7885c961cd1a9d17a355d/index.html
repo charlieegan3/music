@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Orla Gartland - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Orla Gartland</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Lonely People (EP)","AlbumCover":"https://i.scdn.co/image/92466c5afaf5a63a5f94c9f91feafabf539e1d59","Artist":"Orla Gartland","CreatedAt":"2019-09-25 11:00:24 UTC","Duration":"189500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1m3gqvFmyoUAXPuKJxq7IP","Timestamp":"2019-09-25 10:59:00 UTC","Track":"Lonely People","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You're Not Special, Babe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27304bc593a1bff23192f83dd58","Artist":"Orla Gartland","CreatedAt":"2021-08-05 15:35:33 UTC","Duration":"203263","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4X4BLCtk0OuT6JJ8zOaTnv","Timestamp":"2021-08-05 13:35:13 UTC","Track":"You're Not Special, Babe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Freckle Season","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27314dbbb88a39e1013a29257ee","Artist":"Orla Gartland","CreatedAt":"2022-11-29 18:11:04 UTC","Duration":"179439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33Erxwd8RV55M6ZX6KigNt","Timestamp":"2022-11-29 17:22:00 UTC","Track":"New Friends","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Freckle Season","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27314dbbb88a39e1013a29257ee","Artist":"Orla Gartland","CreatedAt":"2022-11-29 16:46:11 UTC","Duration":"167939","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"78x4xRisFJS0eniXD3rIhk","Timestamp":"2022-11-29 16:33:41 UTC","Track":"oh GOD","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Between My Teeth","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a2f7b6406d8fc8d5dc133aa","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:33:15 UTC","Duration":"196093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7qoFhSKDXCgWeSiwOxOnS6","Timestamp":"2022-11-29 16:58:53 UTC","Track":"Between My Teeth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This? - EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27323f52d2f015f10f3633ab27a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:25:13 UTC","Duration":"211178","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xgTRrS1aeZxnm1bYBarjU","Timestamp":"2022-11-29 17:09:31 UTC","Track":"Inevitable","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This? - EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27323f52d2f015f10f3633ab27a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:33:17 UTC","Duration":"201106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3pIEqgK9hHXpj35bd9cH2J","Timestamp":"2022-11-29 17:25:22 UTC","Track":"Overthinking (Demo)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Did It to Myself","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327ae3ef3155322e88040068a","Artist":"Orla Gartland","CreatedAt":"2022-12-04 11:56:52 UTC","Duration":"196939","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0bPB8TqrB1xBYzGEcpC7Q8","Timestamp":"2022-11-30 19:41:13 UTC","Track":"Did It To Myself","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Did It to Myself","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27327ae3ef3155322e88040068a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:04:36 UTC","Duration":"196939","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0bPB8TqrB1xBYzGEcpC7Q8","Timestamp":"2022-11-29 16:55:36 UTC","Track":"Did It To Myself","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet (Anniversary Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735882f8a1f22e061676080828","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:04:35 UTC","Duration":"83129","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3OKVZxc0bnYfKUEX8Y6uTC","Timestamp":"2022-11-29 16:42:34 UTC","Track":"Afterlife - demo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365a057690d26ed31eaf00a5a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:33:16 UTC","Duration":"189500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5JbboJ0g2y6hOcszKoLTMC","Timestamp":"2022-11-29 17:12:41 UTC","Track":"Lonely People","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365a057690d26ed31eaf00a5a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:59:16 UTC","Duration":"188108","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2022-11-29 17:40:00 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365a057690d26ed31eaf00a5a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 18:11:05 UTC","Duration":"237002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"49TDjRAG3v2MViatvPqDBZ","Timestamp":"2022-11-29 17:36:52 UTC","Track":"Souvenirs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365a057690d26ed31eaf00a5a","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:50:30 UTC","Duration":"223257","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2022-11-29 17:43:44 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure It Out","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27389373bde65d83b44b17a38c5","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:59:15 UTC","Duration":"200803","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"04ITn1QsfKxIC16eoqMz0B","Timestamp":"2022-11-29 17:16:03 UTC","Track":"Figure It Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This?","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738aa3cab41954fe2158a19933","Artist":"Orla Gartland","CreatedAt":"2022-11-29 16:46:10 UTC","Duration":"212713","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0z29wv0x2IXrpWxNgICET7","Timestamp":"2022-11-29 16:24:22 UTC","Track":"Why Am I Like This?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Heavy","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b557c1731ad8120e47e5ab8","Artist":"Orla Gartland","CreatedAt":"2022-12-04 11:56:46 UTC","Duration":"244946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5VpgaWuqcWho0uJMniRNDs","Timestamp":"2022-11-30 16:27:05 UTC","Track":"Heavy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Heavy","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b557c1731ad8120e47e5ab8","Artist":"Orla Gartland","CreatedAt":"2022-11-29 16:55:37 UTC","Duration":"244946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5VpgaWuqcWho0uJMniRNDs","Timestamp":"2022-11-29 16:37:46 UTC","Track":"Heavy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Heavy","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b557c1731ad8120e47e5ab8","Artist":"Orla Gartland","CreatedAt":"2020-04-29 17:57:10 UTC","Duration":"244946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5VpgaWuqcWho0uJMniRNDs","Timestamp":"2020-04-29 17:56:21 UTC","Track":"Heavy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 18:25:49 UTC","Duration":"215694","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1XFxLlYuWdebo6hgczaVDu","Timestamp":"2022-11-29 17:32:54 UTC","Track":"Pretending","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:14:53 UTC","Duration":"224638","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3GNnTQVqE4zUSECYzHXq0b","Timestamp":"2022-11-29 17:05:59 UTC","Track":"Madison","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:25:14 UTC","Duration":"177090","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6sDeF4lLQHWfGOqBzV3whw","Timestamp":"2022-11-29 17:19:00 UTC","Track":"Zombie!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:25:12 UTC","Duration":"191881","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0o2BJHj9wQTCb5UfY7R7jl","Timestamp":"2022-11-29 16:52:19 UTC","Track":"Codependency","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-08-16 17:05:02 UTC","Duration":"191881","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0o2BJHj9wQTCb5UfY7R7jl","Timestamp":"2022-08-16 16:31:36 UTC","Track":"Codependency","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-08-12 13:25:35 UTC","Duration":"191881","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0o2BJHj9wQTCb5UfY7R7jl","Timestamp":"2022-08-12 11:07:06 UTC","Track":"Codependency","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-08-11 13:43:59 UTC","Duration":"191881","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0o2BJHj9wQTCb5UfY7R7jl","Timestamp":"2022-08-11 13:21:01 UTC","Track":"Codependency","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:14:51 UTC","Duration":"203263","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0GaVSVifeBSwnNTNordPGC","Timestamp":"2022-11-29 16:41:10 UTC","Track":"You're Not Special, Babe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-12-04 12:44:27 UTC","Duration":"220208","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2cKHnVTfjxDaDYnMUyhZwU","Timestamp":"2022-11-30 20:01:10 UTC","Track":"More Like You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738f4d2fa3b9128eee948ca581","Artist":"Orla Gartland","CreatedAt":"2022-11-29 16:55:36 UTC","Duration":"220208","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2cKHnVTfjxDaDYnMUyhZwU","Timestamp":"2022-11-29 16:28:03 UTC","Track":"More Like You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"More Like You","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739a67b7023b53435c0aeac841","Artist":"Orla Gartland","CreatedAt":"2022-03-27 13:10:19 UTC","Duration":"219720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1UpFb9izAOYlcxWTOQzGf6","Timestamp":"2022-03-27 12:21:19 UTC","Track":"More Like You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Go Crazy","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ccbafc73c823076f5eae5237","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:14:52 UTC","Duration":"214574","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Rj9HWaNkUsxdjM2khuqNd","Timestamp":"2022-11-29 16:46:09 UTC","Track":"I Go Crazy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Flatline","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ff90e658578e9d3641b59621","Artist":"Orla Gartland","CreatedAt":"2022-11-29 17:50:28 UTC","Duration":"201203","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7zWYskRENVPyJUh8FLzuoT","Timestamp":"2022-11-29 17:02:14 UTC","Track":"Flatline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Flatline","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ff90e658578e9d3641b59621","Artist":"Orla Gartland","CreatedAt":"2021-04-17 23:27:59 UTC","Duration":"201203","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7zWYskRENVPyJUh8FLzuoT","Timestamp":"2021-04-17 21:58:51 UTC","Track":"Flatline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Flatline","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ff90e658578e9d3641b59621","Artist":"Orla Gartland","CreatedAt":"2020-04-29 22:07:17 UTC","Duration":"201203","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7zWYskRENVPyJUh8FLzuoT","Timestamp":"2020-04-29 22:06:16 UTC","Track":"Flatline","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure It Out","AlbumCover":"https://i.scdn.co/image/f07132ee2a6b424efb4656c292ef389bfb06fb4a","Artist":"Orla Gartland","CreatedAt":"2020-01-15 18:10:30 UTC","Duration":"200803","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"04ITn1QsfKxIC16eoqMz0B","Timestamp":"2020-01-15 18:09:35 UTC","Track":"Figure It Out","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This? - EP","AlbumCover":"https://i.scdn.co/image/f74cf3fe1b11f7886148a22ffb23d50623f58b3f","Artist":"Orla Gartland","CreatedAt":"2019-05-29 17:30:07 UTC","Duration":"211178","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xgTRrS1aeZxnm1bYBarjU","Timestamp":"2019-05-29 16:56:40 UTC","Track":"Inevitable","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This? - EP","AlbumCover":"https://i.scdn.co/image/f74cf3fe1b11f7886148a22ffb23d50623f58b3f","Artist":"Orla Gartland","CreatedAt":"2019-05-29 15:15:04 UTC","Duration":"211178","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xgTRrS1aeZxnm1bYBarjU","Timestamp":"2019-05-29 14:53:05 UTC","Track":"Inevitable","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Why Am I Like This? - EP","AlbumCover":"https://i.scdn.co/image/f74cf3fe1b11f7886148a22ffb23d50623f58b3f","Artist":"Orla Gartland","CreatedAt":"2019-05-29 12:45:05 UTC","Duration":"211178","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6xgTRrS1aeZxnm1bYBarjU","Timestamp":"2019-05-29 12:42:47 UTC","Track":"Inevitable","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-01-24 14:23:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 14:23:12 UTC","Track":"Devil On My Shoulder","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-01-24 14:16:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 14:16:47 UTC","Track":"Devil On My Shoulder","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-11-24 20:13:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-24 20:13:14 UTC","Track":"The Ground","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-07-11 17:41:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-07-11 17:41:02 UTC","Track":"The Ground","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-04-13 10:03:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-13 10:03:19 UTC","Track":"The Ground","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Devil On My Shoulder","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9e8ee419fef24c579432440453bb81d3.png","Artist":"Orla Gartland","CreatedAt":"2015-01-24 14:20:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-24 14:20:09 UTC","Track":"The Ground","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-02 11:35:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5JbboJ0g2y6hOcszKoLTMC","Timestamp":"2015-03-02 11:35:11 UTC","Track":"Lonely People","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-07-11 22:10:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-07-11 22:10:32 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-04-23 14:47:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-04-23 14:47:49 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-26 23:18:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-26 23:18:54 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-25 10:55:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-25 10:55:23 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-22 17:07:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-22 17:07:12 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-17 22:31:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-17 22:31:32 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-15 21:02:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-15 21:02:25 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-14 20:50:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-14 20:50:52 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-13 17:02:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-13 17:02:03 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-11 22:19:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-11 22:19:49 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-09 20:30:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-09 20:30:23 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-08 21:45:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-08 21:45:13 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-07 21:38:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-07 21:38:37 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-07 00:02:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-07 00:02:24 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-05 22:34:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-05 22:34:59 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-02 11:46:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7N2PRq96UsOxI3ItwnrJDx","Timestamp":"2015-03-02 11:46:28 UTC","Track":"Get Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-02 11:38:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"49TDjRAG3v2MViatvPqDBZ","Timestamp":"2015-03-02 11:38:48 UTC","Track":"Souvenirs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-07-13 17:18:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-07-13 17:18:37 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-04-23 14:44:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-04-23 14:44:06 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-26 23:21:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-26 23:21:58 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-25 10:51:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-25 10:51:40 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-17 22:34:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-17 22:34:40 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-15 20:53:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-15 20:53:51 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-14 20:54:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-14 20:54:01 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-11 22:57:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-11 22:57:23 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-09 20:33:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-09 20:33:31 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-08 21:55:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-08 21:55:22 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-07 21:41:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-07 21:41:45 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-07 00:05:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-07 00:05:32 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-05 23:21:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-05 23:21:55 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-05 22:38:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-05 22:38:07 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lonely People (EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/da70ce7525072ca58dd2f7a86386bd3b.png","Artist":"Orla Gartland","CreatedAt":"2015-03-02 11:42:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4gMWrJ20uEwMHGu1OReCBj","Timestamp":"2015-03-02 11:42:45 UTC","Track":"Whispers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman On The Internet","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/017e2d99f26841f3b8a4f41ba664b373.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 16:05:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6sDeF4lLQHWfGOqBzV3whw","Timestamp":"2022-11-30 16:00:30 UTC","Track":"Zombie!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/017e2d99f26841f3b8a4f41ba664b373.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 20:05:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2cKHnVTfjxDaDYnMUyhZwU","Timestamp":"2022-11-30 19:57:28 UTC","Track":"More Like You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Woman on the Internet","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/017e2d99f26841f3b8a4f41ba664b373.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 15:30:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2cKHnVTfjxDaDYnMUyhZwU","Timestamp":"2022-11-30 15:21:37 UTC","Track":"More Like You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Heavy","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/abb813375d6aabc6dcdf89a55d5d2c7b.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 16:30:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5VpgaWuqcWho0uJMniRNDs","Timestamp":"2022-11-30 16:22:58 UTC","Track":"Heavy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Did It to Myself","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/b60ace6987a2e221f6e4cd0ade73766a.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 19:45:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0bPB8TqrB1xBYzGEcpC7Q8","Timestamp":"2022-11-30 19:37:55 UTC","Track":"Did It To Myself","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Flatline","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/cd20e21848ecf4834bff0c3c5dbdac45.jpg","Artist":"Orla Gartland","CreatedAt":"2022-11-30 15:45:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zWYskRENVPyJUh8FLzuoT","Timestamp":"2022-11-30 15:40:37 UTC","Track":"Flatline","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

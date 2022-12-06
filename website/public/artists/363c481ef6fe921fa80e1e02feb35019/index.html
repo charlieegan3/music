@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Robyn - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Robyn</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Robyn","CreatedAt":"2019-03-01 23:05:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-03-01 23:05:01 UTC","Track":"Send To Robin Immediately","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-15 22:45:13 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-15 22:31:32 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-14 13:45:06 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-14 13:43:48 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 17:15:09 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 17:12:35 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 14:15:09 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 14:09:16 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 12:30:16 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 12:21:57 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 11:45:14 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 11:36:00 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 11:30:11 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 11:18:41 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-03 00:15:17 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-03 00:07:28 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/389c3b646ed1124f50559ca73658b6648d9a510e","Artist":"Robyn","CreatedAt":"2018-11-02 23:45:07 UTC","Duration":"231082","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5P17i7UAedeVnWzOAX2XWi","Timestamp":"2018-11-02 23:31:11 UTC","Track":"Honey - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn","AlbumCover":"https://i.scdn.co/image/83acb132088376140f205601e49d1601159512f8","Artist":"Robyn","CreatedAt":"2019-09-08 23:00:16 UTC","Duration":"253173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7LK7dQtymjmIBM8O7wSeTp","Timestamp":"2019-09-08 20:50:32 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn","AlbumCover":"https://i.scdn.co/image/83acb132088376140f205601e49d1601159512f8","Artist":"Robyn","CreatedAt":"2019-06-27 09:00:10 UTC","Duration":"253173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7LK7dQtymjmIBM8O7wSeTp","Timestamp":"2019-06-27 08:53:17 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn","AlbumCover":"https://i.scdn.co/image/83acb132088376140f205601e49d1601159512f8","Artist":"Robyn","CreatedAt":"2019-06-27 10:15:13 UTC","Duration":"253173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7LK7dQtymjmIBM8O7wSeTp","Timestamp":"2019-06-27 08:51:48 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn","AlbumCover":"https://i.scdn.co/image/83acb132088376140f205601e49d1601159512f8","Artist":"Robyn","CreatedAt":"2019-06-26 13:30:09 UTC","Duration":"253173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7LK7dQtymjmIBM8O7wSeTp","Timestamp":"2019-06-26 13:04:57 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2019-05-25 12:06:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2019-05-25 12:06:14 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2019-01-18 11:30:13 UTC","Duration":"294002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2019-01-18 10:50:36 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2019-01-18 11:15:06 UTC","Duration":"294002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2019-01-18 10:49:55 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2019-01-18 10:45:08 UTC","Duration":"294002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2019-01-18 10:45:01 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2019-01-05 16:39:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2019-01-05 16:39:50 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-12-07 13:15:12 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-12-07 13:10:53 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-11-22 15:00:11 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-11-22 14:57:15 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-11-13 22:15:11 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-11-13 22:08:27 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-11-11 11:03:27 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-11-10 10:53:15 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-11-05 23:15:12 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-11-05 23:05:32 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/8833e738623b71da1b5a34565cf943921e53a09e","Artist":"Robyn","CreatedAt":"2018-11-04 22:45:09 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2018-11-04 22:38:35 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn (Special Edition)","AlbumCover":"https://i.scdn.co/image/8c808f3c35fd9b86a9ac6ea2da2026cdf4440e5e","Artist":"Robyn","CreatedAt":"2019-01-31 09:45:06 UTC","Duration":"251240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65Kt1dbZ53GRRvc3ngIRCk","Timestamp":"2019-01-31 09:25:40 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn (Special Edition)","AlbumCover":"https://i.scdn.co/image/8c808f3c35fd9b86a9ac6ea2da2026cdf4440e5e","Artist":"Robyn","CreatedAt":"2019-01-11 23:15:10 UTC","Duration":"251240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65Kt1dbZ53GRRvc3ngIRCk","Timestamp":"2019-01-11 22:37:54 UTC","Track":"With Every Heartbeat - with Kleerup","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-06-13 22:27:11 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-06-13 22:27:04 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-06-04 09:43:07 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-06-04 09:42:31 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-06-02 14:59:13 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-06-02 14:58:42 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-05-19 22:09:10 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-05-19 22:08:13 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-04-29 13:31:09 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-04-29 13:31:00 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ever Again","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731ebd67889f90afa3dd772c84","Artist":"Robyn","CreatedAt":"2020-04-29 10:31:14 UTC","Duration":"263800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0yvTZ56ukCyRFwblpm7Hlk","Timestamp":"2020-04-29 08:30:42 UTC","Track":"Ever Again - Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Robyn Is Here","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732dbf3c8a92b1af1942918ad0","Artist":"Robyn","CreatedAt":"2020-05-15 21:29:08 UTC","Duration":"229226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6SluaPiV04KOaRTOIScoff","Timestamp":"2020-05-15 21:28:26 UTC","Track":"Show Me Love - Radio Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734689597708c1b0b3dcb9ecaf","Artist":"Robyn","CreatedAt":"2022-01-03 21:20:44 UTC","Duration":"259506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1U5XoeYZ4oOftvEKpAJUmP","Timestamp":"2022-01-03 21:12:31 UTC","Track":"Hang With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734689597708c1b0b3dcb9ecaf","Artist":"Robyn","CreatedAt":"2020-12-11 12:55:24 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2020-12-11 12:13:57 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734689597708c1b0b3dcb9ecaf","Artist":"Robyn","CreatedAt":"2020-12-11 09:52:35 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2020-12-11 09:41:33 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2734689597708c1b0b3dcb9ecaf","Artist":"Robyn","CreatedAt":"2022-01-03 20:46:28 UTC","Duration":"220417","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0FenOOyd5CNdDGlxtQ86gN","Timestamp":"2022-01-03 20:45:02 UTC","Track":"Indestructible","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2022-01-03 19:39:36 UTC","Duration":"294002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2022-01-03 19:39:23 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2020-05-29 22:01:20 UTC","Duration":"294002","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2020-05-29 22:01:05 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2022-01-03 22:53:20 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2022-01-03 21:59:16 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2020-06-03 20:59:37 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2020-06-03 20:58:30 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2020-06-03 16:13:18 UTC","Duration":"297268","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"11u6Qkl4ri0fMWZIQDmFUJ","Timestamp":"2020-06-03 16:12:18 UTC","Track":"Missing U","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2022-04-01 18:48:10 UTC","Duration":"264026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5roA4B7kIG83zCWHBWenca","Timestamp":"2022-04-01 18:13:55 UTC","Track":"Ever Again","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2022-01-03 21:20:42 UTC","Duration":"264026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5roA4B7kIG83zCWHBWenca","Timestamp":"2022-01-03 20:22:24 UTC","Track":"Ever Again","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2020-05-29 22:57:10 UTC","Duration":"264026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5roA4B7kIG83zCWHBWenca","Timestamp":"2020-05-29 22:56:43 UTC","Track":"Ever Again","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27352426e8cc612c20fc7b1aad3","Artist":"Robyn","CreatedAt":"2022-01-03 20:46:25 UTC","Duration":"256377","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4WONLwwoPAgAvVGeU5mo8I","Timestamp":"2022-01-03 19:58:44 UTC","Track":"Baby Forgive Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"With Every HeartBeat/Dave Spoon Remix","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737591d8bee29faafbf63b61d0","Artist":"Robyn","CreatedAt":"2020-04-11 15:04:14 UTC","Duration":"434613","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nQWOlWBHnB32k5JqbIbW5","Timestamp":"2020-04-11 15:03:39 UTC","Track":"With Every Heartbeat - Dave Spoon Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-06-27 13:30:13 UTC","Duration":"259506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1U5XoeYZ4oOftvEKpAJUmP","Timestamp":"2019-06-27 12:32:03 UTC","Track":"Hang With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-01-31 17:30:12 UTC","Duration":"259506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1U5XoeYZ4oOftvEKpAJUmP","Timestamp":"2019-01-31 17:24:35 UTC","Track":"Hang With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-01-31 12:00:20 UTC","Duration":"259506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1U5XoeYZ4oOftvEKpAJUmP","Timestamp":"2019-01-31 10:03:24 UTC","Track":"Hang With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-01-11 23:00:16 UTC","Duration":"259506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1U5XoeYZ4oOftvEKpAJUmP","Timestamp":"2019-01-11 22:57:32 UTC","Track":"Hang With Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2020-02-05 17:40:17 UTC","Duration":"226452","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15hut9fX33giUAMyycwvsV","Timestamp":"2020-02-05 17:39:34 UTC","Track":"Call Your Girlfriend","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-09-09 12:00:18 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2019-09-09 10:53:59 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-01-31 18:15:06 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2019-01-31 17:34:40 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2019-01-12 12:15:14 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2019-01-12 11:15:57 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2018-11-22 18:15:11 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2018-11-22 18:02:23 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2018-11-15 08:30:11 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2018-11-15 08:16:00 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Body Talk","AlbumCover":"https://i.scdn.co/image/c6c92197dc5d74a989ab799778fe76c86a23e87d","Artist":"Robyn","CreatedAt":"2018-11-05 16:00:09 UTC","Duration":"285853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6aqNCrRA7vs7v6QvRpI50t","Timestamp":"2018-11-05 14:51:50 UTC","Track":"Dancing On My Own","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/86269e8cd4f97272e669a41f0e72f7bc.png","Artist":"Robyn","CreatedAt":"2020-07-23 22:30:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2JJw0uh08pNLYzFzBUAX8Y","Timestamp":"2020-07-22 08:05:00 UTC","Track":"Honey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/86269e8cd4f97272e669a41f0e72f7bc.png","Artist":"Robyn","CreatedAt":"2020-07-23 22:30:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2020-07-22 08:08:32 UTC","Track":"Between the Lines","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Honey","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/86269e8cd4f97272e669a41f0e72f7bc.png","Artist":"Robyn","CreatedAt":"2019-05-25 12:06:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-05-25 12:06:15 UTC","Track":"Between the Lines","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

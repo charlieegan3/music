@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Nora En Pure - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Nora En Pure</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Morning Dew","AlbumCover":"https://i.scdn.co/image/42066e9cbe0945fda31682fa033d2464eded7463","Artist":"Nora En Pure","CreatedAt":"2019-01-23 19:45:05 UTC","Duration":"191557","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2019-01-23 18:37:30 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Thermal / Oblivion","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273021bec69700c819aae411238","Artist":"Nora En Pure","CreatedAt":"2021-07-01 19:57:03 UTC","Duration":"229440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"49KOIOQPegsRJM9gYhfCw3","Timestamp":"2021-07-01 19:07:41 UTC","Track":"Oblivion","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Thermal / Oblivion","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273021bec69700c819aae411238","Artist":"Nora En Pure","CreatedAt":"2021-07-01 18:39:24 UTC","Duration":"229440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"49KOIOQPegsRJM9gYhfCw3","Timestamp":"2021-07-01 18:24:41 UTC","Track":"Oblivion","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Thermal / Oblivion","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273021bec69700c819aae411238","Artist":"Nora En Pure","CreatedAt":"2021-04-20 13:41:24 UTC","Duration":"229440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"49KOIOQPegsRJM9gYhfCw3","Timestamp":"2021-04-20 13:36:03 UTC","Track":"Oblivion","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27320ab319bf7776e67709ea807","Artist":"Nora En Pure","CreatedAt":"2021-01-19 18:40:23 UTC","Duration":"213479","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6lPhnamoOdxOg7jQ3gSWOa","Timestamp":"2021-01-19 18:35:04 UTC","Track":"Morning Dew","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Luscious Rain","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273284c57b73c99fa1d64a78940","Artist":"Nora En Pure","CreatedAt":"2021-11-19 01:38:40 UTC","Duration":"189677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Cq74SxpiW6llWC4JfKbe3","Timestamp":"2021-11-18 23:47:34 UTC","Track":"Luscious Rain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Luscious Rain","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273284c57b73c99fa1d64a78940","Artist":"Nora En Pure","CreatedAt":"2021-11-18 13:02:43 UTC","Duration":"189677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Cq74SxpiW6llWC4JfKbe3","Timestamp":"2021-11-18 11:56:55 UTC","Track":"Luscious Rain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Luscious Rain","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273284c57b73c99fa1d64a78940","Artist":"Nora En Pure","CreatedAt":"2021-11-17 21:43:32 UTC","Duration":"189677","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Cq74SxpiW6llWC4JfKbe3","Timestamp":"2021-11-17 20:59:25 UTC","Track":"Luscious Rain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-02-15 17:33:11 UTC","Duration":"406572","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jXkV5NFwQY2OoKgjWa6Oa","Timestamp":"2021-02-15 17:31:00 UTC","Track":"Cognitive Fadings - Club Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-24 21:30:30 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-24 20:49:00 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-15 14:49:19 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-15 14:01:56 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-15 13:26:45 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-15 12:15:40 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-12 18:51:23 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-12 17:35:27 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-12 14:21:29 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-12 13:57:44 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-09 21:40:04 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-09 21:21:46 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-09 18:49:21 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-09 18:41:58 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-08 21:55:18 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-08 21:02:31 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-06 11:12:25 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-06 10:16:21 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-05 18:11:17 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-05 17:52:54 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-05 10:30:34 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-05 10:26:16 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-04 13:41:23 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-04 12:02:42 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-04 11:27:04 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-04 11:16:44 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP (The Extended Mixes)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273481f696c524f8ff3e6b75b8e","Artist":"Nora En Pure","CreatedAt":"2021-08-01 20:55:43 UTC","Duration":"369193","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1oQ12sAuR9llgmWqxvHULP","Timestamp":"2021-08-01 20:54:00 UTC","Track":"Cognitive Fadings - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"On the Beach","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737978946f562800bca9786bfa","Artist":"Nora En Pure","CreatedAt":"2021-01-21 14:06:55 UTC","Duration":"210532","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0psrSwsDcH2R2xzMSO4wxo","Timestamp":"2021-01-21 12:17:13 UTC","Track":"On the Beach - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fibonacci","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738c49f272b5c914f6d9eaac57","Artist":"Nora En Pure","CreatedAt":"2021-05-25 15:00:38 UTC","Duration":"188483","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Jb3Kq7oDqRznHPIcrQpiX","Timestamp":"2021-05-25 13:00:24 UTC","Track":"Fibonacci","YoutubeCategoryId":"","YoutubeId":""},{"Album":"On the Beach","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e41ee079af151053b9d7fba","Artist":"Nora En Pure","CreatedAt":"2021-01-21 15:30:48 UTC","Duration":"338483","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5q2PRY3rS2Y2TNmjIOJnto","Timestamp":"2021-01-21 13:08:31 UTC","Track":"On the Beach - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lake Arrowhead EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397448cbf4065f11ddc9eb12d","Artist":"Nora En Pure","CreatedAt":"2021-01-21 19:37:56 UTC","Duration":"336024","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0KCRxiRfkW6IUnvbyYvwge","Timestamp":"2021-01-21 12:35:55 UTC","Track":"Lake Arrowhead - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a1c8f0c10eeb209e6c1f3432","Artist":"Nora En Pure","CreatedAt":"2021-02-08 17:13:06 UTC","Duration":"222947","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FgxefL0BLVL5nsteC1Qva","Timestamp":"2021-02-08 17:12:53 UTC","Track":"Monsoon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a1c8f0c10eeb209e6c1f3432","Artist":"Nora En Pure","CreatedAt":"2021-02-01 19:55:30 UTC","Duration":"222947","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FgxefL0BLVL5nsteC1Qva","Timestamp":"2021-02-01 18:43:25 UTC","Track":"Monsoon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a1c8f0c10eeb209e6c1f3432","Artist":"Nora En Pure","CreatedAt":"2021-02-01 15:38:07 UTC","Duration":"222947","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FgxefL0BLVL5nsteC1Qva","Timestamp":"2021-02-01 15:06:31 UTC","Track":"Monsoon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a1c8f0c10eeb209e6c1f3432","Artist":"Nora En Pure","CreatedAt":"2021-02-01 12:42:49 UTC","Duration":"222947","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FgxefL0BLVL5nsteC1Qva","Timestamp":"2021-02-01 11:38:09 UTC","Track":"Monsoon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Monsoon EP","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a1c8f0c10eeb209e6c1f3432","Artist":"Nora En Pure","CreatedAt":"2021-01-29 18:50:44 UTC","Duration":"222947","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1FgxefL0BLVL5nsteC1Qva","Timestamp":"2021-01-29 16:00:53 UTC","Track":"Monsoon","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Saltwater (2015 Rework)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a28b0323d4afc25c05429c3b","Artist":"Nora En Pure","CreatedAt":"2021-01-19 18:40:22 UTC","Duration":"189500","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2EMzMzKNNidJhIJgOQBkos","Timestamp":"2021-01-19 18:31:30 UTC","Track":"Saltwater - 2015 Radio Rework","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e47a985b8971a674ef76b920","Artist":"Nora En Pure","CreatedAt":"2019-11-26 10:30:42 UTC","Duration":"285487","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7tJtuTU4clCUgdWZWZUFuf","Timestamp":"2019-11-26 10:18:55 UTC","Track":"Riverwards Stream - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e47a985b8971a674ef76b920","Artist":"Nora En Pure","CreatedAt":"2019-11-25 16:00:30 UTC","Duration":"285487","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7tJtuTU4clCUgdWZWZUFuf","Timestamp":"2019-11-25 15:34:35 UTC","Track":"Riverwards Stream - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e47a985b8971a674ef76b920","Artist":"Nora En Pure","CreatedAt":"2019-11-25 11:30:21 UTC","Duration":"285487","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7tJtuTU4clCUgdWZWZUFuf","Timestamp":"2019-11-25 11:24:17 UTC","Track":"Riverwards Stream - Extended Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aquatic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f05ab30b15951d17070e73d5","Artist":"Nora En Pure","CreatedAt":"2022-06-30 07:22:11 UTC","Duration":"226229","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4PJaGVVVYNSN9EZJmMLtfK","Timestamp":"2022-06-30 07:11:12 UTC","Track":"Aquatic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aquatic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f05ab30b15951d17070e73d5","Artist":"Nora En Pure","CreatedAt":"2022-05-25 09:52:53 UTC","Duration":"226229","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4PJaGVVVYNSN9EZJmMLtfK","Timestamp":"2022-05-25 09:21:07 UTC","Track":"Aquatic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aquatic","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f05ab30b15951d17070e73d5","Artist":"Nora En Pure","CreatedAt":"2022-01-21 11:38:03 UTC","Duration":"226229","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4PJaGVVVYNSN9EZJmMLtfK","Timestamp":"2022-01-21 11:34:16 UTC","Track":"Aquatic","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Enchantment","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ff05ac904d5a3b1ccec6f7ce","Artist":"Nora En Pure","CreatedAt":"2021-03-10 19:41:44 UTC","Duration":"223276","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4DiuwmmlIFwF5rFljlannW","Timestamp":"2021-03-10 19:40:51 UTC","Track":"Enchantment","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Enchantment","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ff05ac904d5a3b1ccec6f7ce","Artist":"Nora En Pure","CreatedAt":"2021-03-10 19:41:42 UTC","Duration":"223276","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4DiuwmmlIFwF5rFljlannW","Timestamp":"2021-03-10 18:39:07 UTC","Track":"Enchantment","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Homebound EP","AlbumCover":"https://i.scdn.co/image/afe367540ec993ccbc0bb81eb54686c83194fb30","Artist":"Nora En Pure","CreatedAt":"2020-01-30 11:48:17 UTC","Duration":"210000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1mQNEl2zLhP3OU36mndaET","Timestamp":"2020-01-30 11:47:34 UTC","Track":"Homebound","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-08-07 15:45:17 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-08-07 15:44:56 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-07-17 15:30:16 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-07-17 15:22:57 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-17 11:45:11 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-17 11:33:33 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-08 12:30:06 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-08 10:36:39 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-08 07:15:06 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-08 06:45:52 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-06 15:30:05 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-06 15:20:35 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-06 14:15:10 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-06 13:49:06 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-06 12:30:04 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-06 12:17:38 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-06 09:00:14 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-06 08:23:42 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-06 06:45:09 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-06 06:42:40 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-05 22:15:08 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-05 22:07:17 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-05 16:00:14 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-05 15:59:21 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-05 14:30:08 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-05 14:27:52 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-05 13:00:12 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-05 12:56:23 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-06-05 09:00:06 UTC","Duration":"187439","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52koanYPZSQnwJ3vI13vgT","Timestamp":"2019-06-05 08:58:07 UTC","Track":"Riverwards Stream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-05-31 12:15:12 UTC","Duration":"202881","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MkIlbOnu8UCMt26nOQ31P","Timestamp":"2019-05-31 10:31:28 UTC","Track":"Polynesia","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Polynesia","AlbumCover":"https://i.scdn.co/image/e04ad377cf5396d079f976074bb958a205bd9f9c","Artist":"Nora En Pure","CreatedAt":"2019-07-17 16:15:07 UTC","Duration":"212540","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7vpOBY2QlmlbfbIM8mAVQz","Timestamp":"2019-07-17 16:00:21 UTC","Track":"Lioness","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-08-28 18:00:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-28 18:00:27 UTC","Track":"Morning Dew - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-02-04 20:37:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-02-04 20:37:21 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-02-02 20:48:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-02-02 20:48:40 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-30 23:18:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-30 23:18:09 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-27 16:19:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-27 16:19:24 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-26 13:24:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-26 13:24:14 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-25 21:26:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-25 21:26:50 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-20 23:59:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-20 23:59:46 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-19 16:26:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-19 16:26:22 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-19 11:30:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-19 11:30:36 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-18 12:20:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-18 12:20:23 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-17 20:51:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-17 20:51:07 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-16 17:55:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-16 17:55:54 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-15 22:45:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-15 22:45:07 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-14 23:32:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-14 23:32:56 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-12 12:23:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-12 12:23:45 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-11 23:01:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-11 23:01:14 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-11 17:15:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-11 17:15:28 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-09 20:38:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-09 20:38:10 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-09 17:27:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-09 17:27:16 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-09 13:53:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-09 13:53:46 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-08 23:08:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-08 23:08:34 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-08 17:31:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-08 17:31:26 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Morning Dew","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b3a2c4527c9d6c6640b3b8732626dc44.png","Artist":"Nora En Pure","CreatedAt":"2016-01-08 14:41:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"04tpozNTvYulQIdkL4bOrI","Timestamp":"2016-01-08 14:41:53 UTC","Track":"Better off That Way - Radio Mix","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

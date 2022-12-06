@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Vampire Weekend - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Vampire Weekend</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Vampire Weekend","CreatedAt":"2019-05-20 20:35:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-05-20 20:35:54 UTC","Track":"Sunflower","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:45:16 UTC","Duration":"198960","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2G5ZpNvgSOOcBCpLcOfvJy","Timestamp":"2019-06-02 17:44:45 UTC","Track":"My Mistake","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-04 17:45:08 UTC","Duration":"226733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2YegRTu9IjiUg4VWfnXyM3","Timestamp":"2019-06-04 17:34:48 UTC","Track":"Sympathy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:00:18 UTC","Duration":"226733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2YegRTu9IjiUg4VWfnXyM3","Timestamp":"2019-06-02 17:48:33 UTC","Track":"Sympathy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:45:14 UTC","Duration":"149986","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2WaaqcSdsLliuWTnmY4rLC","Timestamp":"2019-06-02 17:37:42 UTC","Track":"Rich Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:30:12 UTC","Duration":"108573","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3VORkvig6GJheAu4x3I3oC","Timestamp":"2019-06-02 17:26:57 UTC","Track":"Big Blue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:15:08 UTC","Duration":"248946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5c2fEICoqVYuTjAGEieB2F","Timestamp":"2019-06-02 18:03:50 UTC","Track":"Stranger","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:00:17 UTC","Duration":"280200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2FjoCQaBoiEKs3FCvD0HkR","Timestamp":"2019-06-02 17:35:11 UTC","Track":"Unbearably White","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-05-20 20:16:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"2FjoCQaBoiEKs3FCvD0HkR","Timestamp":"2019-05-20 20:16:14 UTC","Track":"Unbearably White","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-05-06 19:34:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"2FjoCQaBoiEKs3FCvD0HkR","Timestamp":"2019-05-06 19:34:02 UTC","Track":"Unbearably White","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-04 18:00:12 UTC","Duration":"212253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5jd6XPyXSY4jQVG3SlXP1b","Timestamp":"2019-06-04 17:31:01 UTC","Track":"How Long?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:15:07 UTC","Duration":"212253","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5jd6XPyXSY4jQVG3SlXP1b","Timestamp":"2019-06-02 17:30:30 UTC","Track":"How Long?","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-04 18:00:11 UTC","Duration":"102680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"528bxUV84T4T8HHBFSpcaV","Timestamp":"2019-06-04 17:27:28 UTC","Track":"Bambina","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:45:13 UTC","Duration":"102680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"528bxUV84T4T8HHBFSpcaV","Timestamp":"2019-06-02 17:20:38 UTC","Track":"Bambina","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:30:07 UTC","Duration":"98346","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6UryEVkqPDLliZOG4UmFi9","Timestamp":"2019-06-02 17:56:29 UTC","Track":"2021","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-05-20 20:41:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"6UryEVkqPDLliZOG4UmFi9","Timestamp":"2019-05-20 20:41:20 UTC","Track":"2021","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-04-24 21:09:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"6UryEVkqPDLliZOG4UmFi9","Timestamp":"2019-04-24 21:09:03 UTC","Track":"2021","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:15:09 UTC","Duration":"174653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7lQgoAWAFAo0XW7dW2TL1y","Timestamp":"2019-06-02 18:09:28 UTC","Track":"Jerusalem, New York, Berlin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:30:08 UTC","Duration":"161466","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ze0Z3ZnIDITxj13NRok4z","Timestamp":"2019-06-02 18:06:32 UTC","Track":"Spring Snow","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27301e2ebfbf4f8147621c8a866","Artist":"Vampire Weekend","CreatedAt":"2020-07-04 11:58:14 UTC","Duration":"137760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5dKBaysNJtfpyNTRa5lqDb","Timestamp":"2020-07-04 11:57:30 UTC","Track":"A-Punk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27301e2ebfbf4f8147621c8a866","Artist":"Vampire Weekend","CreatedAt":"2020-07-03 21:43:13 UTC","Duration":"137760","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5dKBaysNJtfpyNTRa5lqDb","Timestamp":"2020-07-03 21:42:47 UTC","Track":"A-Punk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27301e2ebfbf4f8147621c8a866","Artist":"Vampire Weekend","CreatedAt":"2019-06-10 09:16:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5dKBaysNJtfpyNTRa5lqDb","Timestamp":"2019-06-10 09:16:21 UTC","Track":"A-Punk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27301e2ebfbf4f8147621c8a866","Artist":"Vampire Weekend","CreatedAt":"2019-03-31 12:30:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5dKBaysNJtfpyNTRa5lqDb","Timestamp":"2019-03-31 12:30:15 UTC","Track":"A-Punk","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2018-04-26 18:46:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-26 18:46:31 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2018-04-26 16:04:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-04-26 16:04:14 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-04-14 13:51:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-04-14 13:51:28 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-29 15:10:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-29 15:10:53 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-21 13:57:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-21 13:57:36 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-20 01:27:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-20 01:27:31 UTC","Track":"Worship You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-29 15:14:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-29 15:14:15 UTC","Track":"Unbelievers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-21 14:00:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-21 14:00:58 UTC","Track":"Unbelievers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-20 01:21:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-20 01:21:03 UTC","Track":"Unbelievers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-19 23:59:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-19 23:59:05 UTC","Track":"Unbelievers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-29 14:04:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-29 14:04:58 UTC","Track":"I Stand Corrected","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-27 22:44:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-27 22:44:56 UTC","Track":"I Stand Corrected","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-27 17:16:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-27 17:16:38 UTC","Track":"I Stand Corrected","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2015-03-01 20:46:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-01 20:46:03 UTC","Track":"Mansard Roof","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-30 08:01:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-30 08:01:40 UTC","Track":"Bryn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-29 17:27:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-29 17:27:53 UTC","Track":"Bryn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-29 14:07:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-29 14:07:38 UTC","Track":"Bryn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-28 22:25:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-28 22:25:42 UTC","Track":"Bryn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Vampire Weekend","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b89df606fd34c498743816e49050aa1.png","Artist":"Vampire Weekend","CreatedAt":"2017-03-27 22:42:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-03-27 22:42:44 UTC","Track":"Bryn","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Contra","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/f60b0691b7294dbd8c300b36276576e7.png","Artist":"Vampire Weekend","CreatedAt":"2015-03-03 22:18:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-03 22:18:48 UTC","Track":"Horchata","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:30:11 UTC","Duration":"268600","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-06-02 17:25:07 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2b1d3e73c66663c01351bcf","Artist":"Vampire Weekend","CreatedAt":"2019-12-19 17:01:15 UTC","Duration":"268600","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-12-18 20:38:34 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://images.shazam.com/coverart/t462742083-i1454428984_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-12-19 16:30:48 UTC","Duration":"0","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-12-18 20:22:51 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://images.shazam.com/coverart/t462742083-i1454428984_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-08-17 20:00:17 UTC","Duration":"0","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-08-17 18:21:53 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://images.shazam.com/coverart/t462742083-i1454428984_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 19:02:07 UTC","Duration":"0","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-06-02 19:02:07 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://images.shazam.com/coverart/t462742083-i1454428984_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-05-20 20:05:40 UTC","Duration":"0","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-05-20 20:05:40 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://images.shazam.com/coverart/t462742083-i1454428984_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-05-06 19:34:01 UTC","Duration":"0","ShazamId":"462742083","ShazamPermalink":"https://www.shazam.com/track/462742083/this-life","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"4dRqYKhLVujxiBXcq50YzG","Timestamp":"2019-05-06 19:34:01 UTC","Track":"This Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://images.shazam.com/coverart/t86963034-i613185609_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2018-11-11 23:09:18 UTC","Duration":"0","ShazamId":"86963034","ShazamPermalink":"https://www.shazam.com/track/86963034/hannah-hunt","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"","Timestamp":"2017-12-01 20:18:09 UTC","Track":"Hannah Hunt","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Modern Vampires of the City","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3d9751acd7ec418fb9682ce72b4a174d.png","Artist":"Vampire Weekend","CreatedAt":"2017-12-06 15:27:25 UTC","Duration":"0","ShazamId":"86963034","ShazamPermalink":"https://www.shazam.com/track/86963034/hannah-hunt","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 15:27:25 UTC","Track":"Hannah Hunt","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 18:56:34 UTC","Duration":"0","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-06-02 18:56:34 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-31 01:45:12 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-30 16:58:06 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-27 20:00:15 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-27 19:47:50 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-25 13:45:05 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-25 13:43:03 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-23 16:15:11 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-23 16:09:23 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-23 13:00:16 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-23 12:59:30 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-23 09:15:10 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-23 09:06:24 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-22 18:30:07 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-22 18:19:06 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-22 18:00:13 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-22 17:47:03 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-22 16:45:08 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-22 16:36:44 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-22 13:30:08 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-22 13:26:40 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-22 13:30:07 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-22 13:05:04 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-21 16:15:07 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-21 16:06:42 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-20 19:58:02 UTC","Duration":"0","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-20 19:58:02 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-05-06 19:07:00 UTC","Duration":"0","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-06 19:07:00 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://i.scdn.co/image/56f18465f2ce1088eeabe1ef42cd991a4f70adc3","Artist":"Vampire Weekend","CreatedAt":"2019-04-24 21:06:55 UTC","Duration":"0","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-04-24 21:06:55 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-10 13:15:08 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"39exKIvycQDgs4T6uXdyu0","Timestamp":"2019-06-10 12:51:12 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-04 17:30:05 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"39exKIvycQDgs4T6uXdyu0","Timestamp":"2019-06-04 17:23:27 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-06-02 17:30:10 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"39exKIvycQDgs4T6uXdyu0","Timestamp":"2019-06-02 17:18:54 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/81aed0a32cff6495523cc6b5099cd5ab59f215b9","Artist":"Vampire Weekend","CreatedAt":"2019-05-31 07:00:09 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"39exKIvycQDgs4T6uXdyu0","Timestamp":"2019-05-31 06:36:57 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Father of the Bride","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2b1d3e73c66663c01351bcf","Artist":"Vampire Weekend","CreatedAt":"2019-10-06 18:45:10 UTC","Duration":"308733","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"39exKIvycQDgs4T6uXdyu0","Timestamp":"2019-10-06 18:18:47 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Harmony Hall / 2021","AlbumCover":"https://images.shazam.com/coverart/t456032317-i1454428982_s400.jpg","Artist":"Vampire Weekend","CreatedAt":"2019-05-21 00:00:07 UTC","Duration":"0","ShazamId":"456032317","ShazamPermalink":"https://www.shazam.com/track/456032317/harmony-hall","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"5kXDF4OmM5COyeo6z97nEk","Timestamp":"2019-05-20 21:07:36 UTC","Track":"Harmony Hall","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

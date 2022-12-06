@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lana Del Rey - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Lana Del Rey</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Lana Del Rey","CreatedAt":"2019-07-19 18:49:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-07-19 18:49:10 UTC","Track":"Doin' Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Workout Mix 2015","AlbumCover":"","Artist":"Lana Del Rey","CreatedAt":"2018-05-26 17:10:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-05-26 17:10:05 UTC","Track":"Summertime Sadness (Lana Del Rey Vs. Cedric Gervais) - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"For The Love Of Trance","AlbumCover":"","Artist":"Lana Del Rey","CreatedAt":"2018-02-28 19:46:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-28 19:46:29 UTC","Track":"Summertime Sadness (Lana Del Rey Vs. Cedric Gervais) - Cedric Gervais Remix / Radio Edit / DJ Soft Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2018-10-29 07:45:15 UTC","Duration":"209440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-29 07:44:04 UTC","Track":"Blue Jeans - Album Version - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2018-10-28 19:15:10 UTC","Duration":"209440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-28 19:07:23 UTC","Track":"Blue Jeans - Album Version - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2018-10-27 18:15:12 UTC","Duration":"209440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-27 18:00:46 UTC","Track":"Blue Jeans - Album Version - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2018-10-24 05:15:06 UTC","Duration":"209440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-24 03:33:22 UTC","Track":"Blue Jeans - Album Version - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2018-10-24 05:15:15 UTC","Duration":"209440","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-24 00:52:08 UTC","Track":"Blue Jeans - Album Version - Remastered","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2019-04-25 14:30:10 UTC","Duration":"285400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2019-04-25 14:21:37 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2019-04-25 13:45:16 UTC","Duration":"285400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2019-04-25 13:43:32 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/0ec6b3e2cb620536f7d4b1323706d0ea5ceb37ad","Artist":"Lana Del Rey","CreatedAt":"2019-04-25 14:15:10 UTC","Duration":"285400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2019-04-25 13:05:28 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby (International Streaming Version)","AlbumCover":"https://i.scdn.co/image/914c395146fcbb71bf53cde0e2581da0136213fd","Artist":"Lana Del Rey","CreatedAt":"2018-11-28 18:45:16 UTC","Duration":"231733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2018-11-28 18:42:26 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolence (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731624590458126fc8b8c64c2f","Artist":"Lana Del Rey","CreatedAt":"2020-08-24 10:52:15 UTC","Duration":"271480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6IfPyMb0Sxptpx6jBUATOS","Timestamp":"2020-08-24 09:28:00 UTC","Track":"Old Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolence (Deluxe)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731624590458126fc8b8c64c2f","Artist":"Lana Del Rey","CreatedAt":"2020-08-03 19:00:29 UTC","Duration":"271480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6IfPyMb0Sxptpx6jBUATOS","Timestamp":"2020-08-03 18:59:41 UTC","Track":"Old Money","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chemtrails Over The Country Club","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365cbb09fc2622ff89467472e","Artist":"Lana Del Rey","CreatedAt":"2021-01-19 16:14:28 UTC","Duration":"271176","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1PZDyestTVydtHpaIcfUJg","Timestamp":"2021-01-19 15:35:30 UTC","Track":"Chemtrails Over The Country Club","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chemtrails Over The Country Club","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27365cbb09fc2622ff89467472e","Artist":"Lana Del Rey","CreatedAt":"2021-01-19 14:09:08 UTC","Duration":"271176","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1PZDyestTVydtHpaIcfUJg","Timestamp":"2021-01-19 13:10:29 UTC","Track":"Chemtrails Over The Country Club","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby (International Streaming Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374160d1c9ec851f7c4acaef1","Artist":"Lana Del Rey","CreatedAt":"2021-02-11 15:35:56 UTC","Duration":"231733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2021-02-11 15:32:49 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby (International Streaming Version)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27374160d1c9ec851f7c4acaef1","Artist":"Lana Del Rey","CreatedAt":"2021-02-11 15:21:22 UTC","Duration":"231733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2021-02-11 15:04:13 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chemtrails Over The Country Club","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ca929c6e766cb8591a286e0d","Artist":"Lana Del Rey","CreatedAt":"2022-10-05 17:05:19 UTC","Duration":"271176","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7bPWdJgx8vek7S5i5yAtvG","Timestamp":"2022-10-05 16:48:45 UTC","Track":"Chemtrails Over The Country Club","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-28 19:13:30 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-28 17:44:01 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-21 21:49:42 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-21 21:43:24 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-17 19:42:55 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-17 18:08:08 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-16 10:56:23 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-16 10:38:32 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-08 17:47:23 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-08 16:28:40 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-06 12:58:12 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-06 12:52:52 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Norman Fucking Rockwell!","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273db58320165892f952a6ddb3f","Artist":"Lana Del Rey","CreatedAt":"2020-12-05 19:55:56 UTC","Duration":"248934","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3RIgHHpnFKj5Rni1shokDj","Timestamp":"2020-12-05 19:53:07 UTC","Track":"Norman fucking Rockwell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolence (Deluxe)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3bb99b111c5b4d39cd46d54b39ba8cb7.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:17:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:17:51 UTC","Track":"West Coast","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolence (Deluxe)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3bb99b111c5b4d39cd46d54b39ba8cb7.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:25:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:25:28 UTC","Track":"Brooklyn Baby","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/42c916b7d008379eae4b630fae07dd2c.png","Artist":"Lana Del Rey","CreatedAt":"2018-06-11 14:33:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2018-06-11 14:33:13 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/42c916b7d008379eae4b630fae07dd2c.png","Artist":"Lana Del Rey","CreatedAt":"2017-06-13 11:13:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2017-06-13 11:13:03 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:04:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:04:14 UTC","Track":"Video Games","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2018-06-14 19:39:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-06-14 19:39:52 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-05-28 15:49:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-28 15:49:08 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-02-09 15:44:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-09 15:44:29 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-10-28 20:26:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-28 20:26:59 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-10-23 13:49:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-23 13:49:26 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-06-09 13:49:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-09 13:49:53 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-06-03 18:26:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-03 18:26:15 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-05-17 21:57:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-17 21:57:06 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-05-13 18:05:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-13 18:05:09 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-05-13 16:02:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-13 16:02:50 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-05-11 20:04:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-11 20:04:42 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2014-05-08 19:12:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-08 19:12:47 UTC","Track":"Gods \u0026 Monsters","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:31:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:31:15 UTC","Track":"Ride","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:08:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:08:50 UTC","Track":"Summertime Sadness","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:13:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2015-08-17 21:13:11 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-05-26 22:59:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-05-26 22:59:04 UTC","Track":"Young and Beautiful","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-08-03 13:43:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-08-03 13:43:21 UTC","Track":"Young and Beautiful [DH Orchestral Version]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-24 17:04:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-24 17:04:59 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-20 13:18:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-20 13:18:49 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-15 16:03:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-15 16:03:50 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-13 21:55:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-13 21:55:01 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-05 19:12:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-05 19:12:22 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-06-02 21:27:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-06-02 21:27:07 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-05-29 21:44:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-05-29 21:44:42 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-05-27 20:33:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-05-27 20:33:29 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From Baz Luhrmann's Film The Great Gatsby","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4e57f7d20067404d83c930ab8751488b.png","Artist":"Lana Del Rey","CreatedAt":"2013-05-26 22:56:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2yKqqZQOYhzAfmU0ye6tVQ","Timestamp":"2013-05-26 22:56:32 UTC","Track":"Young And Beautiful - DH Orchestral Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolence","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/916438133fc249e7c96f66ae29d5d1af.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:35:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-17 21:35:59 UTC","Track":"Cruel World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b834cb46a2637e13a6a5b1dcc86c3ab5.png","Artist":"Lana Del Rey","CreatedAt":"2015-12-01 20:33:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2015-12-01 20:33:58 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b834cb46a2637e13a6a5b1dcc86c3ab5.png","Artist":"Lana Del Rey","CreatedAt":"2013-05-10 18:15:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2013-05-10 18:15:02 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b834cb46a2637e13a6a5b1dcc86c3ab5.png","Artist":"Lana Del Rey","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Ouhoi2lAhrLJKFzUqEzwl","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Born to Die","YoutubeCategoryId":"","YoutubeId":""},{"Album":"High by the Beach","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/c83aced0d025115f428174dc2f7972f6.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-18 18:48:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-18 18:48:31 UTC","Track":"High by the Beach","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-03 20:41:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-08-03 20:41:26 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2015-02-14 20:50:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-14 20:50:26 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-12-03 13:55:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-12-03 13:55:29 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-11-30 18:15:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-11-30 18:15:55 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-10-09 14:16:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-10-09 14:16:34 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-27 14:34:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-27 14:34:18 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-23 13:11:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-23 13:11:49 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-19 16:28:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-19 16:28:49 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-15 14:15:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-15 14:15:56 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-15 13:45:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-15 13:45:41 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-06 20:47:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-06 20:47:09 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-04 22:03:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-04 22:03:00 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais]","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ffa46e42e862490ac9acf206db2c02f5.png","Artist":"Lana Del Rey","CreatedAt":"2013-09-02 20:41:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-09-02 20:41:31 UTC","Track":"Summertime Sadness [Lana Del Rey vs. Cedric Gervais] - Cedric Gervais Remix / Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born To Die - The Paradise Edition","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ebc8cfac8b586bc475b04918","Artist":"Lana Del Rey","CreatedAt":"2020-10-01 18:28:44 UTC","Duration":"209440","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2020-10-01 18:25:50 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://images.shazam.com/coverart/t53742147-i563964736_s400.jpg","Artist":"Lana Del Rey","CreatedAt":"2018-11-11 23:09:29 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2018-10-21 21:26:38 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-09-12 15:27:40 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-09-12 15:27:40 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-09-12 13:32:58 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-09-12 13:32:58 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-30 09:31:33 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-30 09:31:33 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-28 20:57:35 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-28 20:57:35 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-27 21:58:42 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-27 21:58:42 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-27 20:35:27 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-27 20:35:27 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-27 19:16:47 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-27 19:16:47 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-27 18:05:10 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-27 18:05:10 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-26 20:08:53 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-26 20:08:53 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-25 18:57:46 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-25 18:57:46 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-23 11:16:25 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-23 11:16:25 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-22 20:41:40 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-22 20:41:40 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-21 21:08:50 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-21 21:08:50 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-20 19:30:40 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-20 19:30:40 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-18 20:30:26 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-18 20:30:26 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 22:26:38 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-17 22:26:38 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Born to Die - The Paradise Edition","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4ac08385fa211ba7e51025f43d453f6f.png","Artist":"Lana Del Rey","CreatedAt":"2015-08-17 21:22:03 UTC","Duration":"0","ShazamId":"53742147","ShazamPermalink":"https://www.shazam.com/track/53742147/blue-jeans","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4RyK6N4IQ85xxLgguQAFH5","Timestamp":"2015-08-17 21:22:03 UTC","Track":"Blue Jeans","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blue Jeans Remixes","AlbumCover":"https://images.shazam.com/coverart/t57433492-i522319821_s400.jpg","Artist":"Lana Del Rey","CreatedAt":"2018-11-11 23:09:29 UTC","Duration":"0","ShazamId":"57433492","ShazamPermalink":"https://www.shazam.com/track/57433492/blue-jeans-rac-mix","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"","Timestamp":"2018-10-21 21:28:37 UTC","Track":"Blue Jeans (Rac Mix)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

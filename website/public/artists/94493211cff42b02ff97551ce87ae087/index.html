@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>The Crane Wives - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>The Crane Wives</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:41:46 UTC","Duration":"224920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0nDPjhyUwST83GSQ2SlR5N","Timestamp":"2021-10-17 13:13:12 UTC","Track":"The Diving Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 08:45:37 UTC","Duration":"224920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0nDPjhyUwST83GSQ2SlR5N","Timestamp":"2021-10-17 08:38:44 UTC","Track":"The Diving Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-05 18:55:57 UTC","Duration":"224920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0nDPjhyUwST83GSQ2SlR5N","Timestamp":"2021-10-05 18:13:12 UTC","Track":"The Diving Bell","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:29:58 UTC","Duration":"257266","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ftzEvsdt92vfvMKETLymV","Timestamp":"2021-10-17 13:17:30 UTC","Track":"October","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 09:35:52 UTC","Duration":"257266","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ftzEvsdt92vfvMKETLymV","Timestamp":"2021-10-17 08:43:01 UTC","Track":"October","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-05 19:39:35 UTC","Duration":"277706","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0sPac4qQzFMz2Gbz7OjhD3","Timestamp":"2021-10-05 18:21:17 UTC","Track":"Caleb Trask","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-05 19:51:27 UTC","Duration":"247400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5fGZlZUSEePhrQe0BBtEBm","Timestamp":"2021-10-05 18:51:13 UTC","Track":"Hole in the Silver Lining","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-05 19:27:43 UTC","Duration":"206453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"605fMgqfyCMM86uaXUcm41","Timestamp":"2021-10-05 18:16:38 UTC","Track":"New Colors","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:29:59 UTC","Duration":"186693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2eCNAoCvjTlWTKkMnLrUqx","Timestamp":"2021-10-17 13:24:13 UTC","Track":"Can't Have It All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:00:03 UTC","Duration":"186693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2eCNAoCvjTlWTKkMnLrUqx","Timestamp":"2021-10-17 08:49:44 UTC","Track":"Can't Have It All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Safe Ship, Harbored","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a9f577cd649e240bad8e11d2","Artist":"The Crane Wives","CreatedAt":"2021-10-05 18:44:07 UTC","Duration":"241240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3z1FUZvavnURXECUg7hCI1","Timestamp":"2021-10-05 18:25:18 UTC","Track":"Counting Sheep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:42:57 UTC","Duration":"288213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rz2fEOgOuHavfIpAsnXSl","Timestamp":"2022-10-02 09:59:19 UTC","Track":"Pretty Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 17:54:47 UTC","Duration":"288213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rz2fEOgOuHavfIpAsnXSl","Timestamp":"2021-10-17 17:27:50 UTC","Track":"Pretty Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:51:58 UTC","Duration":"288213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rz2fEOgOuHavfIpAsnXSl","Timestamp":"2021-10-17 14:10:36 UTC","Track":"Pretty Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:00:04 UTC","Duration":"288213","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rz2fEOgOuHavfIpAsnXSl","Timestamp":"2021-10-17 09:36:07 UTC","Track":"Pretty Little Things","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:16:25 UTC","Duration":"228853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7wjmdC4OL3l1nh9zQwCpv8","Timestamp":"2022-10-02 09:52:22 UTC","Track":"Curses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:29:55 UTC","Duration":"228853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7wjmdC4OL3l1nh9zQwCpv8","Timestamp":"2021-10-17 12:58:31 UTC","Track":"Curses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 08:32:33 UTC","Duration":"228853","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7wjmdC4OL3l1nh9zQwCpv8","Timestamp":"2021-10-17 08:24:03 UTC","Track":"Curses","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:04:49 UTC","Duration":"195600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1nrMkhrmIF6LtQsyz0B92h","Timestamp":"2022-10-02 10:02:34 UTC","Track":"Know How","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:38:40 UTC","Duration":"195600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1nrMkhrmIF6LtQsyz0B92h","Timestamp":"2021-10-17 17:56:40 UTC","Track":"Know How","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:28:21 UTC","Duration":"195600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1nrMkhrmIF6LtQsyz0B92h","Timestamp":"2021-10-17 14:25:28 UTC","Track":"Know How","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:25:51 UTC","Duration":"195600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1nrMkhrmIF6LtQsyz0B92h","Timestamp":"2021-10-17 09:51:00 UTC","Track":"Know How","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 17:54:48 UTC","Duration":"242973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OvQjoOvOv7VeQaCHg7ivE","Timestamp":"2021-10-17 17:31:53 UTC","Track":"The Garden","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:11:05 UTC","Duration":"242973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OvQjoOvOv7VeQaCHg7ivE","Timestamp":"2021-10-17 14:14:39 UTC","Track":"The Garden","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 09:48:08 UTC","Duration":"242973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OvQjoOvOv7VeQaCHg7ivE","Timestamp":"2021-10-17 09:40:10 UTC","Track":"The Garden","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:04:47 UTC","Duration":"216493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7CXzsasz7OzgeKjFDibydn","Timestamp":"2022-10-02 09:39:14 UTC","Track":"Down the River","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:38:41 UTC","Duration":"216493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7CXzsasz7OzgeKjFDibydn","Timestamp":"2021-10-17 18:17:05 UTC","Track":"Down the River","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:32:52 UTC","Duration":"216493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7CXzsasz7OzgeKjFDibydn","Timestamp":"2021-10-17 14:45:54 UTC","Track":"Down the River","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:38:40 UTC","Duration":"216493","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7CXzsasz7OzgeKjFDibydn","Timestamp":"2021-10-17 10:11:25 UTC","Track":"Down the River","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:31:02 UTC","Duration":"128346","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7rdcybjFTDW2uTlnD1AWPJ","Timestamp":"2022-10-02 09:54:31 UTC","Track":"Turn out the Lights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 13:42:46 UTC","Duration":"268453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5sUTe5iX5uWKGcajG5AMHc","Timestamp":"2022-10-02 13:31:07 UTC","Track":"Not the Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:19:36 UTC","Duration":"268453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5sUTe5iX5uWKGcajG5AMHc","Timestamp":"2021-10-17 18:01:08 UTC","Track":"Not the Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:32:51 UTC","Duration":"268453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5sUTe5iX5uWKGcajG5AMHc","Timestamp":"2021-10-17 14:29:58 UTC","Track":"Not the Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:53:47 UTC","Duration":"268453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5sUTe5iX5uWKGcajG5AMHc","Timestamp":"2021-10-17 09:55:28 UTC","Track":"Not the Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 09:46:45 UTC","Duration":"162133","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7CknmAEotKqfcEnNYCKvEX","Timestamp":"2022-10-02 09:35:38 UTC","Track":"I Talk in My Sleep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 09:35:29 UTC","Duration":"227240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33en52uNAqXMMhcLE7Guuq","Timestamp":"2022-10-02 09:32:56 UTC","Track":"Nothing at All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-01 10:38:59 UTC","Duration":"227240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33en52uNAqXMMhcLE7Guuq","Timestamp":"2022-10-01 10:38:09 UTC","Track":"Nothing at All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:13:09 UTC","Duration":"227240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33en52uNAqXMMhcLE7Guuq","Timestamp":"2021-10-17 13:35:04 UTC","Track":"Nothing at All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 09:35:53 UTC","Duration":"227240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"33en52uNAqXMMhcLE7Guuq","Timestamp":"2021-10-17 09:00:35 UTC","Track":"Nothing at All","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 10:04:48 UTC","Duration":"271640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4l7HcPzYEUt2RF4fWf6ifz","Timestamp":"2022-10-02 09:43:46 UTC","Track":"Ribs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:19:35 UTC","Duration":"271640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4l7HcPzYEUt2RF4fWf6ifz","Timestamp":"2021-10-17 17:50:21 UTC","Track":"Ribs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:32:50 UTC","Duration":"271640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4l7HcPzYEUt2RF4fWf6ifz","Timestamp":"2021-10-17 14:19:11 UTC","Track":"Ribs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:12:16 UTC","Duration":"271640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4l7HcPzYEUt2RF4fWf6ifz","Timestamp":"2021-10-17 09:44:41 UTC","Track":"Ribs","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Foxlore","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc032f86301fe5f26eacfe55","Artist":"The Crane Wives","CreatedAt":"2022-10-02 09:55:48 UTC","Duration":"287280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7s4ibQUQeDHKo3CDYk4E3b","Timestamp":"2022-10-02 09:48:33 UTC","Track":"Can't Go Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 19:07:18 UTC","Duration":"228173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RPD5sbsSLnKWYOJ5iPPMm","Timestamp":"2021-10-17 18:13:28 UTC","Track":"Never Love an Anchor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:47:48 UTC","Duration":"228173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RPD5sbsSLnKWYOJ5iPPMm","Timestamp":"2021-10-17 14:42:18 UTC","Track":"Never Love an Anchor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:25:52 UTC","Duration":"228173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0RPD5sbsSLnKWYOJ5iPPMm","Timestamp":"2021-10-17 10:07:48 UTC","Track":"Never Love an Anchor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:53:39 UTC","Duration":"216413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3GKY12XxvirF3oTPw3XWD5","Timestamp":"2021-10-17 13:21:06 UTC","Track":"Sleeping Giants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 09:48:06 UTC","Duration":"216413","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3GKY12XxvirF3oTPw3XWD5","Timestamp":"2021-10-17 08:46:37 UTC","Track":"Sleeping Giants","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:29:56 UTC","Duration":"220786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4c0tJe2ENJwrZbn9Bap2qs","Timestamp":"2021-10-17 13:02:12 UTC","Track":"The Moon Will Sing","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 08:45:36 UTC","Duration":"220786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4c0tJe2ENJwrZbn9Bap2qs","Timestamp":"2021-10-17 08:27:44 UTC","Track":"The Moon Will Sing","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:38:39 UTC","Duration":"182533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"54vgfSw1eOMiypSfatl38M","Timestamp":"2021-10-17 17:53:24 UTC","Track":"Allies or Enemies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:40:11 UTC","Duration":"182533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"54vgfSw1eOMiypSfatl38M","Timestamp":"2021-10-17 14:22:13 UTC","Track":"Allies or Enemies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:26:28 UTC","Duration":"182533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"54vgfSw1eOMiypSfatl38M","Timestamp":"2021-10-17 09:47:44 UTC","Track":"Allies or Enemies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:59:40 UTC","Duration":"182946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5qbS87UjbAJ7IXUUiXNY80","Timestamp":"2021-10-17 14:48:57 UTC","Track":"Little Soldiers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:26:29 UTC","Duration":"182946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5qbS87UjbAJ7IXUUiXNY80","Timestamp":"2021-10-17 10:14:27 UTC","Track":"Little Soldiers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:11:07 UTC","Duration":"267480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IXjfRKNUvj7ynTiHNmLQY","Timestamp":"2021-10-17 14:53:25 UTC","Track":"The Hand That Feeds","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:38:41 UTC","Duration":"267480","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4IXjfRKNUvj7ynTiHNmLQY","Timestamp":"2021-10-17 10:18:55 UTC","Track":"The Hand That Feeds","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 12:10:57 UTC","Duration":"225453","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5bE0VqeOOsHldeeq2LcRGI","Timestamp":"2021-10-17 10:40:31 UTC","Track":"New Discovery","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:29:57 UTC","Duration":"185226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2YCXrcSkNQtymvzWtwNYdo","Timestamp":"2021-10-17 13:09:28 UTC","Track":"Metaphor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 09:21:04 UTC","Duration":"185226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2YCXrcSkNQtymvzWtwNYdo","Timestamp":"2021-10-17 08:34:58 UTC","Track":"Metaphor","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:51:00 UTC","Duration":"260786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a4tcfgzMUdIOZoh8alw9R","Timestamp":"2021-10-17 18:09:40 UTC","Track":"Unraveling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:51:59 UTC","Duration":"260786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a4tcfgzMUdIOZoh8alw9R","Timestamp":"2021-10-17 14:38:29 UTC","Track":"Unraveling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 11:12:17 UTC","Duration":"260786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a4tcfgzMUdIOZoh8alw9R","Timestamp":"2021-10-17 10:04:01 UTC","Track":"Unraveling","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 18:50:59 UTC","Duration":"251280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5etnwqUSERLA69NaV44mmL","Timestamp":"2021-10-17 18:05:20 UTC","Track":"Keep You Safe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 15:11:06 UTC","Duration":"251280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5etnwqUSERLA69NaV44mmL","Timestamp":"2021-10-17 14:34:08 UTC","Track":"Keep You Safe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Coyote Stories","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273be7f11ade1f9eead4d19a94f","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:41:51 UTC","Duration":"251280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5etnwqUSERLA69NaV44mmL","Timestamp":"2021-10-17 09:59:39 UTC","Track":"Keep You Safe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 19:21:45 UTC","Duration":"218720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0aXjGuHeroV3ilfkFG6kyY","Timestamp":"2021-10-17 18:23:46 UTC","Track":"Icarus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 17:27:34 UTC","Duration":"218720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0aXjGuHeroV3ilfkFG6kyY","Timestamp":"2021-10-17 17:15:36 UTC","Track":"Icarus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:41:52 UTC","Duration":"218720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0aXjGuHeroV3ilfkFG6kyY","Timestamp":"2021-10-17 10:22:34 UTC","Track":"Icarus","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:09:23 UTC","Duration":"250106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5x9epmKRjAhuBCYJ75ChqZ","Timestamp":"2021-10-17 13:06:23 UTC","Track":"Steady, Steady","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 08:57:28 UTC","Duration":"250106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5x9epmKRjAhuBCYJ75ChqZ","Timestamp":"2021-10-17 08:31:53 UTC","Track":"Steady, Steady","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 17:43:01 UTC","Duration":"221013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0XSOLgNqtHZgEEaQyoQctR","Timestamp":"2021-10-17 17:23:02 UTC","Track":"Tongues \u0026 Teeth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 14:13:10 UTC","Duration":"221013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0XSOLgNqtHZgEEaQyoQctR","Timestamp":"2021-10-17 14:05:48 UTC","Track":"Tongues \u0026 Teeth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 10:53:46 UTC","Duration":"221013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0XSOLgNqtHZgEEaQyoQctR","Timestamp":"2021-10-17 09:31:19 UTC","Track":"Tongues \u0026 Teeth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Fool in Her Wedding Gown","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bf1e8c1488b3f04d5f8e3b25","Artist":"The Crane Wives","CreatedAt":"2021-10-17 13:09:22 UTC","Duration":"229346","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5YkZPYInGxp1kK6gbH85NK","Timestamp":"2021-10-17 12:54:41 UTC","Track":"Easier","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

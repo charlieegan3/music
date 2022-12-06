@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Penguin Cafe Orchestra - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Penguin Cafe Orchestra</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Penguin Café Orchestra","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738310950027c6c393fa371ac0","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:58:51 UTC","Duration":"106360","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3uVeki7SGJHI06vOWgdm6I","Timestamp":"2021-12-18 20:15:44 UTC","Track":"Paul's Dance - Remastered 2008","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Penguin Café Orchestra","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738310950027c6c393fa371ac0","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:46:56 UTC","Duration":"188400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Lm3loChnSsNS37nxvLYcN","Timestamp":"2021-12-18 20:04:41 UTC","Track":"Cutting Branches For A Temporary Shelter - Remastered 2008","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Penguin Café Orchestra","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738310950027c6c393fa371ac0","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:35:05 UTC","Duration":"420000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"52VM30ijXvRWejpqm9RgCF","Timestamp":"2021-12-18 20:33:34 UTC","Track":"Numbers 1-4 - Remastered 2008","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Penguin Café Orchestra","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738310950027c6c393fa371ac0","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 11:51:46 UTC","Duration":"240813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0SrJKLmxC624x3r9j2O374","Timestamp":"2021-12-19 11:14:40 UTC","Track":"The Ecstasy Of Dancing Fleas - Remastered 2008","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Penguin Café Orchestra","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738310950027c6c393fa371ac0","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 19:54:43 UTC","Duration":"240813","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0SrJKLmxC624x3r9j2O374","Timestamp":"2021-12-18 19:35:54 UTC","Track":"The Ecstasy Of Dancing Fleas - Remastered 2008","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b4b7e55c1bc0f4de48435ee","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:46:55 UTC","Duration":"380426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ItQB0xojW8Os6rA6GoY0l","Timestamp":"2021-12-18 20:01:32 UTC","Track":"Penguin Cafe Single - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b4b7e55c1bc0f4de48435ee","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 21:22:30 UTC","Duration":"147906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4DEH8cNLLVfXVK2eQkCIdo","Timestamp":"2021-12-18 20:26:34 UTC","Track":"Zopf: In A Sydney Motel - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b4b7e55c1bc0f4de48435ee","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 21:49:46 UTC","Duration":"704786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mhl1LKUCh4mOdPwh0WwMM","Timestamp":"2021-12-18 20:55:02 UTC","Track":"The Sound Of Someone You Love Who's Going Away And It Doesn't Matter - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738b4b7e55c1bc0f4de48435ee","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 19:42:47 UTC","Duration":"704786","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5mhl1LKUCh4mOdPwh0WwMM","Timestamp":"2021-12-18 19:31:53 UTC","Track":"The Sound Of Someone You Love Who's Going Away And It Doesn't Matter - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A History","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27390aca5ed7168a26b65e7eddb","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 10:41:22 UTC","Duration":"324600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2V8HQ10zyszcQoBYWmmj8i","Timestamp":"2021-12-19 10:35:34 UTC","Track":"Air À Danser","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A History","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27390aca5ed7168a26b65e7eddb","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:18:58 UTC","Duration":"324600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2V8HQ10zyszcQoBYWmmj8i","Timestamp":"2021-12-18 20:13:57 UTC","Track":"Air À Danser","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2020-11-03 18:43:12 UTC","Duration":"219693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2020-11-03 18:03:32 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:18:57 UTC","Duration":"289733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3xOIq1yBsOQ1QWDITkCxsg","Timestamp":"2021-12-18 19:51:41 UTC","Track":"Dirt","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:35:04 UTC","Duration":"230400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lYkEZAhUXC4Y6ssjVshhD","Timestamp":"2021-12-18 20:08:32 UTC","Track":"Prelude And Yodel","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 21:37:44 UTC","Duration":"254600","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0IUzIl53w5sYSy8OMK2MXu","Timestamp":"2021-12-18 20:24:05 UTC","Track":"Rosasolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-30 14:41:02 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2021-12-30 14:18:57 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 10:53:17 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2021-12-19 10:53:01 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 19:30:40 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2021-12-18 19:20:07 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273962272d12a4fb134f7aa822f","Artist":"Penguin Cafe Orchestra","CreatedAt":"2020-11-03 16:19:12 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2020-11-03 16:17:45 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 21:22:29 UTC","Duration":"245720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"20AH0GHhxuhdDBP1AqyRqI","Timestamp":"2021-12-18 20:19:51 UTC","Track":"Silver Star of Bologna","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 22:28:01 UTC","Duration":"416506","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2QLVAN4Je1V8AGaq2npJSd","Timestamp":"2021-12-18 21:01:51 UTC","Track":"Scherzo and Trio","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 13:36:48 UTC","Duration":"435680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IJbVdnLsBrLFENujYEfIH","Timestamp":"2021-12-19 11:30:26 UTC","Track":"Lifeboat (Lovers Rock)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:18:56 UTC","Duration":"435680","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3IJbVdnLsBrLFENujYEfIH","Timestamp":"2021-12-18 19:46:50 UTC","Track":"Lifeboat (Lovers Rock)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-29 22:52:12 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-29 22:37:56 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-23 11:37:01 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-23 10:22:44 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-20 14:49:10 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-20 14:27:41 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-20 14:37:03 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-20 14:23:54 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 14:22:35 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-19 14:02:00 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-19 10:24:05 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-19 10:16:12 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 21:37:45 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-18 20:45:07 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Union Cafe","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397d67ee2ee8dffe4cc9078ce","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:46:57 UTC","Duration":"229093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7IbG4WhB6d2MWVVPuqfNRb","Timestamp":"2021-12-18 20:37:24 UTC","Track":"Organum","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When In Rome...","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b11e30d70e44a8035a11bc73","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:35:03 UTC","Duration":"210604","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ykNOsXSPdGJMkEmkzPzBh","Timestamp":"2021-12-18 19:55:11 UTC","Track":"From The Colonies - Live From The Royal Festival Hall,United Kingdom/1987 / 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Broadcasting From Home","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f9343f02637e160084558a1c","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-30 15:37:33 UTC","Duration":"219733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Nf4pScvTosqe9xz0FCBui","Timestamp":"2021-12-30 14:45:29 UTC","Track":"Music For A Found Harmonium - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Broadcasting From Home","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f9343f02637e160084558a1c","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 19:54:44 UTC","Duration":"219733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4Nf4pScvTosqe9xz0FCBui","Timestamp":"2021-12-18 19:39:33 UTC","Track":"Music For A Found Harmonium - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Broadcasting From Home","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f9343f02637e160084558a1c","Artist":"Penguin Cafe Orchestra","CreatedAt":"2021-12-18 20:58:52 UTC","Duration":"239733","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2plu0q3MrxDjwX87ly6Y7t","Timestamp":"2021-12-18 20:41:18 UTC","Track":"Sheep Dip - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ad2ca7ed335968c6da3236240997a15fc78e4cd8","Artist":"Penguin Cafe Orchestra","CreatedAt":"2019-03-20 12:45:16 UTC","Duration":"219693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2019-03-20 12:41:14 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ad2ca7ed335968c6da3236240997a15fc78e4cd8","Artist":"Penguin Cafe Orchestra","CreatedAt":"2019-04-05 16:15:10 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2019-04-05 15:48:11 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ad2ca7ed335968c6da3236240997a15fc78e4cd8","Artist":"Penguin Cafe Orchestra","CreatedAt":"2019-03-19 08:30:07 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2019-03-19 08:29:46 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://i.scdn.co/image/ad2ca7ed335968c6da3236240997a15fc78e4cd8","Artist":"Penguin Cafe Orchestra","CreatedAt":"2019-02-20 09:00:08 UTC","Duration":"269800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2019-02-20 08:57:16 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Penguin Café Orchestra","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/0001a16b1f0f76bbf2b20c371c77e3c3.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2017-09-03 19:13:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-03 19:13:12 UTC","Track":"Telephone And Rubber Band - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A History","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/094020e6fc7a20db49d68f04086a5578.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:32:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-05 11:32:40 UTC","Track":"Red Shorts - 2001 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A History","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/094020e6fc7a20db49d68f04086a5578.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:36:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-05 11:36:47 UTC","Track":"Isle Of View (Music For Helicopter Pilots) - 2001 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A History","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/094020e6fc7a20db49d68f04086a5578.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:41:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-05 11:41:30 UTC","Track":"Perpetuum Mobile - 2001 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Broadcasting From Home","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/3de913f08ccdc74824c9e1fc42c87959.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2017-09-03 19:09:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4Nf4pScvTosqe9xz0FCBui","Timestamp":"2017-09-03 19:09:33 UTC","Track":"Music For A Found Harmonium - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7460b55360e54ae2b954392eddf0c147.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2018-06-11 14:15:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5mhl1LKUCh4mOdPwh0WwMM","Timestamp":"2018-06-11 14:15:02 UTC","Track":"The Sound Of Someone You Love Who's Going Away And It Doesn't Matter - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Music From The Penguin Cafe","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7460b55360e54ae2b954392eddf0c147.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2017-09-03 18:58:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5mhl1LKUCh4mOdPwh0WwMM","Timestamp":"2017-09-03 18:58:49 UTC","Track":"The Sound Of Someone You Love Who's Going Away And It Doesn't Matter - 2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"When In Rome...","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/7b2a539b4ce1e7da4aff72775d2e1a06.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:46:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-05 11:46:12 UTC","Track":"Numbers 1-4 - Live;2008 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2018-06-11 14:26:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2018-06-11 14:26:54 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-07-28 19:13:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2015-07-28 19:13:42 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-07-27 20:56:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2015-07-27 20:56:51 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3MxUDEw31beZO6uol0Hca4","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Music For A Found Harmonium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2018-06-11 14:10:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2018-06-11 14:10:33 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2017-09-03 18:54:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2017-09-03 18:54:20 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-09-06 11:36:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-09-06 11:36:06 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-08-26 15:38:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-08-26 15:38:17 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-08-26 13:45:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-08-26 13:45:37 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-08-26 11:00:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-08-26 11:00:55 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-08-26 09:32:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-08-26 09:32:11 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2016-03-17 23:13:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2016-03-17 23:13:22 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-12-04 21:42:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-12-04 21:42:35 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-11-15 18:06:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-11-15 18:06:23 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-07-28 19:17:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-07-28 19:17:21 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-07-27 21:00:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-07-27 21:00:31 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-13 19:09:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-13 19:09:10 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-13 08:58:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-13 08:58:02 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-11 10:02:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-11 10:02:04 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-10 20:46:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-10 20:46:27 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-10 15:39:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-10 15:39:27 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-10 13:21:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-10 13:21:57 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-09 20:08:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-09 20:08:51 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-08 21:36:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-08 21:36:01 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-07 13:38:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-07 13:38:56 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-07 11:06:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-07 11:06:52 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-06 13:45:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-06 13:45:45 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-06 10:39:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-06 10:39:27 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-05 09:45:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-05 09:45:51 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-04 19:54:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-04 19:54:49 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-04 13:18:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-04 13:18:55 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-04 09:13:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-04 09:13:18 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-03 21:36:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-03 21:36:37 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-03 20:27:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-03 20:27:57 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-03 09:44:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-03 09:44:25 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-05-02 20:11:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-05-02 20:11:31 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-30 19:16:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-30 19:16:48 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-30 15:59:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-30 15:59:40 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-30 10:22:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-30 10:22:25 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-28 21:06:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-28 21:06:53 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-27 14:37:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-27 14:37:05 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-24 22:04:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-24 22:04:28 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-23 21:26:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-23 21:26:19 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-22 20:11:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-22 20:11:04 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2015-04-22 17:44:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2015-04-22 17:44:58 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:23:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2014-11-05 11:23:57 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2013-05-13 20:26:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2013-05-13 20:26:07 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Preludes, Airs And Yodels (A Penguin Cafe Primer)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/835ba2d160f34ec7ce33d0baa4c23d49.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1MIwRUsj23h7cYn6mNiqHw","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Perpetuum Mobile","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Brief History","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/ef0c149517a24801aacc4e00afd6f7d7.png","Artist":"Penguin Cafe Orchestra","CreatedAt":"2014-11-05 11:28:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-05 11:28:26 UTC","Track":"Heartwind - 2001 Digital Remaster","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

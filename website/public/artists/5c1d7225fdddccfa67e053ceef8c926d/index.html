@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>The Japanese House - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>The Japanese House</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Follow My Girl","AlbumCover":"https://i.scdn.co/image/0e0746625f133a049f2d50cb9699250a658829c6","Artist":"The Japanese House","CreatedAt":"2019-01-31 00:15:06 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jzQw5L2bqsNDN05bjvpvd","Timestamp":"2019-01-30 23:47:57 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Follow My Girl","AlbumCover":"https://i.scdn.co/image/0e0746625f133a049f2d50cb9699250a658829c6","Artist":"The Japanese House","CreatedAt":"2019-01-14 18:45:11 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jzQw5L2bqsNDN05bjvpvd","Timestamp":"2019-01-14 18:36:42 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Follow My Girl","AlbumCover":"https://i.scdn.co/image/0e0746625f133a049f2d50cb9699250a658829c6","Artist":"The Japanese House","CreatedAt":"2019-01-10 16:45:08 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jzQw5L2bqsNDN05bjvpvd","Timestamp":"2019-01-10 16:25:35 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Follow My Girl","AlbumCover":"https://i.scdn.co/image/0e0746625f133a049f2d50cb9699250a658829c6","Artist":"The Japanese House","CreatedAt":"2019-01-09 08:30:10 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jzQw5L2bqsNDN05bjvpvd","Timestamp":"2019-01-09 08:21:21 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"3/3","AlbumCover":"https://i.scdn.co/image/110839b99e8c157e1461e4b20bc5e503b7be645e","Artist":"The Japanese House","CreatedAt":"2019-04-04 14:00:11 UTC","Duration":"240416","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6d4ZgdFIHQY6SoAUI5vWf1","Timestamp":"2019-04-04 13:58:06 UTC","Track":"3/3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Follow My Girl","AlbumCover":"https://i.scdn.co/image/558d268630e82e5db386e6ddf05cc0fe2f5d1afa","Artist":"The Japanese House","CreatedAt":"2019-06-27 12:00:06 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0jzQw5L2bqsNDN05bjvpvd","Timestamp":"2019-06-27 11:19:26 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/8e67134ca33e62d698176ddaae6de04c0a9eaf16","Artist":"The Japanese House","CreatedAt":"2019-10-08 14:15:20 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2019-10-08 13:09:40 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Talk all the Time","AlbumCover":"https://i.scdn.co/image/90e4b1428064fc4eb257e262c6ab58490211d1f2","Artist":"The Japanese House","CreatedAt":"2019-02-04 22:45:08 UTC","Duration":"195314","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YI6VkKh5sN3r0Zk32evBU","Timestamp":"2019-02-04 22:38:53 UTC","Track":"We Talk all the Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Face Like Thunder","AlbumCover":"https://i.scdn.co/image/a31877c06afa08aaf579ea25404977c6436a92c9","Artist":"The Japanese House","CreatedAt":"2019-04-04 16:45:09 UTC","Duration":"237428","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5B1FfbGWfU3Ax3BLTQyU2i","Timestamp":"2019-04-04 16:05:02 UTC","Track":"Face Like Thunder","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Clean","AlbumCover":"https://i.scdn.co/image/a817f8efc64c85c8f3c4588f7084658d32d29fa3","Artist":"The Japanese House","CreatedAt":"2019-04-04 14:30:15 UTC","Duration":"203668","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4sMHa0i8kX12cQDqK8FGt8","Timestamp":"2019-04-04 14:23:33 UTC","Track":"Sugar Pill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Saw You in a Dream","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273641c76b29698131584d68ba5","Artist":"The Japanese House","CreatedAt":"2021-08-05 16:53:34 UTC","Duration":"208280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7dujOm8FJcepmVBQjqdswN","Timestamp":"2021-08-05 15:14:08 UTC","Track":"Saw You in a Dream","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736d0fd57e96fb97bf20ab5ca0","Artist":"The Japanese House","CreatedAt":"2020-08-16 10:36:53 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2020-08-16 09:58:47 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736d0fd57e96fb97bf20ab5ca0","Artist":"The Japanese House","CreatedAt":"2020-07-12 21:12:11 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2020-07-12 21:11:18 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736d0fd57e96fb97bf20ab5ca0","Artist":"The Japanese House","CreatedAt":"2020-06-13 22:49:36 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2020-06-13 22:49:19 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736d0fd57e96fb97bf20ab5ca0","Artist":"The Japanese House","CreatedAt":"2020-06-03 14:50:14 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2020-06-03 14:49:28 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Something Has to Change","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736d0fd57e96fb97bf20ab5ca0","Artist":"The Japanese House","CreatedAt":"2020-05-19 21:56:11 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2020-05-19 21:55:41 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738935646998a8d28d13bc348d","Artist":"The Japanese House","CreatedAt":"2022-11-29 18:37:12 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KWI43agrQEFVLM3soOmKW","Timestamp":"2022-11-29 18:08:43 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738935646998a8d28d13bc348d","Artist":"The Japanese House","CreatedAt":"2020-08-31 11:08:59 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KWI43agrQEFVLM3soOmKW","Timestamp":"2020-08-31 10:47:50 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738935646998a8d28d13bc348d","Artist":"The Japanese House","CreatedAt":"2020-08-28 21:45:24 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KWI43agrQEFVLM3soOmKW","Timestamp":"2020-08-28 21:29:28 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738935646998a8d28d13bc348d","Artist":"The Japanese House","CreatedAt":"2020-08-24 11:01:45 UTC","Duration":"191200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KWI43agrQEFVLM3soOmKW","Timestamp":"2020-08-24 10:07:22 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-29 21:26:24 UTC","Duration":"195314","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0osrjV2MDCu0DA21sjWTeF","Timestamp":"2020-04-29 21:25:53 UTC","Track":"We Talk all the Time","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-12-04 13:07:03 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-11-30 19:37:56 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-11-29 18:55:53 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-11-29 18:28:48 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-03-10 16:00:51 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-03-10 15:58:53 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-03-09 13:56:26 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-03-09 13:45:30 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-03-09 10:43:25 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-03-09 10:28:02 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-03-08 08:46:13 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-03-08 08:26:37 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2021-09-01 15:13:58 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2021-09-01 15:02:51 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-29 16:44:08 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2020-04-29 16:43:30 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-29 13:35:11 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2020-04-29 13:34:54 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-03-27 16:31:16 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2020-03-27 16:30:58 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2022-12-04 12:04:45 UTC","Duration":"162485","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Y6nEDUDrnFeWBksk4XBo0","Timestamp":"2022-11-30 19:17:16 UTC","Track":"You Seemed so Happy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-29 17:33:07 UTC","Duration":"162485","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6Y6nEDUDrnFeWBksk4XBo0","Timestamp":"2020-04-29 17:32:32 UTC","Track":"You Seemed so Happy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-05-29 21:50:24 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2020-05-29 21:49:46 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-29 21:51:13 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2020-04-29 21:51:06 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2020-04-28 16:19:26 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2020-04-28 16:18:23 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a749eeb46ade87ffa33cba7d","Artist":"The Japanese House","CreatedAt":"2019-10-19 14:45:18 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2019-10-19 14:43:03 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lilo","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e4a769f3f06f0043d27ec156","Artist":"The Japanese House","CreatedAt":"2019-11-06 00:30:33 UTC","Duration":"259730","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56aLJW6EJJxbp6uVRvXjVy","Timestamp":"2019-11-05 23:36:08 UTC","Track":"Lilo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lilo","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e4a769f3f06f0043d27ec156","Artist":"The Japanese House","CreatedAt":"2019-11-05 15:15:47 UTC","Duration":"259730","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56aLJW6EJJxbp6uVRvXjVy","Timestamp":"2019-11-05 14:51:56 UTC","Track":"Lilo","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The LA Sessions (Live)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fadc133871b91fca1f6c1f91","Artist":"The Japanese House","CreatedAt":"2020-04-30 08:22:06 UTC","Duration":"221973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lg3J8kCHPSfEqkTvh0eWg","Timestamp":"2020-04-30 08:21:49 UTC","Track":"Somebody you found - Live","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The LA Sessions (Live)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fadc133871b91fca1f6c1f91","Artist":"The Japanese House","CreatedAt":"2020-04-10 23:33:14 UTC","Duration":"221973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lg3J8kCHPSfEqkTvh0eWg","Timestamp":"2020-04-10 23:32:36 UTC","Track":"Somebody you found - Live","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The LA Sessions (Live)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fadc133871b91fca1f6c1f91","Artist":"The Japanese House","CreatedAt":"2020-04-10 21:42:21 UTC","Duration":"221973","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lg3J8kCHPSfEqkTvh0eWg","Timestamp":"2020-04-10 21:41:42 UTC","Track":"Somebody you found - Live","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ca09e137daa76dda4feb1000bf0cbe4dbbf02883","Artist":"The Japanese House","CreatedAt":"2019-10-08 16:15:20 UTC","Duration":"218935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2019-10-08 15:10:05 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ca09e137daa76dda4feb1000bf0cbe4dbbf02883","Artist":"The Japanese House","CreatedAt":"2019-09-08 21:45:21 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2019-09-08 20:45:49 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://i.scdn.co/image/ca09e137daa76dda4feb1000bf0cbe4dbbf02883","Artist":"The Japanese House","CreatedAt":"2019-04-04 14:15:09 UTC","Duration":"244686","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"23QZ8pPZXqPvJOJuPRmDMn","Timestamp":"2019-04-04 13:31:41 UTC","Track":"Follow My Girl","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Clean","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fa4d91996ea2af06cb5d4f4020a8773e.png","Artist":"The Japanese House","CreatedAt":"2015-12-16 15:23:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"4sMHa0i8kX12cQDqK8FGt8","Timestamp":"2015-12-16 15:23:38 UTC","Track":"Sugar Pill","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/5731e2bb603528f8268b09f6e30781a3.jpg","Artist":"The Japanese House","CreatedAt":"2022-11-30 19:40:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"22tD1L3AXFs1pYEygkQGAT","Timestamp":"2022-11-30 19:34:15 UTC","Track":"Maybe You're the Reason","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/5731e2bb603528f8268b09f6e30781a3.jpg","Artist":"The Japanese House","CreatedAt":"2022-11-30 19:20:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6Y6nEDUDrnFeWBksk4XBo0","Timestamp":"2022-11-30 19:14:32 UTC","Track":"You Seemed so Happy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Good at Falling","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/5731e2bb603528f8268b09f6e30781a3.jpg","Artist":"The Japanese House","CreatedAt":"2022-11-30 14:15:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6Y6nEDUDrnFeWBksk4XBo0","Timestamp":"2022-11-29 19:45:29 UTC","Track":"You Seemed so Happy","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/ec8bf52d945287dd73b6925045b5aaa3.jpg","Artist":"The Japanese House","CreatedAt":"2022-11-30 15:50:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2022-11-30 15:43:59 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Chewing Cotton Wool","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/ec8bf52d945287dd73b6925045b5aaa3.jpg","Artist":"The Japanese House","CreatedAt":"2022-11-30 14:15:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5ossLri0sAPCRdg7wbKi43","Timestamp":"2022-11-29 20:11:44 UTC","Track":"Something Has to Change","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

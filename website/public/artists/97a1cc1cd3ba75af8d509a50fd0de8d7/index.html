@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Yumi Zouma - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Yumi Zouma</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"EP I","AlbumCover":"https://i.scdn.co/image/1db40ed62594fc3cb58b6e1a03710d49fd7ebfa6","Artist":"Yumi Zouma","CreatedAt":"2019-03-27 17:00:17 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2jdue9o8GwP2VP8wcYbXOV","Timestamp":"2019-03-27 16:58:38 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-11-02 20:00:15 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-11-02 19:47:27 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-11-02 19:00:17 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-11-02 18:51:40 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-10-29 18:15:10 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-10-29 18:06:53 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-10-28 19:45:08 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-10-28 19:42:08 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-10-27 21:15:13 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-10-27 21:00:34 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-10-27 00:00:15 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-10-26 23:50:56 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yumi Zouma","AlbumCover":"https://i.scdn.co/image/232ecf48bc9792377ad2b03062001b0200056863","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 22:45:14 UTC","Duration":"255988","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4ZiYIQq0WUPMGMtbVMZoMb","Timestamp":"2018-10-26 22:41:03 UTC","Track":"The Brae","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/2cc2870eaf391f6f7773f406ff77034e850aab5e","Artist":"Yumi Zouma","CreatedAt":"2019-02-07 16:15:12 UTC","Duration":"273774","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3hqXFoacW4edSJMeAv1D7Z","Timestamp":"2019-02-07 15:52:10 UTC","Track":"Persephone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/2cc2870eaf391f6f7773f406ff77034e850aab5e","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 21:16:02 UTC","Duration":"273774","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3hqXFoacW4edSJMeAv1D7Z","Timestamp":"2018-10-26 21:08:12 UTC","Track":"Persephone","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/2cc2870eaf391f6f7773f406ff77034e850aab5e","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 16:30:13 UTC","Duration":"221659","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4eNB9glZJs05YDsNDJRKnY","Timestamp":"2018-10-26 16:26:00 UTC","Track":"A Memory","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/2cc2870eaf391f6f7773f406ff77034e850aab5e","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 22:15:09 UTC","Duration":"219129","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cZZdWeqbrNGZYs0i4Fdvr","Timestamp":"2018-10-26 22:15:00 UTC","Track":"Half Hour","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2019-02-20 22:00:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2019-02-20 21:16:08 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2019-02-20 20:45:12 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2019-02-20 19:39:25 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2019-02-20 17:00:14 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2019-02-20 15:40:47 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2019-01-05 14:45:10 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2019-01-05 14:35:59 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-29 21:00:12 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-29 20:58:11 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-29 20:00:10 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-29 19:12:08 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-29 18:00:09 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-29 17:51:17 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-29 13:15:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-29 13:01:39 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-26 20:45:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-26 20:44:15 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-26 02:00:11 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-26 01:16:16 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-25 23:45:09 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-25 23:07:57 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/4ebb788bad60008dcf877207bb73e4d96281dc9f","Artist":"Yumi Zouma","CreatedAt":"2018-12-25 19:00:12 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19ghkpvwKQAkNUzVoHJqED","Timestamp":"2018-12-25 18:58:49 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/a93dbadd5fd698a803c6d6ce3c12bf998ec5599d","Artist":"Yumi Zouma","CreatedAt":"2019-06-27 16:30:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2019-06-27 16:27:03 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/a93dbadd5fd698a803c6d6ce3c12bf998ec5599d","Artist":"Yumi Zouma","CreatedAt":"2019-06-27 13:45:08 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2019-06-27 13:41:05 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d000048511a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 17:52:21 UTC","Duration":"207626","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4WXR1ijmLE4TVMgfUkdpuC","Timestamp":"2022-11-03 17:41:35 UTC","Track":"Lie Like You Want Me Back","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d000048511a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 12:43:42 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2022-11-03 11:50:28 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d000048511a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 17:22:45 UTC","Duration":"178584","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"00ozHYZoGTa3oaOzvOt7oo","Timestamp":"2022-11-03 17:10:12 UTC","Track":"Mirror To The Fire","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences (Alternate Versions)","AlbumCover":"https://i.scdn.co/image/ab67616d000048511bbf2c5c668b0b6aa754285d","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 17:52:20 UTC","Duration":"184687","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3lA6YhT9BJ9ozlSy1KS1fY","Timestamp":"2022-11-03 17:17:14 UTC","Track":"Magazine Bay - Alternate Version","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d000048516a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-11-08 12:01:48 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nFxn6JRTRISJNHF52pXPF","Timestamp":"2022-11-08 11:56:37 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d000048516a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 16:42:33 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nFxn6JRTRISJNHF52pXPF","Timestamp":"2022-11-03 16:35:36 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d000048516a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 11:05:05 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nFxn6JRTRISJNHF52pXPF","Timestamp":"2022-11-03 10:40:45 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d000048516a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-11-02 17:01:25 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nFxn6JRTRISJNHF52pXPF","Timestamp":"2022-11-02 16:38:50 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d000048516a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 11:34:31 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"34PIoWUkKuAUbGTozZsxvB","Timestamp":"2022-11-03 11:09:22 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-31 13:57:55 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-31 12:53:43 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-30 14:42:09 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-30 14:22:26 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-18 21:20:39 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-18 21:10:29 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-18 18:00:39 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-18 16:46:29 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-18 14:21:43 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-18 13:50:06 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-18 14:02:41 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-18 12:43:59 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://i.scdn.co/image/ab67616d000048519dd98dd088b45a01d8a643bc","Artist":"Yumi Zouma","CreatedAt":"2022-10-13 13:45:28 UTC","Duration":"194788","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7iEMYH9ye8G4zutF6ugSOo","Timestamp":"2022-10-13 13:20:51 UTC","Track":"Keep It Close To Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 11:15:47 UTC","Duration":"170027","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5JMY7l5GE5ze1mdkyDptdh","Timestamp":"2022-11-03 10:52:31 UTC","Track":"Depths (Pt. I)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-10-18 18:00:42 UTC","Duration":"170027","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5JMY7l5GE5ze1mdkyDptdh","Timestamp":"2022-10-18 17:28:11 UTC","Track":"Depths (Pt. I)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 16:57:54 UTC","Duration":"182916","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1rZmzajYW0LMnm5j1rTsKJ","Timestamp":"2022-11-03 16:51:25 UTC","Track":"In Blue","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 14:45:42 UTC","Duration":"209337","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7bUNYVjo7qymdJDfp7GADY","Timestamp":"2022-11-03 14:09:14 UTC","Track":"Other People","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 14:02:40 UTC","Duration":"231546","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J1tR5QQzNt84AuF46oNDW","Timestamp":"2022-11-03 13:45:31 UTC","Track":"Us, Together","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d00004851fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-11-03 11:57:19 UTC","Duration":"235134","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5acz0mLcRmScRVsxGVsW4j","Timestamp":"2022-11-03 11:30:07 UTC","Track":"December","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-10-02 09:35:28 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2022-10-02 09:18:19 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-02-22 10:19:12 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2022-02-22 10:01:34 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2021-10-13 18:46:07 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2021-10-13 17:50:19 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-10-03 20:27:53 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2020-10-03 19:39:23 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-10-01 13:55:37 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2020-10-01 13:06:24 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-10-01 11:12:48 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2020-10-01 10:25:35 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-09-27 23:49:01 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2020-09-27 23:24:40 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2022-03-27 12:45:19 UTC","Duration":"202003","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0YuFYmdojZmBYD9V5giqTR","Timestamp":"2022-03-27 12:06:24 UTC","Track":"Southwark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-07-02 11:04:23 UTC","Duration":"220530","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3pkyAjxvgOEkeo6naW7JcL","Timestamp":"2020-07-02 11:04:01 UTC","Track":"Lonely After","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731a423b9b67363505c344270c","Artist":"Yumi Zouma","CreatedAt":"2020-06-03 20:29:28 UTC","Duration":"176186","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0wp9gT15KsN9bEBck5GzR8","Timestamp":"2020-06-03 20:28:21 UTC","Track":"Right Track / Wrong Man","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-12-26 19:23:19 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-12-26 18:35:23 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-11-18 18:45:10 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-11-18 18:42:47 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-11-18 17:21:00 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-11-18 17:07:12 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-10-25 15:25:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-10-25 15:12:50 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-10-24 13:23:41 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-10-24 13:20:00 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-10-23 16:51:24 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-10-23 16:50:44 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2020-05-19 22:17:08 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2020-05-19 22:16:33 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2732f8e33d480ea32b8bad1711f","Artist":"Yumi Zouma","CreatedAt":"2019-10-19 14:30:22 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7HIPuJA4MqjPT9FclCE9In","Timestamp":"2019-10-19 14:15:42 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-12-04 12:56:54 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5nFxn6JRTRISJNHF52pXPF","Timestamp":"2022-11-30 19:14:33 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2022-04-17 13:55:57 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"34PIoWUkKuAUbGTozZsxvB","Timestamp":"2022-04-17 13:44:30 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2021-12-24 19:25:01 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"34PIoWUkKuAUbGTozZsxvB","Timestamp":"2021-12-24 18:07:43 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736a780c0fab7f0bc4f0a400d0","Artist":"Yumi Zouma","CreatedAt":"2021-12-02 23:24:07 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"34PIoWUkKuAUbGTozZsxvB","Timestamp":"2021-12-02 22:20:23 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-19 15:09:21 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-19 15:09:11 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-18 10:05:08 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-18 10:04:51 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-13 21:07:15 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-13 21:06:16 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-03 20:06:15 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-03 20:06:09 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-03 11:41:21 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-03 11:40:26 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bruise","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2736f745a4913144eea04987a96","Artist":"Yumi Zouma","CreatedAt":"2020-06-02 15:14:24 UTC","Duration":"232579","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6vJFWet1sMnWrKE8dDmfGG","Timestamp":"2020-06-02 15:14:18 UTC","Track":"Bruise","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737aef939a6d6374522a6138c1","Artist":"Yumi Zouma","CreatedAt":"2022-12-04 12:04:46 UTC","Duration":"189993","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2tPAyguEX4Rj49B5abSAn7","Timestamp":"2022-11-30 19:34:16 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-27 17:36:09 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-27 17:35:36 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-25 17:12:49 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-25 17:11:51 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-24 18:02:10 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-24 18:01:19 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-23 18:25:17 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-23 18:24:39 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-16 21:14:11 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-16 21:13:55 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-14 18:22:40 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-14 18:22:10 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-14 15:44:43 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-14 15:44:15 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-14 11:29:09 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-14 11:28:58 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-11 14:29:12 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-11 14:28:47 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-11 14:29:13 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-11 14:28:47 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-10 22:38:10 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-10 22:37:35 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739d2fbbb92097b9f7d366ea3a","Artist":"Yumi Zouma","CreatedAt":"2020-04-10 20:48:09 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2020-04-10 20:48:01 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adff3e02702654dd0702a467","Artist":"Yumi Zouma","CreatedAt":"2021-11-01 18:31:20 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5AwRc2Y5W6vMbQ0HoKsZxA","Timestamp":"2021-11-01 16:47:59 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adff3e02702654dd0702a467","Artist":"Yumi Zouma","CreatedAt":"2021-10-10 10:47:08 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5AwRc2Y5W6vMbQ0HoKsZxA","Timestamp":"2021-10-10 10:16:36 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adff3e02702654dd0702a467","Artist":"Yumi Zouma","CreatedAt":"2021-10-01 19:29:13 UTC","Duration":"204386","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5AwRc2Y5W6vMbQ0HoKsZxA","Timestamp":"2021-10-01 19:23:42 UTC","Track":"In Camera","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera (Unplugged)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b5f36570c1553b9aac1a38bb","Artist":"Yumi Zouma","CreatedAt":"2021-01-19 17:43:22 UTC","Duration":"226510","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YyYqf17Hitv6xYiFTrO4a","Timestamp":"2021-01-19 15:30:58 UTC","Track":"In Camera - Unplugged","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In Camera (Unplugged)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b5f36570c1553b9aac1a38bb","Artist":"Yumi Zouma","CreatedAt":"2021-01-19 15:28:49 UTC","Duration":"226510","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YyYqf17Hitv6xYiFTrO4a","Timestamp":"2021-01-19 13:05:58 UTC","Track":"In Camera - Unplugged","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Willowbank","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fa58061769472861859f9023","Artist":"Yumi Zouma","CreatedAt":"2022-09-06 10:49:51 UTC","Duration":"170027","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5JMY7l5GE5ze1mdkyDptdh","Timestamp":"2022-09-06 10:26:29 UTC","Track":"Depths (Pt. I)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/f4bfcd8b94ebfe2474fcd79ce1ebe7c394e49d56","Artist":"Yumi Zouma","CreatedAt":"2019-04-04 08:45:10 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UQXcTBlLGRfEkO1y6lD6i","Timestamp":"2019-04-04 08:41:54 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/f4bfcd8b94ebfe2474fcd79ce1ebe7c394e49d56","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 14:00:13 UTC","Duration":"228240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4UQXcTBlLGRfEkO1y6lD6i","Timestamp":"2018-10-26 13:52:53 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://i.scdn.co/image/f4bfcd8b94ebfe2474fcd79ce1ebe7c394e49d56","Artist":"Yumi Zouma","CreatedAt":"2018-10-26 21:45:15 UTC","Duration":"208659","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0NZfFvMBJEgJFG92uluYV2","Timestamp":"2018-10-26 21:30:25 UTC","Track":"Looking Over Shoulders","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Yoncalla","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/36058c383bba9bdc7ed3811e7949a411.png","Artist":"Yumi Zouma","CreatedAt":"2018-10-08 16:48:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-10-08 16:48:53 UTC","Track":"Text From Sweden","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Truth or Consequences","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/3fd88344e165661acd175a6df437cd0b.jpg","Artist":"Yumi Zouma","CreatedAt":"2022-11-30 19:35:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"73nFIVUDo5k5SU67DoO4WX","Timestamp":"2022-11-30 19:31:02 UTC","Track":"Cool For A Second","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/6e743d15abfa1e73d76f322e735c68d6.jpg","Artist":"Yumi Zouma","CreatedAt":"2022-11-30 19:15:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2022-11-30 19:10:43 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""},{"Album":"EP III","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/6e743d15abfa1e73d76f322e735c68d6.jpg","Artist":"Yumi Zouma","CreatedAt":"2022-11-30 14:15:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1WnB6Oe5PHoV83UIYmq0sz","Timestamp":"2022-11-30 14:10:52 UTC","Track":"Powder Blue / Cascine Park","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

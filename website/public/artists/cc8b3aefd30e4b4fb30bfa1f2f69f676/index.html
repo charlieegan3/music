@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Aphex Twin - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Aphex Twin</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Richard D. James Album","AlbumCover":"https://i.scdn.co/image/237573286a42ce4a354935403bbeca57f8d0042c","Artist":"Aphex Twin","CreatedAt":"2018-11-28 21:45:18 UTC","Duration":"217133","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2018-11-28 21:43:17 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2021-12-29 21:34:40 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2021-12-29 21:04:14 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2021-12-19 15:25:42 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2021-12-19 14:35:21 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2021-12-15 13:32:32 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2021-12-15 13:14:02 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2021-04-05 14:56:49 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2021-04-05 13:12:10 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-28 19:59:39 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-28 18:12:14 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-22 21:34:46 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-22 21:12:41 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-22 16:00:43 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-22 14:21:55 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-21 13:59:57 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-21 12:12:14 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-17 19:42:54 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-17 17:39:15 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-16 11:23:18 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-16 11:06:09 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-08 14:33:30 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-08 14:04:21 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-04 09:50:50 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-04 09:05:20 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works Volume II","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332083f1a325ed4939f1fbecd","Artist":"Aphex Twin","CreatedAt":"2020-12-03 14:40:37 UTC","Duration":"464293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2Bc4llhjJBW77I552RgA3L","Timestamp":"2020-12-03 12:44:10 UTC","Track":"#3","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drukqs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a5aef98a1762d0f64bb6ed9a","Artist":"Aphex Twin","CreatedAt":"2021-12-19 10:53:16 UTC","Duration":"125520","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MZSXhq4XDJWu6coGoXX1V","Timestamp":"2021-12-19 10:30:09 UTC","Track":"Avril 14th","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drukqs","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a5aef98a1762d0f64bb6ed9a","Artist":"Aphex Twin","CreatedAt":"2021-08-15 12:37:04 UTC","Duration":"125520","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2MZSXhq4XDJWu6coGoXX1V","Timestamp":"2021-08-15 11:49:57 UTC","Track":"Avril 14th","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://i.scdn.co/image/f28518f248f92c43690f2b9f9e4229a4bf78090c","Artist":"Aphex Twin","CreatedAt":"2019-03-26 08:30:07 UTC","Duration":"293751","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2019-03-26 08:27:57 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://i.scdn.co/image/f28518f248f92c43690f2b9f9e4229a4bf78090c","Artist":"Aphex Twin","CreatedAt":"2018-11-28 22:00:12 UTC","Duration":"293751","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2018-11-28 21:57:34 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Collapse EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/121e055f99ab83f422bb96d9433cc8a3.png","Artist":"Aphex Twin","CreatedAt":"2018-09-16 17:31:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-09-16 17:31:55 UTC","Track":"T69 Collapse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2018-02-28 16:28:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2018-02-28 16:28:19 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2015-02-13 15:36:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2015-02-13 15:36:06 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-12-03 22:21:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-12-03 22:21:32 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-10-21 14:22:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-10-21 14:22:48 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-10-21 12:32:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-10-21 12:32:56 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-10-14 09:14:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-10-14 09:14:33 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-10-13 20:52:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-10-13 20:52:35 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Richard D. James Album","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/45bf620617914325c36163caf505c527.png","Artist":"Aphex Twin","CreatedAt":"2013-10-13 19:46:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"00wT7HAtqZ2BnemrR34vbO","Timestamp":"2013-10-13 19:46:33 UTC","Track":"4","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drukqs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4c66b692b26c4fb3be2da6dda2fc9bb7.png","Artist":"Aphex Twin","CreatedAt":"2015-04-14 11:40:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2MZSXhq4XDJWu6coGoXX1V","Timestamp":"2015-04-14 11:40:50 UTC","Track":"Avril 14th","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Drukqs","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/4c66b692b26c4fb3be2da6dda2fc9bb7.png","Artist":"Aphex Twin","CreatedAt":"2013-10-23 10:04:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2MZSXhq4XDJWu6coGoXX1V","Timestamp":"2013-10-23 10:04:07 UTC","Track":"Avril 14th","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Syro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/64c1c04b309a4f48cf4245a9df2c4485.png","Artist":"Aphex Twin","CreatedAt":"2015-04-14 15:20:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-14 15:20:49 UTC","Track":"aisatsana [102]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Syro","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/64c1c04b309a4f48cf4245a9df2c4485.png","Artist":"Aphex Twin","CreatedAt":"2015-04-14 08:22:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-14 08:22:04 UTC","Track":"aisatsana [102]","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2018-06-12 14:24:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2018-06-12 14:24:30 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2018-02-28 16:41:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2018-02-28 16:41:17 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2017-11-12 13:47:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2017-11-12 13:47:04 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2015-08-01 20:32:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2015-08-01 20:32:36 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2015-02-13 15:39:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2015-02-13 15:39:38 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2013-12-03 19:58:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2013-12-03 19:58:24 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2013-10-31 10:56:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2013-10-31 10:56:12 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2013-10-09 13:46:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2013-10-09 13:46:59 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Selected Ambient Works 85-92","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/6f199a67803148cfb2cf2238b8fda0fb.png","Artist":"Aphex Twin","CreatedAt":"2013-10-04 09:34:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7o2AeQZzfCERsRmOM86EcB","Timestamp":"2013-10-04 09:34:05 UTC","Track":"Xtal","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

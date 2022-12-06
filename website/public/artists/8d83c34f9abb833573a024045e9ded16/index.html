@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lange - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Lange</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-31 11:08:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 11:08:53 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-31 08:43:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 08:43:05 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-30 17:01:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-30 17:01:42 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-29 16:11:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-29 16:11:02 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-28 16:21:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-28 16:21:09 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-18 09:21:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-18 09:21:21 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Episode 725 (Live from A State of Trance @ Ushuaïa, Ibiza 2015)","AlbumCover":"","Artist":"Lange","CreatedAt":"2015-10-17 18:17:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-17 18:17:14 UTC","Track":"Imagineer (ASOT 725) - Alex M.O.R.P.H Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State Of Trance Yearmix 2008 (Full Versions – Volume 1)","AlbumCover":"","Artist":"Lange","CreatedAt":"2017-09-07 14:07:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-07 14:07:52 UTC","Track":"Out Of The Sky - Kyau \u0026 Albert Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed by Armin van Buuren, Paul Oakenfold, Markus Schulz, Cosmic Gate \u0026 Andy Moor)","AlbumCover":"","Artist":"Lange","CreatedAt":"2013-02-11 10:54:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-11 10:54:16 UTC","Track":"Out Of The Sky - Kyau \u0026 Albert Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A State of Trance 500 (Mixed by Armin van Buuren, Paul Oakenfold, Markus Schulz, Cosmic Gate \u0026 Andy Moor)","AlbumCover":"","Artist":"Lange","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"Out Of The Sky - Kyau \u0026 Albert Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Believe","AlbumCover":"https://i.scdn.co/image/7253ba43557c9b8059deda32b578c35241a16bf1","Artist":"Lange","CreatedAt":"2019-06-18 14:15:14 UTC","Duration":"565653","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7MfmQ7BvlpZcV5jFdlNFj6","Timestamp":"2019-06-18 14:01:08 UTC","Track":"I Believe - Lange '03 Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Better Late Than Never","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b18f74b411940a0b409d348d19aac23.png","Artist":"Lange","CreatedAt":"2014-05-23 18:54:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-23 18:54:24 UTC","Track":"Drifting Away (ft. Skye) - Lange's Sunset Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Better Late Than Never","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8b18f74b411940a0b409d348d19aac23.png","Artist":"Lange","CreatedAt":"2014-04-23 20:36:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-04-23 20:36:24 UTC","Track":"Drifting Away (ft. Skye) - Lange's Sunset Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Believe","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8dac45a68e0f3148a270fab937b4b0f3.png","Artist":"Lange","CreatedAt":"2015-12-02 15:26:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-12-02 15:26:06 UTC","Track":"I Believe (Lange 2003 Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Believe","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8dac45a68e0f3148a270fab937b4b0f3.png","Artist":"Lange","CreatedAt":"2013-02-02 16:30:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-02-02 16:30:27 UTC","Track":"I Believe (Lange 2003 Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Believe","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/8dac45a68e0f3148a270fab937b4b0f3.png","Artist":"Lange","CreatedAt":"2013-01-22 01:00:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2013-01-22 01:00:00 UTC","Track":"I Believe (Lange 2003 Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 14:58:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 14:58:20 UTC","Track":"We Are Lucky People - Album Intro","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:21:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:21:29 UTC","Track":"Insatiable - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2016-08-24 16:00:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-24 16:00:54 UTC","Track":"We Are Lucky People - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2016-08-24 13:40:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-24 13:40:16 UTC","Track":"We Are Lucky People - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2016-08-23 16:43:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-23 16:43:37 UTC","Track":"We Are Lucky People - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2016-08-23 13:20:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-23 13:20:35 UTC","Track":"We Are Lucky People - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2016-08-23 09:24:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-23 09:24:27 UTC","Track":"We Are Lucky People - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-31 11:30:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 11:30:32 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-31 09:04:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 09:04:44 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-30 17:23:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-30 17:23:21 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-29 16:32:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-29 16:32:41 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-18 09:42:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-18 09:42:59 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-17 18:41:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-17 18:41:15 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-17 12:22:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-17 12:22:37 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:08:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:08:45 UTC","Track":"Fireflies - Under The Moon Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:16:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:16:30 UTC","Track":"Superstars - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:05:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:05:35 UTC","Track":"Risk Worth Taking - Acoustic Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:01:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:01:02 UTC","Track":"Imagineer - Album Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-11-21 11:00:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-11-21 11:00:29 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-22 15:42:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-22 15:42:55 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-05-21 11:19:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-21 11:19:53 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-04-24 15:45:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-24 15:45:57 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-04-03 14:20:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-03 14:20:39 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-02-08 21:22:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-08 21:22:16 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-02-01 12:14:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-01 12:14:33 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-11-27 15:17:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-27 15:17:50 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-10-04 20:30:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-04 20:30:10 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-10-02 19:08:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-02 19:08:17 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-30 20:26:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-30 20:26:48 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-23 14:18:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-23 14:18:16 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-21 23:08:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-21 23:08:33 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-21 09:33:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-21 09:33:40 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-19 19:47:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-19 19:47:57 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-16 22:10:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-16 22:10:08 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-15 21:09:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-15 21:09:44 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2014-09-10 20:38:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-10 20:38:28 UTC","Track":"Unfamiliar Truth - Simple Truth Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-31 11:24:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 11:24:04 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-31 08:58:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-31 08:58:16 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-30 17:16:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-30 17:16:54 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-29 16:26:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-29 16:26:14 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-18 09:36:32 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-18 09:36:32 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-17 18:32:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-17 18:32:24 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-17 12:16:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-17 12:16:09 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"We Are Lucky People","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a9e8c3295dcd4c2dcc0172e2db700477.png","Artist":"Lange","CreatedAt":"2015-10-16 15:28:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-16 15:28:01 UTC","Track":"A Different Shade Of Crazy - We Are All Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2017-09-12 15:30:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-09-12 15:30:31 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2016-01-18 22:45:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-18 22:45:38 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2015-10-22 16:10:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-10-22 16:10:19 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2015-04-03 15:25:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-04-03 15:25:56 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2015-02-02 00:41:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-02 00:41:15 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2014-09-30 21:40:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-30 21:40:39 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2014-09-22 00:19:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-09-22 00:19:25 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Unfamiliar Truth (John O'Callaghan Remix)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/bb6e15de87514c63ccee4c781e47fc23.png","Artist":"Lange","CreatedAt":"2014-08-18 19:05:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-08-18 19:05:38 UTC","Track":"Unfamiliar Truth - John O'Callaghan Remix","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

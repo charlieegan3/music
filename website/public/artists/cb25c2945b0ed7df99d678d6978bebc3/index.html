@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>George FitzGerald - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>George FitzGerald</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Child","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27332c186a54a3664334344a2f9","Artist":"George FitzGerald","CreatedAt":"2019-11-28 23:15:17 UTC","Duration":"396798","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"73m50W22wfjUTzMybFkPRu","Timestamp":"2019-11-28 18:02:14 UTC","Track":"Child","YoutubeCategoryId":"","YoutubeId":""},{"Album":"I Can Tell (By The Way You Move)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27355d58ccc50977884df00d8c1","Artist":"George FitzGerald","CreatedAt":"2019-11-29 11:30:18 UTC","Duration":"341125","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0BB4dggyVEWbH4224x0k4k","Timestamp":"2019-11-29 11:27:57 UTC","Track":"I Can Tell (By The Way You Move)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"DJ-Kicks (Will Saul) [Mixed Tracks]","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735b4ad9c074d723da2bd943e6","Artist":"George FitzGerald","CreatedAt":"2022-10-05 10:29:03 UTC","Duration":"183946","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6gI2GABMalMEkQy0iyakRu","Timestamp":"2022-10-05 10:22:46 UTC","Track":"Wanting Needing - mixed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-05 14:50:27 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2022-10-05 14:10:52 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-05 09:54:03 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2022-10-05 09:04:40 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-04 13:11:08 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2022-10-04 12:30:42 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-03 15:34:56 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2022-10-03 15:26:12 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:41:45 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2022-10-03 13:42:59 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2021-12-21 13:51:55 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2021-12-21 12:13:29 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2021-10-01 22:56:49 UTC","Duration":"253998","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2021-10-01 22:22:39 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-03 16:29:06 UTC","Duration":"193104","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"01oZjrRICAL5l0sSFqpb5D","Timestamp":"2022-10-03 15:55:58 UTC","Track":"Passing Trains","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2021-02-05 13:30:24 UTC","Duration":"193104","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"01oZjrRICAL5l0sSFqpb5D","Timestamp":"2021-02-05 12:10:52 UTC","Track":"Passing Trains","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2019-11-29 09:30:19 UTC","Duration":"193104","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"01oZjrRICAL5l0sSFqpb5D","Timestamp":"2019-11-29 08:45:47 UTC","Track":"Passing Trains","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-03 16:13:13 UTC","Duration":"292256","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DsGbTaUn3WcFxnNZRaD6z","Timestamp":"2022-10-03 15:52:44 UTC","Track":"The Echo Forgets","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2019-11-29 12:15:24 UTC","Duration":"292256","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2DsGbTaUn3WcFxnNZRaD6z","Timestamp":"2019-11-29 11:32:49 UTC","Track":"The Echo Forgets","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-05 10:14:13 UTC","Duration":"240935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"71s1GURjNeFyMhu25RAqod","Timestamp":"2022-10-05 10:05:54 UTC","Track":"Siren Calls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2022-10-03 15:35:16 UTC","Duration":"240935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"71s1GURjNeFyMhu25RAqod","Timestamp":"2022-10-03 15:33:41 UTC","Track":"Siren Calls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27397dc0b171168d4e1196c1c8a","Artist":"George FitzGerald","CreatedAt":"2019-11-29 11:15:20 UTC","Duration":"240935","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"71s1GURjNeFyMhu25RAqod","Timestamp":"2019-11-29 11:09:30 UTC","Track":"Siren Calls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 14:40:51 UTC","Duration":"373166","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gXJARsjNSFSF2hEbu1Km0","Timestamp":"2022-10-04 13:47:36 UTC","Track":"Setting Sun","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 12:46:00 UTC","Duration":"373166","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gXJARsjNSFSF2hEbu1Km0","Timestamp":"2022-10-04 12:45:24 UTC","Track":"Setting Sun","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 15:18:57 UTC","Duration":"373166","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gXJARsjNSFSF2hEbu1Km0","Timestamp":"2022-10-03 14:22:52 UTC","Track":"Setting Sun","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:03:47 UTC","Duration":"373166","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gXJARsjNSFSF2hEbu1Km0","Timestamp":"2022-10-03 13:57:41 UTC","Track":"Setting Sun","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 14:22:47 UTC","Duration":"282349","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56llEQsQOlCcI0BzXKyV6o","Timestamp":"2022-10-04 13:41:23 UTC","Track":"Cold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:24:31 UTC","Duration":"282349","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56llEQsQOlCcI0BzXKyV6o","Timestamp":"2022-10-03 14:16:39 UTC","Track":"Cold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 13:11:09 UTC","Duration":"122684","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CS0EQPQOKo7LvFG1PIlJ7","Timestamp":"2022-10-04 12:50:56 UTC","Track":"Further and Further","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:24:30 UTC","Duration":"122684","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2CS0EQPQOKo7LvFG1PIlJ7","Timestamp":"2022-10-03 14:03:14 UTC","Track":"Further and Further","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 14:22:48 UTC","Duration":"284819","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1fKPrMJwnb0aNxReNhRPOV","Timestamp":"2022-10-04 14:00:19 UTC","Track":"Betelgeuse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 15:06:21 UTC","Duration":"284819","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1fKPrMJwnb0aNxReNhRPOV","Timestamp":"2022-10-03 14:35:35 UTC","Track":"Betelgeuse","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 14:02:24 UTC","Duration":"282165","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"13a77hTxi2e6mAQvRqqHYw","Timestamp":"2022-10-04 13:52:19 UTC","Track":"Cosmonaut Alley","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:41:47 UTC","Duration":"282165","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"13a77hTxi2e6mAQvRqqHYw","Timestamp":"2022-10-03 14:27:34 UTC","Track":"Cosmonaut Alley","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 15:34:49 UTC","Duration":"284128","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cWwtobVI2AVIRsOTyGjez","Timestamp":"2022-10-03 14:44:06 UTC","Track":"Ultraviolet","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-04 14:56:14 UTC","Duration":"196254","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50JFzM06XV0tBBWhvEwKMa","Timestamp":"2022-10-04 13:55:35 UTC","Track":"Retina Flash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stellar Drifting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a2dabdda7456459e16a3f9f2","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:55:49 UTC","Duration":"196254","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50JFzM06XV0tBBWhvEwKMa","Timestamp":"2022-10-03 14:30:50 UTC","Track":"Retina Flash","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Update","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b1fc3b0187f3cca1f43592da","Artist":"George FitzGerald","CreatedAt":"2019-11-29 12:01:08 UTC","Duration":"363856","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6CGttSY2h6A51HYafCQbW5","Timestamp":"2019-11-29 11:05:28 UTC","Track":"Weakness","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Update","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273b1fc3b0187f3cca1f43592da","Artist":"George FitzGerald","CreatedAt":"2019-11-29 12:01:10 UTC","Duration":"339776","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2eDVCHZKmPZt4WGyNoZIB9","Timestamp":"2019-11-29 11:49:45 UTC","Track":"Feel Like","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ultraviolet","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273bc594e684a4e45ff6c75192b","Artist":"George FitzGerald","CreatedAt":"2021-10-20 07:48:45 UTC","Duration":"209296","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ieIlUTXT44fXme5HmxwSP","Timestamp":"2021-10-20 07:38:53 UTC","Track":"Ultraviolet - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2022-10-04 12:45:59 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2022-10-04 12:26:27 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2022-10-04 11:18:05 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2022-10-04 10:57:50 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2022-10-03 14:03:46 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2022-10-03 13:38:44 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2021-10-01 22:56:48 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2021-10-01 21:48:00 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2019-11-29 09:15:22 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-11-29 08:48:59 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273da46fc5238011ccf379e1ceb","Artist":"George FitzGerald","CreatedAt":"2019-11-28 17:45:18 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-11-28 17:42:01 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6463ad8a18f73d2436c15fc","Artist":"George FitzGerald","CreatedAt":"2022-10-05 15:01:40 UTC","Duration":"175750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19rM4R2p56eBkDG6tABnNV","Timestamp":"2022-10-05 13:15:26 UTC","Track":"Beginning At The End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6463ad8a18f73d2436c15fc","Artist":"George FitzGerald","CreatedAt":"2022-10-05 08:51:20 UTC","Duration":"175750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"19rM4R2p56eBkDG6tABnNV","Timestamp":"2022-10-05 08:33:52 UTC","Track":"Beginning At The End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6463ad8a18f73d2436c15fc","Artist":"George FitzGerald","CreatedAt":"2020-08-09 18:52:11 UTC","Duration":"111922","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KnjMS3KBgv07idhSG8XtC","Timestamp":"2020-08-09 18:49:25 UTC","Track":"Miyajima","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hearts / Fernweh","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ee43a03b575dc08a9b8b2ce5","Artist":"George FitzGerald","CreatedAt":"2019-11-29 11:45:15 UTC","Duration":"496090","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4lpM3FdoXy2NhaaipBdhIn","Timestamp":"2019-11-29 11:22:15 UTC","Track":"Fernweh","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f1e48a72fea740e023515733","Artist":"George FitzGerald","CreatedAt":"2019-11-29 09:45:17 UTC","Duration":"187966","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1sqvCvSYXyaQCfWj0rPp9W","Timestamp":"2019-11-29 09:16:55 UTC","Track":"Shards","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f1e48a72fea740e023515733","Artist":"George FitzGerald","CreatedAt":"2019-11-29 12:01:09 UTC","Duration":"247810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5Cv5b9kb7YSBR35TKCdDxJ","Timestamp":"2019-11-29 11:36:58 UTC","Track":"Knife To The Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/b1b5bee59f4582a17f9a9981b804dea70a58bd2f","Artist":"George FitzGerald","CreatedAt":"2018-11-04 00:45:09 UTC","Duration":"111922","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KnjMS3KBgv07idhSG8XtC","Timestamp":"2018-11-04 00:36:06 UTC","Track":"Miyajima","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://i.scdn.co/image/b1b5bee59f4582a17f9a9981b804dea70a58bd2f","Artist":"George FitzGerald","CreatedAt":"2018-11-04 00:30:10 UTC","Duration":"111922","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KnjMS3KBgv07idhSG8XtC","Timestamp":"2018-11-04 00:20:56 UTC","Track":"Miyajima","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2019-04-09 16:45:08 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-04-09 16:43:09 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2019-04-09 15:15:09 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-04-09 14:16:17 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2019-03-28 17:00:13 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-03-28 15:39:57 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2019-03-20 22:00:12 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2019-03-20 21:56:53 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2018-12-17 16:15:13 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-12-17 16:09:20 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2018-12-09 01:00:14 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-12-09 00:57:52 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2018-12-07 23:00:07 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-12-07 22:56:55 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://i.scdn.co/image/f493a18929d4b769da0fe4dde8d05dd5ade54ac0","Artist":"George FitzGerald","CreatedAt":"2018-10-30 21:45:11 UTC","Duration":"190750","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-10-30 21:33:22 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-09-30 20:38:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-09-30 20:38:05 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-04-03 07:59:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-04-03 07:59:18 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-04-02 12:03:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-04-02 12:03:16 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-03-29 12:57:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-03-29 12:57:43 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-03-28 15:10:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-03-28 15:10:29 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-03-19 18:21:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-03-19 18:21:45 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Burns (Edit)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/a68818749efc348eed04230c0d9e8020.png","Artist":"George FitzGerald","CreatedAt":"2018-03-05 12:51:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7J8iTj9FU0Mw8VBbGBpFIY","Timestamp":"2018-03-05 12:51:58 UTC","Track":"Burns - Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fb8864f97fe4ebb277d7360d168b8c5a.png","Artist":"George FitzGerald","CreatedAt":"2018-04-09 21:44:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"1sqvCvSYXyaQCfWj0rPp9W","Timestamp":"2018-04-09 21:44:42 UTC","Track":"Shards","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fb8864f97fe4ebb277d7360d168b8c5a.png","Artist":"George FitzGerald","CreatedAt":"2018-04-09 21:33:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5Cv5b9kb7YSBR35TKCdDxJ","Timestamp":"2018-04-09 21:33:11 UTC","Track":"Knife To The Heart","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fb8864f97fe4ebb277d7360d168b8c5a.png","Artist":"George FitzGerald","CreatedAt":"2018-04-09 21:41:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"19rM4R2p56eBkDG6tABnNV","Timestamp":"2018-04-09 21:41:46 UTC","Track":"Beginning At The End","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Fading Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fb8864f97fe4ebb277d7360d168b8c5a.png","Artist":"George FitzGerald","CreatedAt":"2018-04-09 21:18:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2KnjMS3KBgv07idhSG8XtC","Timestamp":"2018-04-09 21:18:17 UTC","Track":"Miyajima","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fbf08f8fbf13561468ee728383b65274.png","Artist":"George FitzGerald","CreatedAt":"2018-09-30 20:51:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2DeV4SryfbbEM1YgedzKP4","Timestamp":"2018-09-30 20:51:31 UTC","Track":"Burns","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fbf08f8fbf13561468ee728383b65274.png","Artist":"George FitzGerald","CreatedAt":"2018-09-30 20:44:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"01oZjrRICAL5l0sSFqpb5D","Timestamp":"2018-09-30 20:44:20 UTC","Track":"Passing Trains","YoutubeCategoryId":"","YoutubeId":""},{"Album":"All That Must Be","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fbf08f8fbf13561468ee728383b65274.png","Artist":"George FitzGerald","CreatedAt":"2018-05-14 15:10:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"01oZjrRICAL5l0sSFqpb5D","Timestamp":"2018-05-14 15:10:42 UTC","Track":"Passing Trains","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

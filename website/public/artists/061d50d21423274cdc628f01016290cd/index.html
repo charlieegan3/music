@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Seven Lions - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Seven Lions</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Ophelia Volume 1","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730c9371d1db14391e7ef43c2b","Artist":"Seven Lions","CreatedAt":"2019-12-11 12:01:05 UTC","Duration":"260972","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ogM7djzwltpkTCs4qpGk9","Timestamp":"2019-12-11 11:18:37 UTC","Track":"Pathless Is The Way","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ophelia Volume 1","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730c9371d1db14391e7ef43c2b","Artist":"Seven Lions","CreatedAt":"2019-12-09 12:15:25 UTC","Duration":"260972","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ogM7djzwltpkTCs4qpGk9","Timestamp":"2019-12-09 12:03:51 UTC","Track":"Pathless Is The Way","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ophelia Volume 1","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730c9371d1db14391e7ef43c2b","Artist":"Seven Lions","CreatedAt":"2019-12-09 09:15:28 UTC","Duration":"260972","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ogM7djzwltpkTCs4qpGk9","Timestamp":"2019-12-09 09:15:12 UTC","Track":"Pathless Is The Way","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Days To Come EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/27aa397e0770431d87edc5dd28d1e223.png","Artist":"Seven Lions","CreatedAt":"2016-05-12 15:10:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-12 15:10:55 UTC","Track":"The Truth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Cold Skin","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/33659d8e173ae022a72a59b9288a4149.png","Artist":"Seven Lions","CreatedAt":"2017-06-02 14:47:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-06-02 14:47:45 UTC","Track":"Cold Skin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/36dce78d4eebfcb52e16755234a10f19.png","Artist":"Seven Lions","CreatedAt":"2016-05-11 21:16:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-11 21:16:20 UTC","Track":"Falling Away - MitiS Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-02-04 17:18:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-04 17:18:09 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-02-04 11:52:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-04 11:52:28 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-02-02 14:42:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-02 14:42:50 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-02-02 11:47:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-02 11:47:53 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-02-01 11:12:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-01 11:12:54 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-31 12:31:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-31 12:31:21 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-30 21:22:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-30 21:22:14 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-28 11:49:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-28 11:49:44 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-27 20:09:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-27 20:09:57 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-27 12:17:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-27 12:17:18 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-26 14:45:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-26 14:45:19 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-26 11:00:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-26 11:00:05 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-25 19:39:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-25 19:39:28 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-25 15:35:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-25 15:35:17 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-25 10:25:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-25 10:25:09 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-24 22:12:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-24 22:12:15 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-24 21:08:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-24 21:08:47 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-23 11:17:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-23 11:17:57 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2016-01-22 09:43:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-22 09:43:09 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Falling Away","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/74c2cf96a394404d3b76f0ee91b38b4f.png","Artist":"Seven Lions","CreatedAt":"2015-09-24 18:55:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-09-24 18:55:39 UTC","Track":"Falling Away","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-02-21 17:36:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-21 17:36:26 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-02-21 16:05:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-21 16:05:27 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-02-02 16:29:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-02 16:29:23 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-02-01 19:54:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-01 19:54:47 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-29 09:00:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-29 09:00:57 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-29 06:21:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-29 06:21:02 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-26 22:20:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-26 22:20:57 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-26 17:28:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-26 17:28:18 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-26 16:40:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-26 16:40:55 UTC","Track":"The Journey","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-24 12:05:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 12:05:14 UTC","Track":"Intro","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2017-07-14 17:05:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-14 17:05:40 UTC","Track":"Coming Home","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2017-07-02 19:08:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-02 19:08:48 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2017-06-02 14:07:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-06-02 14:07:35 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2016-08-29 22:40:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-29 22:40:31 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2016-08-29 08:53:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-08-29 08:53:51 UTC","Track":"Leaving Earth","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-02-01 20:43:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-01 20:43:11 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-26 18:07:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-26 18:07:51 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-24 14:33:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 14:33:49 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-24 11:32:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-24 11:32:51 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-22 15:28:42 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-22 15:28:42 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-19 15:02:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-19 15:02:58 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Creation","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/83df5df6c2f2276cc8f8bb15882f1728.png","Artist":"Seven Lions","CreatedAt":"2018-01-14 10:49:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 10:49:27 UTC","Track":"Summer Of The Occult","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2018-01-17 16:09:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-17 16:09:47 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2018-01-14 12:00:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-14 12:00:10 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2018-01-08 12:02:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-08 12:02:22 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-25 16:16:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-25 16:16:52 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-25 12:03:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-25 12:03:40 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-18 19:54:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-18 19:54:06 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-17 16:26:05 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-17 16:26:05 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-14 19:49:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-14 19:49:56 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-14 07:59:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-14 07:59:52 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-10 13:21:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-10 13:21:38 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-05 14:48:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-05 14:48:11 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-05 11:52:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-05 11:52:02 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-03 15:29:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-03 15:29:08 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-03 11:35:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-03 11:35:02 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Higher Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9efca18a05b8f74c3bca3b1120bee9b5.png","Artist":"Seven Lions","CreatedAt":"2017-07-02 17:41:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-02 17:41:37 UTC","Track":"Higher Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2016-05-31 22:09:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-31 22:09:07 UTC","Track":"Nepenthe","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2017-07-21 12:44:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-21 12:44:29 UTC","Track":"Strangers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2017-07-21 08:08:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-21 08:08:16 UTC","Track":"Strangers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2017-07-05 18:40:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-07-05 18:40:53 UTC","Track":"Keep It Close (feat. Kerli)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2016-07-07 21:53:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-07-07 21:53:06 UTC","Track":"Keep It Close (feat. Kerli)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Worlds Apart","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b0c276f50c7547dcc7df098fdae89500.png","Artist":"Seven Lions","CreatedAt":"2016-05-01 20:11:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-01 20:11:30 UTC","Track":"Keep It Close (feat. Kerli)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Viper 50 (Viper Recordings 50th Release Remix EP)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/b227fddf77fd4b31866aac5860166f73.png","Artist":"Seven Lions","CreatedAt":"2016-05-02 13:57:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-05-02 13:57:48 UTC","Track":"Polarized - Matrix \u0026 Futurebound Remix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-02-02 12:22:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-02 12:22:29 UTC","Track":"Freesol","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-01-08 11:22:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-08 11:22:51 UTC","Track":"Freesol","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-02-02 10:55:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-02 10:55:09 UTC","Track":"Steps of Deep Slumber","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-01-11 16:55:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-01-11 16:55:58 UTC","Track":"Steps of Deep Slumber","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-02-02 16:00:22 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-02 16:00:22 UTC","Track":"Where I Won't Be Found","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/d51e0eee0e6e910a3b8baeb4f046a0da.png","Artist":"Seven Lions","CreatedAt":"2018-02-02 12:55:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-02-02 12:55:34 UTC","Track":"Silent Skies","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-14 20:58:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-14 20:58:12 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-13 22:49:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-13 22:49:09 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-11 19:27:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-11 19:27:14 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-06 16:16:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 16:16:51 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-06 12:31:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 12:31:14 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-04 12:03:48 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-04 12:03:48 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-02 17:07:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-02 17:07:24 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:54:57 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:54:57 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:41:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:41:34 UTC","Track":"Without You My Love (Trivecta Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-14 21:03:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-14 21:03:02 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-13 22:53:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-13 22:53:58 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-06 15:13:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 15:13:04 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-06 12:36:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 12:36:03 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-04 12:08:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-04 12:08:37 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-02 17:12:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-02 17:12:13 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 15:04:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 15:04:17 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:50:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:50:54 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:37:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:37:33 UTC","Track":"Freesol (Dabin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-14 21:07:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-14 21:07:04 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-13 22:58:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-13 22:58:00 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-12 08:21:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-12 08:21:04 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-11 18:29:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-11 18:29:30 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-06 15:16:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-06 15:16:44 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-04 12:12:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-04 12:12:39 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-02 17:16:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-02 17:16:16 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:59:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:59:46 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Where I Won't Be Found (Remixes)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e7a5816365cb6f9e0030f225e7fc58f3.png","Artist":"Seven Lions","CreatedAt":"2017-12-01 14:46:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-12-01 14:46:23 UTC","Track":"Silent Skies (Xan Griffin Remix)","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

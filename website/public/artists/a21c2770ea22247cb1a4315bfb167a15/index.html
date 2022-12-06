@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Vök - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Vök</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/a0683cd7711f5b1a8e65057e1a3089631128be36","Artist":"Vök","CreatedAt":"2019-07-08 15:15:13 UTC","Duration":"225611","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4eHVhxrApgHLUJKRhS0OjB","Timestamp":"2019-07-08 14:04:44 UTC","Track":"Autopilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure","AlbumCover":"https://i.scdn.co/image/ab67616d000048510aab63d8bc8a8a1a4e691d5e","Artist":"Vök","CreatedAt":"2022-10-26 14:41:34 UTC","Duration":"222373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6uaDlo3BCwivDuDufx954A","Timestamp":"2022-10-26 14:02:28 UTC","Track":"Figure","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure","AlbumCover":"https://i.scdn.co/image/ab67616d000048510aab63d8bc8a8a1a4e691d5e","Artist":"Vök","CreatedAt":"2022-10-18 18:00:41 UTC","Duration":"222373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6uaDlo3BCwivDuDufx954A","Timestamp":"2022-10-18 17:12:07 UTC","Track":"Figure","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure","AlbumCover":"https://i.scdn.co/image/ab67616d000048510aab63d8bc8a8a1a4e691d5e","Artist":"Vök","CreatedAt":"2022-10-26 15:21:05 UTC","Duration":"202104","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"63kf7TzWu7cgK5iidk2X6T","Timestamp":"2022-10-26 14:59:39 UTC","Track":"Show Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure","AlbumCover":"https://i.scdn.co/image/ab67616d000048510aab63d8bc8a8a1a4e691d5e","Artist":"Vök","CreatedAt":"2022-10-13 13:45:27 UTC","Duration":"202104","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"63kf7TzWu7cgK5iidk2X6T","Timestamp":"2022-10-13 13:01:53 UTC","Track":"Show Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tension","AlbumCover":"https://i.scdn.co/image/ab67616d00004851524f31a3ea74cb4a4788dce2","Artist":"Vök","CreatedAt":"2022-10-13 17:43:54 UTC","Duration":"203226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Tv87XpumNYR9lVRqglDMh","Timestamp":"2022-10-13 17:26:37 UTC","Track":"Before","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-31 13:33:52 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-31 12:58:03 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-30 14:49:38 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-30 14:26:50 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-18 21:20:40 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-18 21:14:50 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-18 17:07:07 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-18 16:50:49 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-18 14:51:38 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-18 13:54:26 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-18 14:02:42 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-18 12:48:19 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-13 14:47:23 UTC","Duration":"260000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2KyIZ3w9Wd6fm5wJxzJRYO","Timestamp":"2022-10-13 13:25:12 UTC","Track":"Adrift","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-13 14:47:30 UTC","Duration":"184893","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ktO3Ve6Mlm0yhEt6Ew89n","Timestamp":"2022-10-13 13:47:34 UTC","Track":"If I Was","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Circles","AlbumCover":"https://i.scdn.co/image/ab67616d00004851682cc63f90fd10a8482b3a9f","Artist":"Vök","CreatedAt":"2022-10-13 15:07:36 UTC","Duration":"320173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7fuimZp7YH3YJ17a3reXj9","Timestamp":"2022-10-13 14:11:45 UTC","Track":"Waterfall","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d000048518e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-10-26 14:41:36 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-10-26 14:39:45 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d000048518e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-10-13 13:22:19 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-10-13 12:40:16 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d000048518e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-10-13 11:11:23 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-10-13 10:51:47 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Stadium","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273058af11f0e33b1073e87c63b","Artist":"Vök","CreatedAt":"2022-07-18 21:08:57 UTC","Duration":"188373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1AH5xpMDZoHl39XzYhJGWZ","Timestamp":"2022-07-18 20:52:05 UTC","Track":"Stadium","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Figure","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730aab63d8bc8a8a1a4e691d5e","Artist":"Vök","CreatedAt":"2022-09-15 16:52:21 UTC","Duration":"222373","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6uaDlo3BCwivDuDufx954A","Timestamp":"2022-09-15 16:22:21 UTC","Track":"Figure","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tension","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273524f31a3ea74cb4a4788dce2","Artist":"Vök","CreatedAt":"2022-10-10 16:43:12 UTC","Duration":"203226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Tv87XpumNYR9lVRqglDMh","Timestamp":"2022-10-10 16:16:45 UTC","Track":"Before","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Tension","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273524f31a3ea74cb4a4788dce2","Artist":"Vök","CreatedAt":"2022-09-15 13:57:45 UTC","Duration":"203226","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0Tv87XpumNYR9lVRqglDMh","Timestamp":"2022-09-15 13:25:26 UTC","Track":"Before","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Skin","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27377d26b6d411b6e5556746592","Artist":"Vök","CreatedAt":"2022-01-12 18:51:47 UTC","Duration":"232706","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3B4KQYwhEMGj5re9v0FyBl","Timestamp":"2022-01-12 18:49:58 UTC","Track":"Skin","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-12-04 12:29:10 UTC","Duration":"190333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6oaCNS3wcvf1DbxsIwzu1n","Timestamp":"2022-11-30 19:50:58 UTC","Track":"Erase You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-26 16:58:58 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-26 16:48:44 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-22 10:16:50 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-22 09:35:10 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-20 07:39:39 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-20 06:41:10 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-16 08:35:33 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-16 07:58:46 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-15 13:34:51 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-15 12:32:39 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-07 20:37:00 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-07 20:26:44 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-06 10:40:25 UTC","Duration":"195484","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2OJ5zxFs8gLwC93ixVyDmx","Timestamp":"2022-09-06 10:11:21 UTC","Track":"Night \u0026 Day","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-12-04 11:56:50 UTC","Duration":"242080","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7uYpfBAPyQFaxYppzLKIX6","Timestamp":"2022-11-30 19:10:44 UTC","Track":"Scarcity","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-12-04 12:44:26 UTC","Duration":"202000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ng3XMQkxh9Joz3JGHVZ6x","Timestamp":"2022-11-30 19:31:06 UTC","Track":"In the Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-12-04 12:04:44 UTC","Duration":"202000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ng3XMQkxh9Joz3JGHVZ6x","Timestamp":"2022-11-30 17:00:01 UTC","Track":"In the Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-15 16:52:22 UTC","Duration":"202000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0ng3XMQkxh9Joz3JGHVZ6x","Timestamp":"2022-09-15 16:44:17 UTC","Track":"In the Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-15 17:33:00 UTC","Duration":"225611","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3T4YcUoVMnAV2wze9jkYSv","Timestamp":"2022-09-15 17:22:14 UTC","Track":"Autopilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738a5c53bda1fbf5dc4e141c4d","Artist":"Vök","CreatedAt":"2022-09-06 10:49:52 UTC","Duration":"225611","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3T4YcUoVMnAV2wze9jkYSv","Timestamp":"2022-09-06 10:45:09 UTC","Track":"Autopilot","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-10-10 14:53:49 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-10-10 13:33:51 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-10-05 15:50:54 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-10-05 15:09:19 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Waiting","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e33a4c05da117ca1421ffa4","Artist":"Vök","CreatedAt":"2022-09-15 14:41:26 UTC","Duration":"190720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"31KDYXmy5bsSiCk62GM0N5","Timestamp":"2022-09-15 13:47:05 UTC","Track":"Waiting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273978724d5cb2b08fbda7c3645","Artist":"Vök","CreatedAt":"2020-06-02 15:34:09 UTC","Duration":"190333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"28NfTeg2Qz8fpd6972UJbZ","Timestamp":"2020-06-02 15:34:00 UTC","Track":"Erase You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273978724d5cb2b08fbda7c3645","Artist":"Vök","CreatedAt":"2020-06-02 11:19:11 UTC","Duration":"225519","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2aDUFuLoPaaKusRUuXWbUu","Timestamp":"2020-06-02 11:18:33 UTC","Track":"Spend the Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2739f13d247b5831de9f9c577fa","Artist":"Vök","CreatedAt":"2020-01-05 20:09:09 UTC","Duration":"242080","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6NoB1Pkdj45zrD1R9lSFX0","Timestamp":"2020-01-05 20:08:21 UTC","Track":"Scarcity","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/dfca0907a129f37c7e4f2a8777617095.jpg","Artist":"Vök","CreatedAt":"2022-11-30 19:55:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6oaCNS3wcvf1DbxsIwzu1n","Timestamp":"2022-11-30 19:47:47 UTC","Track":"Erase You","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/dfca0907a129f37c7e4f2a8777617095.jpg","Artist":"Vök","CreatedAt":"2022-11-30 19:15:02 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7uYpfBAPyQFaxYppzLKIX6","Timestamp":"2022-11-30 19:06:41 UTC","Track":"Scarcity","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/dfca0907a129f37c7e4f2a8777617095.jpg","Artist":"Vök","CreatedAt":"2022-11-30 14:15:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7uYpfBAPyQFaxYppzLKIX6","Timestamp":"2022-11-30 14:07:03 UTC","Track":"Scarcity","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/dfca0907a129f37c7e4f2a8777617095.jpg","Artist":"Vök","CreatedAt":"2022-11-30 19:35:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0ng3XMQkxh9Joz3JGHVZ6x","Timestamp":"2022-11-30 19:27:42 UTC","Track":"In the Dark","YoutubeCategoryId":"","YoutubeId":""},{"Album":"In the Dark","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/300x300/dfca0907a129f37c7e4f2a8777617095.jpg","Artist":"Vök","CreatedAt":"2022-11-30 17:05:01 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"0ng3XMQkxh9Joz3JGHVZ6x","Timestamp":"2022-11-30 16:56:39 UTC","Track":"In the Dark","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

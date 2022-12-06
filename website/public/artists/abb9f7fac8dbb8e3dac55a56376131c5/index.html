@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lifelike - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Lifelike</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"So Electric","AlbumCover":"https://i.scdn.co/image/06ff7596154bdb8e49111ed5325f039f908b18b7","Artist":"Lifelike","CreatedAt":"2019-03-03 18:30:08 UTC","Duration":"403426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2019-03-03 18:20:56 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://i.scdn.co/image/06ff7596154bdb8e49111ed5325f039f908b18b7","Artist":"Lifelike","CreatedAt":"2019-01-26 16:32:38 UTC","Duration":"403426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2019-01-26 16:21:16 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://i.scdn.co/image/06ff7596154bdb8e49111ed5325f039f908b18b7","Artist":"Lifelike","CreatedAt":"2019-01-26 14:00:11 UTC","Duration":"403426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2019-01-26 13:58:50 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://i.scdn.co/image/06ff7596154bdb8e49111ed5325f039f908b18b7","Artist":"Lifelike","CreatedAt":"2019-01-25 23:30:13 UTC","Duration":"403426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2019-01-25 23:15:12 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://i.scdn.co/image/06ff7596154bdb8e49111ed5325f039f908b18b7","Artist":"Lifelike","CreatedAt":"2018-11-29 15:15:09 UTC","Duration":"403426","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2018-11-29 15:02:13 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miami Nice","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273486eb2d176b43a4eac2baf1e","Artist":"Lifelike","CreatedAt":"2019-10-17 13:45:19 UTC","Duration":"355200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gdeXYuRZNokYS6vkuvqHE","Timestamp":"2019-10-17 13:42:07 UTC","Track":"Miami Nice, Pt. 1","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Miami Nice","AlbumCover":"https://i.scdn.co/image/b7e75bb82a3c95c49b45cce0143a890949bc13fd","Artist":"Lifelike","CreatedAt":"2019-01-15 16:45:16 UTC","Duration":"355200","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2gdeXYuRZNokYS6vkuvqHE","Timestamp":"2019-01-15 15:53:54 UTC","Track":"Miami Nice, Pt. 1","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2016-01-18 21:24:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-18 21:24:29 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2015-02-01 23:52:44 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-02-01 23:52:44 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-11-27 23:15:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-11-27 23:15:13 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-08-09 22:06:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-08-09 22:06:40 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-07-23 22:28:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-07-23 22:28:49 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-16 16:00:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-16 16:00:34 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-08 15:45:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-08 15:45:39 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-07 16:22:52 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-07 16:22:52 UTC","Track":"Discomachine","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2018-06-15 08:19:39 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2018-06-15 08:19:39 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2018-03-13 18:51:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2018-03-13 18:51:13 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2015-10-22 14:54:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2015-10-22 14:54:00 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2015-07-29 17:12:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2015-07-29 17:12:14 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2015-02-13 12:18:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2015-02-13 12:18:55 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2015-02-11 14:59:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2015-02-11 14:59:38 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-12-04 17:00:33 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-12-04 17:00:33 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-11-29 22:18:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-11-29 22:18:49 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-11-27 21:44:53 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-11-27 21:44:53 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-10-07 19:36:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-10-07 19:36:14 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-09-12 13:25:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-09-12 13:25:55 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-08 13:43:45 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-08 13:43:45 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-08 11:14:13 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-08 11:14:13 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-08 10:52:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-08 10:52:00 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-06 17:48:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-06 17:48:35 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-04 20:16:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-04 20:16:56 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-06-03 22:17:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-06-03 22:17:49 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-05-08 09:24:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-05-08 09:24:16 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-05-04 20:49:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-05-04 20:49:50 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-24 08:32:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-24 08:32:03 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-22 20:25:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-22 20:25:15 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-13 16:44:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-13 16:44:28 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-13 16:10:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-13 16:10:26 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-13 10:18:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-13 10:18:08 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-13 10:10:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-13 10:10:07 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-12 14:16:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-12 14:16:08 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"So Electric","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/228021d8fb0548919d083be81d9cac48.png","Artist":"Lifelike","CreatedAt":"2014-04-11 10:47:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"3ZfW4Z3MEvd82pv5J0rN2l","Timestamp":"2014-04-11 10:47:40 UTC","Track":"So Electric","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2018-06-14 20:02:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-06-14 20:02:03 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-10-28 21:43:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-28 21:43:36 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-10-09 18:45:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-09 18:45:21 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-07-13 13:49:15 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-07-13 13:49:15 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-06-28 15:37:35 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-28 15:37:35 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-06-26 21:59:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-26 21:59:55 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-06-09 14:16:50 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-09 14:16:50 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-06-03 20:44:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-03 20:44:36 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-17 22:24:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-17 22:24:03 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-12 14:50:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-12 14:50:43 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-06 19:23:16 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-06 19:23:16 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-04 15:58:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-04 15:58:51 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-04 11:15:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-04 11:15:21 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Getting High Remixed - EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/49eb1d42e48e503a8bc92937d08e3a88.png","Artist":"Lifelike","CreatedAt":"2014-05-03 19:46:07 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-05-03 19:46:07 UTC","Track":"Getting High (Pyramid Remix)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Love Emulator","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/94bcd8e6d866411499619b5a098d1c3b.png","Artist":"Lifelike","CreatedAt":"2014-06-18 17:07:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-18 17:07:43 UTC","Track":"Silicon Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2018-06-15 08:26:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-06-15 08:26:23 UTC","Track":"Discopolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2018-03-10 15:46:43 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-03-10 15:46:43 UTC","Track":"Discopolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2017-11-03 16:37:23 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-03 16:37:23 UTC","Track":"Discopolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2016-04-05 20:17:14 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-04-05 20:17:14 UTC","Track":"Discopolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2016-02-08 13:26:47 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-02-08 13:26:47 UTC","Track":"Discopolis","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2015-05-28 19:02:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-28 19:02:38 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2015-05-28 18:17:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-05-28 18:17:34 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2015-03-22 15:09:38 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-03-22 15:09:38 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2015-01-04 23:11:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2015-01-04 23:11:09 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-12-26 23:00:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-12-26 23:00:29 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-10-04 21:30:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-10-04 21:30:31 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-07-08 19:51:10 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-07-08 19:51:10 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-07-03 22:52:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-07-03 22:52:41 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-06-28 15:28:12 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-28 15:28:12 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-06-26 21:50:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-26 21:50:31 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-06-19 20:19:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-19 20:19:41 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Discopolis","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/e09c0e441b0bf9a4551247e25fa6aa6e.png","Artist":"Lifelike","CreatedAt":"2014-06-18 17:14:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2014-06-18 17:14:04 UTC","Track":"Discopolis - Original","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Longest Road","AlbumCover":"https://lastfm.freetls.fastly.net/i/u/34s/3cc2157b8d2b46bdafb773cf20790892.jpg","Artist":"Lifelike","CreatedAt":"2020-07-23 22:31:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2020-07-18 12:42:11 UTC","Track":"The Electric Road","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>LAUREL - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>LAUREL</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"LIMBO CHERRY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273033a7c78687c899ed0dabb02","Artist":"LAUREL","CreatedAt":"2021-07-19 15:46:14 UTC","Duration":"223333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1Wm2Oqbd0aZRDtClkVdgJJ","Timestamp":"2021-07-19 15:04:40 UTC","Track":"Wild Side","YoutubeCategoryId":"","YoutubeId":""},{"Album":"LIMBO CHERRY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27380095c51ccb5789d3e3509a9","Artist":"LAUREL","CreatedAt":"2022-03-27 13:10:18 UTC","Duration":"254240","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7zvDpeuQm5enRkW2djb26X","Timestamp":"2022-03-27 12:14:29 UTC","Track":"Let Go","YoutubeCategoryId":"","YoutubeId":""},{"Album":"LIMBO CHERRY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27380095c51ccb5789d3e3509a9","Artist":"LAUREL","CreatedAt":"2022-06-26 13:12:56 UTC","Duration":"223333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ix7lIDxo3wWN9Ckt1i6aA","Timestamp":"2022-06-26 12:33:55 UTC","Track":"Wild Side","YoutubeCategoryId":"","YoutubeId":""},{"Album":"LIMBO CHERRY","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27380095c51ccb5789d3e3509a9","Artist":"LAUREL","CreatedAt":"2022-02-20 21:26:15 UTC","Duration":"223333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ix7lIDxo3wWN9Ckt1i6aA","Timestamp":"2022-02-20 20:49:27 UTC","Track":"Wild Side","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2022-03-10 18:12:30 UTC","Duration":"243533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0M11MdOLbUyEVJkK20JhBz","Timestamp":"2022-03-10 17:50:47 UTC","Track":"Best I Ever Had","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2022-02-28 19:52:26 UTC","Duration":"243533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0M11MdOLbUyEVJkK20JhBz","Timestamp":"2022-02-28 19:41:12 UTC","Track":"Best I Ever Had","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2021-11-27 11:48:44 UTC","Duration":"243533","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0M11MdOLbUyEVJkK20JhBz","Timestamp":"2021-11-27 11:44:16 UTC","Track":"Best I Ever Had","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2022-11-25 12:51:58 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2022-11-25 12:28:02 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2022-11-15 17:00:54 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2022-11-15 16:33:51 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2021-12-22 13:39:05 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2021-12-22 11:31:02 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2021-12-10 14:33:48 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2021-12-10 13:55:53 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2021-12-06 10:17:21 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2021-12-06 10:16:51 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ac2578dda7623c398772f414","Artist":"LAUREL","CreatedAt":"2021-12-03 04:49:16 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"440u3Xl0w5adXEMII7Gc89","Timestamp":"2021-12-03 01:04:16 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cf0eda2b571b373e4eae138e","Artist":"LAUREL","CreatedAt":"2022-03-27 12:04:49 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4hEpfRem37hLFT8ldr78Mx","Timestamp":"2022-03-27 11:50:44 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cf0eda2b571b373e4eae138e","Artist":"LAUREL","CreatedAt":"2022-02-22 10:11:29 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4hEpfRem37hLFT8ldr78Mx","Timestamp":"2022-02-22 09:58:23 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273cf0eda2b571b373e4eae138e","Artist":"LAUREL","CreatedAt":"2022-02-22 09:57:16 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4hEpfRem37hLFT8ldr78Mx","Timestamp":"2022-02-22 09:54:24 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-28 09:20:26 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-28 07:55:02 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-21 09:55:41 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-21 09:53:45 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-19 13:16:52 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-19 10:52:01 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-18 19:32:36 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-18 17:17:46 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-18 20:32:28 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-18 15:52:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-12 17:08:39 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-12 15:12:20 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-12 17:08:33 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-12 10:06:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 22:43:44 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 22:08:03 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 21:24:23 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 21:11:06 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 19:53:27 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 16:21:06 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 15:45:29 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 15:30:18 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 14:54:55 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 14:39:30 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 14:47:01 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 13:40:42 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 13:40:05 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-11 13:18:16 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-10 20:28:01 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 20:11:46 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-10 19:42:56 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 18:58:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-11 09:50:14 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 18:26:41 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-10 17:59:50 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 17:36:54 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-10 16:21:11 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 15:59:45 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-10 16:21:09 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-10 15:08:57 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-09 21:56:29 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-09 21:38:57 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-09 23:04:10 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-09 20:54:20 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-09 20:00:24 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-09 18:54:23 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-09 19:34:15 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-09 18:09:33 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-08 17:51:28 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-08 16:19:12 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-08 09:57:10 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-08 09:55:53 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-06 11:37:01 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-06 11:34:23 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-06 10:57:16 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-06 10:50:28 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-06 10:47:38 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-06 10:06:32 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-05 21:26:22 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-05 21:13:38 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-05 20:25:32 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-05 20:25:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-05 19:39:40 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-05 19:27:07 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-05 19:39:39 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-05 19:21:03 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-05 09:46:40 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-05 09:40:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-04 17:47:46 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-04 17:45:51 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-04 18:38:37 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-04 17:37:54 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-04 13:33:20 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-04 12:29:24 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-03 14:47:44 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-03 13:55:29 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-02 20:47:35 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-02 20:21:22 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-02 20:13:59 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-02 20:05:04 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"PETROL BLOOM","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273d0fd2e7b795cacdd5fa9f9f4","Artist":"LAUREL","CreatedAt":"2021-05-02 20:47:34 UTC","Duration":"212280","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0eG0JQVxot3QvboTS4SWHC","Timestamp":"2021-05-02 20:01:13 UTC","Track":"Appetite","YoutubeCategoryId":"","YoutubeId":""},{"Album":"You're The One","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dc00d2730c7981b9c9b4f125","Artist":"LAUREL","CreatedAt":"2021-06-30 13:08:34 UTC","Duration":"199666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6IHoEueFxNV9wsdzdh6uzH","Timestamp":"2021-06-30 11:54:26 UTC","Track":"You're The One","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e4d724e32d432f09b4357361","Artist":"LAUREL","CreatedAt":"2021-10-01 20:31:14 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WpZm3wky84KQ8BKWTELqw","Timestamp":"2021-10-01 20:09:44 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e4d724e32d432f09b4357361","Artist":"LAUREL","CreatedAt":"2021-07-19 13:14:21 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WpZm3wky84KQ8BKWTELqw","Timestamp":"2021-07-19 12:11:47 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Scream Drive Faster","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e4d724e32d432f09b4357361","Artist":"LAUREL","CreatedAt":"2021-05-01 13:59:57 UTC","Duration":"240666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0WpZm3wky84KQ8BKWTELqw","Timestamp":"2021-05-01 12:59:48 UTC","Track":"Scream Drive Faster","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

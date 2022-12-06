@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Magdalena Bay - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Magdalena Bay</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-06-27 17:15:05 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-06-27 17:12:57 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-04-13 00:30:09 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-04-12 16:24:40 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-04-11 13:15:08 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-04-11 11:32:53 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-04-08 17:00:16 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-04-08 16:57:46 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-04-07 15:15:13 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-04-07 14:49:01 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-23 21:45:13 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-23 20:49:58 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-17 19:00:08 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-17 17:50:57 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-16 00:15:06 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-15 17:56:58 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-14 17:15:13 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-14 15:56:34 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-05 19:00:15 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-05 18:49:20 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-02 16:00:06 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-02 15:21:37 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-03-01 16:15:11 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-03-01 16:12:31 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-28 19:30:12 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-28 16:40:34 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-27 19:45:08 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-27 17:53:45 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-27 15:30:12 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-27 15:26:57 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-27 12:00:07 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-27 11:55:49 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-26 22:00:06 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-26 21:45:04 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-26 18:00:10 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-26 17:23:56 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-26 15:15:04 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-26 15:14:48 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-26 14:00:08 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-26 12:47:14 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-26 09:00:09 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-26 08:48:26 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-25 17:00:08 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-25 15:38:59 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/89492f6c13f31fa381cc44bf0f3fcc32d6af7c8e","Artist":"Magdalena Bay","CreatedAt":"2019-02-25 13:45:12 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2019-02-25 13:32:32 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 13:23:00 UTC","Duration":"204391","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0tP8FKhJsar5y4JcOH4Rjp","Timestamp":"2022-01-31 12:20:16 UTC","Track":"You Lose!","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-10-07 19:22:42 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-10-07 18:35:25 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-10-05 15:26:17 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-10-05 15:18:11 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-30 14:05:28 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-30 13:37:07 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-28 09:54:09 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-28 06:29:35 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-20 09:39:55 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-18 17:55:29 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-12 15:58:31 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-12 15:51:02 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-09 13:06:01 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-09 12:41:43 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-08 17:36:30 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-08 16:42:45 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-08 15:44:59 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-08 15:06:00 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-06 15:40:00 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-06 15:08:00 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-06 10:28:33 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-06 10:27:32 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-06 09:32:31 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-06 08:58:34 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-06 07:52:17 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-06 07:29:41 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-05 23:35:25 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-05 23:18:55 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-05 22:08:41 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-05 21:49:59 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-05 13:03:58 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-05 12:30:14 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-04 17:35:14 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-04 17:12:44 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-04 13:54:07 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-04 13:04:28 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-04 10:26:35 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-04 10:25:25 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 19:15:13 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 19:13:32 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 18:47:46 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 18:08:13 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 17:25:48 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 17:02:54 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 16:06:46 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 15:57:35 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 15:00:52 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 14:52:16 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 11:09:55 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 11:00:12 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-03 10:24:38 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-03 09:54:53 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-02 18:29:15 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-02 18:28:27 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-02 17:09:26 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-02 16:49:09 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-08-02 15:50:43 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-08-02 15:43:50 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 21:29:28 UTC","Duration":"257130","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1ZkfNNoRrgt69wTjcmJZE9","Timestamp":"2022-01-31 13:43:43 UTC","Track":"Chaeri","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 13:22:59 UTC","Duration":"245897","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3tgHGoK5ItQv2q2yqggxlb","Timestamp":"2022-01-31 11:54:16 UTC","Track":"Secrets (Your Fire)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-03-02 21:51:28 UTC","Duration":"235565","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0vMlVGJuREJk3c7vvObE5Z","Timestamp":"2022-03-02 21:48:36 UTC","Track":"Hysterical Us","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mercurial World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2730ecbdac77e72dc16719a3e89","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 11:15:59 UTC","Duration":"181173","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"30YK7cZlruEW0Clyxwk2nH","Timestamp":"2022-01-31 11:02:43 UTC","Track":"Mercurial World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273127f087faca8d5f33fc9707d","Artist":"Magdalena Bay","CreatedAt":"2020-06-03 13:13:32 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2020-06-03 13:12:35 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Girls","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273127f087faca8d5f33fc9707d","Artist":"Magdalena Bay","CreatedAt":"2020-06-02 15:22:13 UTC","Duration":"216107","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6jnGYsjG7ojDdjxx3HicVt","Timestamp":"2020-06-02 15:22:09 UTC","Track":"The Girls","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ghost","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c920f37f5a3bbecaf243506","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 10:46:23 UTC","Duration":"185739","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1iOREb93MV3z3Jl7Rmv9Sv","Timestamp":"2022-01-31 10:42:10 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Ghost","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2731c920f37f5a3bbecaf243506","Artist":"Magdalena Bay","CreatedAt":"2020-06-01 15:45:29 UTC","Duration":"185739","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1iOREb93MV3z3Jl7Rmv9Sv","Timestamp":"2020-06-01 15:44:44 UTC","Track":"Ghost","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Mini Mix, Vol. 2","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273a0c8de6c4d43a4aa3de7e1c0","Artist":"Magdalena Bay","CreatedAt":"2021-10-06 14:30:35 UTC","Duration":"147898","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6I91EAd1XJeNBf42gd3k1Q","Timestamp":"2021-10-06 12:51:01 UTC","Track":"Live 4ever","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Only If You Want It","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273adf64a7d2e153b838219dc36","Artist":"Magdalena Bay","CreatedAt":"2020-06-03 21:39:27 UTC","Duration":"214513","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7AhhRjckq14iCM5Y60epPL","Timestamp":"2020-06-03 21:38:34 UTC","Track":"Only If You Want It","YoutubeCategoryId":"","YoutubeId":""},{"Album":"A Little Rhythm and a Wicked Feeling","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ae69f02d74849157de206294","Artist":"Magdalena Bay","CreatedAt":"2022-01-31 11:37:34 UTC","Duration":"189624","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6N2ok8fE2SKI79rkLfMpE7","Timestamp":"2022-01-31 11:30:31 UTC","Track":"How to Get Physical","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

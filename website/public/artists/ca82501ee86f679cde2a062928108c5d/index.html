@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Kate Bush - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Kate Bush</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"","AlbumCover":"","Artist":"Kate Bush","CreatedAt":"2019-06-06 18:18:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"","Timestamp":"2019-06-06 18:18:19 UTC","Track":"Don't Push Your Foot On The Heartbrake","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Never For Ever","AlbumCover":"https://i.scdn.co/image/49407a4e794c23d3928fa2d4221dc375219158fe","Artist":"Kate Bush","CreatedAt":"2019-01-14 16:45:10 UTC","Duration":"178640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OmdWLjlx4BIDGEO8BZlqH","Timestamp":"2019-01-14 16:35:43 UTC","Track":"Army Dreamers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:10:32 UTC","Duration":"158693","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4xjVfArXNQRxAvsUpjmfMt","Timestamp":"2020-01-20 16:10:05 UTC","Track":"The Man with the Child in His Eyes","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-02-03 07:35:10 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-02-02 19:38:51 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-31 08:33:18 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-31 08:32:22 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-29 13:07:10 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-29 13:06:48 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-26 12:51:19 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-26 12:50:32 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-26 09:32:20 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-26 09:32:07 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-22 17:41:10 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-22 15:12:12 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-22 10:49:19 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-22 10:48:32 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:50:30 UTC","Duration":"198093","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"628RVPULYzx6bvh8uf0Msn","Timestamp":"2020-01-20 16:49:50 UTC","Track":"Oh to Be in Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:20:21 UTC","Duration":"181960","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1PtXEYrahu8Vg2rhpJBoqt","Timestamp":"2020-01-20 16:20:05 UTC","Track":"Moving","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:36:12 UTC","Duration":"185400","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1eN1L9mXLFepXpMJNSQng8","Timestamp":"2020-01-20 16:35:48 UTC","Track":"Them Heavy People","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 17:11:22 UTC","Duration":"232840","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4j9dvpEjjIGHuUJDqw8tq8","Timestamp":"2020-01-20 17:11:06 UTC","Track":"The Saxophone Song","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 17:22:13 UTC","Duration":"269066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5YSI1311X8t31PBjkBG4CZ","Timestamp":"2020-01-20 17:21:57 UTC","Track":"Wuthering Heights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Kick Inside","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27330da683c0c018535adbaf0e5","Artist":"Kate Bush","CreatedAt":"2020-01-20 15:47:20 UTC","Duration":"269066","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5YSI1311X8t31PBjkBG4CZ","Timestamp":"2020-01-20 15:47:02 UTC","Track":"Wuthering Heights","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-02-01 11:42:19 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-02-01 11:41:37 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-29 14:54:12 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-29 14:53:57 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-26 12:47:19 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-26 12:47:13 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-26 08:33:22 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-26 08:32:36 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-22 15:26:17 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-22 15:08:53 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-22 10:45:23 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-22 10:45:14 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Aerial","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2735a882f1004cfd0be580bcb21","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:25:22 UTC","Duration":"293720","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7u62wiKKB55AAbHjJa5RPV","Timestamp":"2020-01-20 16:24:59 UTC","Track":"King Of The Mountain","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Never For Ever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273786b6e14d94db2177fe8f9df","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:13:14 UTC","Duration":"178640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6OmdWLjlx4BIDGEO8BZlqH","Timestamp":"2020-01-20 16:13:04 UTC","Track":"Army Dreamers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Never For Ever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273786b6e14d94db2177fe8f9df","Artist":"Kate Bush","CreatedAt":"2020-01-20 17:03:10 UTC","Duration":"329800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5IyVGLSy6lkbXOesezhyqO","Timestamp":"2020-01-20 17:02:59 UTC","Track":"Breathing","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Never For Ever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273786b6e14d94db2177fe8f9df","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:08:19 UTC","Duration":"209933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"53Mz9H5UvWMQUXHZnaZYKQ","Timestamp":"2020-01-20 16:07:26 UTC","Track":"Babooshka","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Never For Ever","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273786b6e14d94db2177fe8f9df","Artist":"Kate Bush","CreatedAt":"2019-06-06 19:04:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"now_playing","SpotifyId":"53Mz9H5UvWMQUXHZnaZYKQ","Timestamp":"2019-06-06 19:04:58 UTC","Track":"Babooshka","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27387b9051fea7e0f99f7225234","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:43:16 UTC","Duration":"240773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1hbB7wFZ28n5vOfMEEY2Jw","Timestamp":"2020-01-20 16:42:36 UTC","Track":"Wow","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Sensual World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273880759ab68485eceddc5b1ac","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:01:18 UTC","Duration":"218906","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1Q0sruYhnsq6lmhWgeRFh5","Timestamp":"2020-01-20 16:00:52 UTC","Track":"This Woman's Work","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Sensual World","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273880759ab68485eceddc5b1ac","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:17:11 UTC","Duration":"237666","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7EovLg8qd6it8b2eM380o3","Timestamp":"2020-01-20 16:17:02 UTC","Track":"The Sensual World","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-02-02 18:40:21 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-02-02 18:40:09 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-29 13:57:10 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-29 13:56:14 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-26 13:00:17 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-26 12:59:15 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-26 09:36:21 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-26 09:36:12 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-22 17:44:14 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-22 15:20:55 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-22 10:58:10 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-22 10:57:16 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 17:18:11 UTC","Duration":"244306","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3cB9lIAcucGiuRlKolGd4m","Timestamp":"2020-01-20 17:17:27 UTC","Track":"Jig Of Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2021-02-17 13:23:20 UTC","Duration":"157026","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2021-02-17 12:50:21 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-02-01 11:49:10 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-02-01 11:49:01 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-29 14:49:20 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-01-29 14:49:03 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-26 12:55:18 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-01-26 12:55:08 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-22 17:48:14 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-01-22 15:16:50 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-22 10:53:22 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-01-22 10:53:11 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:58:21 UTC","Duration":"278160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"50T7xShSIGpOKvpyVahSAx","Timestamp":"2020-01-20 16:57:28 UTC","Track":"The Big Sky - Special Single Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:39:18 UTC","Duration":"165773","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"15FBisvPECCYwyG4l8FJQ9","Timestamp":"2020-01-20 16:38:35 UTC","Track":"And Dream Of Sheep","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2021-02-17 13:34:50 UTC","Duration":"141800","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2021-02-17 12:47:44 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:04:09 UTC","Duration":"183266","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0iluWxTpC9QOdVPg3PROvm","Timestamp":"2020-01-20 16:03:56 UTC","Track":"Hounds Of Love","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-04-30 22:24:11 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-04-30 14:49:00 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-04-21 07:11:28 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-04-20 17:48:02 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-04-20 17:41:13 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-04-20 17:39:13 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-04-20 17:39:06 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-04-20 17:34:03 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-04-20 17:29:11 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-04-20 17:28:52 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-31 18:27:18 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-31 18:26:12 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-29 11:57:15 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-29 11:56:49 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-26 12:24:18 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-26 12:23:21 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-26 09:26:21 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-26 09:25:30 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-22 17:28:21 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-22 14:45:01 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-21 21:51:13 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-21 21:51:02 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 15:57:17 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-20 15:57:12 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 11:30:34 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-20 11:29:19 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 09:16:23 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-20 09:16:07 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-19 22:46:24 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-19 22:45:44 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-19 15:57:11 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-19 15:56:15 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-18 12:54:19 UTC","Duration":"310160","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5atQ2haKP5LT65WM0KUts3","Timestamp":"2020-01-18 12:53:17 UTC","Track":"Cloudbusting","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2021-04-07 22:24:04 UTC","Duration":"298933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75FEaRjZTKLhTrFGsfMUXR","Timestamp":"2021-04-07 22:04:33 UTC","Track":"Running Up That Hill (A Deal With God)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-20 15:52:12 UTC","Duration":"298933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75FEaRjZTKLhTrFGsfMUXR","Timestamp":"2020-01-20 15:52:02 UTC","Track":"Running Up That Hill (A Deal With God)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds Of Love","AlbumCover":"https://i.scdn.co/image/ab67616d0000b27396ab64f52273635308b6bf27","Artist":"Kate Bush","CreatedAt":"2020-01-18 12:17:10 UTC","Duration":"298933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"75FEaRjZTKLhTrFGsfMUXR","Timestamp":"2020-01-18 12:16:45 UTC","Track":"Running Up That Hill (A Deal With God)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"50 Words for Snow","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e970f00682ba83762a3706cb","Artist":"Kate Bush","CreatedAt":"2020-01-20 22:32:15 UTC","Duration":"510880","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6MtXVfbFWxYUWSaMwKsyZJ","Timestamp":"2020-01-20 17:25:42 UTC","Track":"50 Words For Snow","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fd5b33fad57b23e897f155ed","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:33:23 UTC","Duration":"209333","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1EfdsCcge41LcPtSpkZJ50","Timestamp":"2020-01-20 16:32:43 UTC","Track":"Sat In Your Lap","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fd5b33fad57b23e897f155ed","Artist":"Kate Bush","CreatedAt":"2020-01-20 16:47:12 UTC","Duration":"235106","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1VsQhQbF4SwVvbbFeQ5EOa","Timestamp":"2020-01-20 16:46:31 UTC","Track":"Suspended In Gaffa","YoutubeCategoryId":"","YoutubeId":""},{"Album":"The Dreaming","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273fd5b33fad57b23e897f155ed","Artist":"Kate Bush","CreatedAt":"2020-01-20 17:07:21 UTC","Duration":"253933","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0y05aJ6eL8uM1D4to2dlyu","Timestamp":"2020-01-20 17:07:13 UTC","Track":"The Dreaming","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-08-01 15:44:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2016-08-01 15:44:40 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-08-01 13:10:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2016-08-01 13:10:20 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-31 22:18:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2016-07-31 22:18:17 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-30 20:31:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2016-07-30 20:31:03 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-29 20:18:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"7zQNBNgOtmwD7eo8DGgc12","Timestamp":"2016-07-29 20:18:03 UTC","Track":"The Morning Fog","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-10-19 20:46:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-10-19 20:46:55 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-08-01 15:47:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-08-01 15:47:17 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-08-01 13:12:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-08-01 13:12:58 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-31 22:20:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-07-31 22:20:55 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-30 20:33:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-07-30 20:33:41 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Hounds of Love","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/47fbcfb5c9e84a0fb59854dfd55439e6.png","Artist":"Kate Bush","CreatedAt":"2016-07-29 20:20:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"6imvNIE8dbJ3K7qllyZ4sF","Timestamp":"2016-07-29 20:20:40 UTC","Track":"Under Ice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://images.shazam.com/coverart/t261273-i697238439_s400.jpg","Artist":"Kate Bush","CreatedAt":"2019-06-06 20:00:12 UTC","Duration":"0","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"shazam","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-06 18:43:41 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/87ca5332a3ed58dc7bad387fbaebf7a18bb1cf74","Artist":"Kate Bush","CreatedAt":"2019-06-17 11:45:10 UTC","Duration":"279466","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-17 11:17:56 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/87ca5332a3ed58dc7bad387fbaebf7a18bb1cf74","Artist":"Kate Bush","CreatedAt":"2019-06-08 13:15:13 UTC","Duration":"279466","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-08 11:14:04 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/87ca5332a3ed58dc7bad387fbaebf7a18bb1cf74","Artist":"Kate Bush","CreatedAt":"2019-06-08 07:15:07 UTC","Duration":"279466","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-08 07:13:11 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/87ca5332a3ed58dc7bad387fbaebf7a18bb1cf74","Artist":"Kate Bush","CreatedAt":"2019-06-07 20:17:35 UTC","Duration":"279466","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-07 19:54:51 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Lionheart","AlbumCover":"https://i.scdn.co/image/87ca5332a3ed58dc7bad387fbaebf7a18bb1cf74","Artist":"Kate Bush","CreatedAt":"2019-06-07 08:00:06 UTC","Duration":"279466","ShazamId":"261273","ShazamPermalink":"https://www.shazam.com/track/261273/hammer-horror","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1OeyUaxsSWYqJEzH81X3ue","Timestamp":"2019-06-07 07:33:02 UTC","Track":"Hammer Horror","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Blanck Mass - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Blanck Mass</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2021-01-05 20:40:15 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2021-01-05 19:03:49 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-23 00:04:14 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-22 23:20:56 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-21 22:02:02 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-21 21:39:15 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-17 22:44:03 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-17 22:17:28 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-16 17:14:01 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-16 16:01:51 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-14 23:42:46 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-14 23:36:09 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-08 22:46:44 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-08 22:37:30 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-08 13:06:03 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-08 12:10:19 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-08 12:31:50 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-08 12:07:26 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-12-03 17:20:34 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-12-03 14:00:12 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-29 18:43:58 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-29 18:31:08 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-27 18:39:13 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-27 18:23:42 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-27 16:26:50 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-27 16:22:12 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-26 20:36:01 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-26 20:22:48 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-25 18:00:01 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-25 17:46:11 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-24 17:16:27 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-24 17:03:15 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-23 21:16:11 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-23 21:15:49 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-23 18:45:48 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-23 18:20:18 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-23 15:26:48 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-23 15:23:52 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-22 15:52:26 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-22 15:46:43 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-22 13:59:19 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-22 13:34:28 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-21 11:03:57 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-21 10:08:08 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-21 10:35:43 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-20 17:17:08 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-19 20:16:56 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-19 19:47:37 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-19 17:19:44 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-19 17:18:02 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-19 16:19:58 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-19 15:48:00 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-19 13:24:57 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-19 12:56:54 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-18 20:29:13 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-18 20:10:17 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-17 22:28:40 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-17 22:06:37 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-17 19:45:18 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-17 19:29:03 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-17 10:00:22 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-17 09:59:38 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-16 20:36:25 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-16 20:22:45 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273490109ca9eabb74e1ae46a74","Artist":"Blanck Mass","CreatedAt":"2020-08-15 17:16:58 UTC","Duration":"511132","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"22F7t8zgyuOs6H4EicTP4y","Timestamp":"2020-08-15 17:16:35 UTC","Track":"Hive Mind","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737168d021e2f52d8f909649d4","Artist":"Blanck Mass","CreatedAt":"2021-12-29 22:23:54 UTC","Duration":"448322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4vVAS4gnumtZhJhheLdTso","Timestamp":"2021-12-29 21:10:27 UTC","Track":"Minnesota / Eas Fors / Naked","YoutubeCategoryId":"","YoutubeId":""},{"Album":"World Eater","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2737168d021e2f52d8f909649d4","Artist":"Blanck Mass","CreatedAt":"2021-12-22 14:53:42 UTC","Duration":"448322","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"4vVAS4gnumtZhJhheLdTso","Timestamp":"2021-12-22 14:15:00 UTC","Track":"Minnesota / Eas Fors / Naked","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-31 23:27:44 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-31 22:41:31 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-21 05:21:28 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 23:38:56 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 13:08:54 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 13:06:50 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 16:30:50 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 13:02:55 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 13:08:53 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:59:01 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 21:58:41 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:55:06 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 14:56:58 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:51:12 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 14:08:39 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:47:17 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 13:08:52 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:43:23 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-20 18:54:44 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-20 12:39:28 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-19 16:14:27 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-19 15:11:02 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Starstuff","AlbumCover":"https://i.scdn.co/image/ab67616d0000b2738e22f7b7c1d0142cbeac68d4","Artist":"Blanck Mass","CreatedAt":"2021-01-19 13:02:08 UTC","Duration":"234000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2a6g78BXxieE2Yg0m91DHF","Timestamp":"2021-01-19 12:47:13 UTC","Track":"Starstuff - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dumb Flesh","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ab927ecf0b3bbbb537260239","Artist":"Blanck Mass","CreatedAt":"2019-12-08 18:30:26 UTC","Duration":"246025","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5n0892Enngsoe9HlWe4AL5","Timestamp":"2019-12-08 18:27:13 UTC","Track":"Loam","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dumb Flesh","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ab927ecf0b3bbbb537260239","Artist":"Blanck Mass","CreatedAt":"2019-12-08 18:45:21 UTC","Duration":"246025","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5n0892Enngsoe9HlWe4AL5","Timestamp":"2019-12-08 18:23:06 UTC","Track":"Loam","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-22 15:36:02 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-22 15:29:31 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-20 18:42:01 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-20 18:40:20 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-16 14:42:58 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-16 14:37:56 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-15 23:50:45 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-15 23:47:58 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-15 22:40:23 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-15 22:36:47 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-15 00:33:58 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-14 23:20:12 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-09 17:45:53 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-09 16:05:14 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 23:36:33 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-08 23:16:04 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 23:36:32 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-08 22:21:33 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 12:01:14 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-08 11:52:27 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-03 15:34:46 UTC","Duration":"461810","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6nJcHl1q1gMJaXyJ8IpbOk","Timestamp":"2020-12-03 12:55:54 UTC","Track":"House Vs. House","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-27 23:36:02 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-27 22:41:50 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-23 15:02:40 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-23 13:57:36 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-22 21:54:51 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-22 20:02:47 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-21 19:48:04 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-21 17:30:47 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-17 15:42:47 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-17 15:40:40 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-16 01:59:13 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-15 23:40:08 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-15 22:54:13 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-15 22:29:05 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-15 01:26:42 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-14 23:12:29 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-09 12:53:46 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-09 12:33:45 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 23:19:33 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-08 23:08:22 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 23:49:57 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-08 22:13:51 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-08 11:52:10 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-08 11:44:45 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2020-12-03 14:21:33 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2020-12-03 12:35:51 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Animated Violence Mild","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273dcaedb7afb0c937075098e04","Artist":"Blanck Mass","CreatedAt":"2019-12-11 14:15:25 UTC","Duration":"366753","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1xCfmbV8tFcpE194y2UtIt","Timestamp":"2019-12-11 14:08:28 UTC","Track":"No Dice","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Blanck Mass","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273e6968859200ac2879a932566","Artist":"Blanck Mass","CreatedAt":"2020-12-04 07:33:35 UTC","Duration":"219466","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3gK46Wp8R7lNO7Q9aKneVL","Timestamp":"2020-12-04 06:58:09 UTC","Track":"Sifted Gold","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-04 09:34:35 UTC","Duration":"165283","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"65txrNdvl9fl4pOfhNKh9L","Timestamp":"2020-12-04 08:52:45 UTC","Track":"Jack's Theme","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-03 19:29:46 UTC","Duration":"116000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"48fGfOHuh9Nbp7OTCQZ03A","Timestamp":"2020-12-03 19:12:42 UTC","Track":"Violent Child","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-21 22:02:03 UTC","Duration":"305806","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kFd9CZSc58tysnePhZX2H","Timestamp":"2020-12-21 22:01:20 UTC","Track":"Different Breed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-17 17:48:11 UTC","Duration":"305806","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kFd9CZSc58tysnePhZX2H","Timestamp":"2020-12-17 17:44:21 UTC","Track":"Different Breed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-16 21:34:50 UTC","Duration":"305806","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kFd9CZSc58tysnePhZX2H","Timestamp":"2020-12-16 21:29:37 UTC","Track":"Different Breed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-08 13:46:22 UTC","Duration":"305806","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kFd9CZSc58tysnePhZX2H","Timestamp":"2020-12-08 13:45:20 UTC","Track":"Different Breed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-04 07:22:14 UTC","Duration":"305806","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kFd9CZSc58tysnePhZX2H","Timestamp":"2020-12-04 07:20:53 UTC","Track":"Different Breed","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Calm With Horses (Original Score)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f4363d4bdd48fbd16ac4d12c","Artist":"Blanck Mass","CreatedAt":"2020-12-03 19:55:54 UTC","Duration":"140000","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6B1e15L8WSXEcCYbIo7gSj","Timestamp":"2020-12-03 18:21:32 UTC","Track":"The Devers","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dumb Flesh","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80fd44460f3d496ec9b67670683d8e67.png","Artist":"Blanck Mass","CreatedAt":"2016-08-18 14:42:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5n0892Enngsoe9HlWe4AL5","Timestamp":"2016-08-18 14:42:11 UTC","Track":"Loam","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Dumb Flesh","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80fd44460f3d496ec9b67670683d8e67.png","Artist":"Blanck Mass","CreatedAt":"2016-08-17 16:43:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"5n0892Enngsoe9HlWe4AL5","Timestamp":"2016-08-17 16:43:34 UTC","Track":"Loam","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

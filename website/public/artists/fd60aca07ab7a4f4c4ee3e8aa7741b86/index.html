@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Jeremy Olander - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>Jeremy Olander</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"Petroleum","AlbumCover":"","Artist":"Jeremy Olander","CreatedAt":"2018-07-19 11:29:20 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2018-07-19 11:29:20 UTC","Track":"Petroleum - (Jeremy Olander vs. Kent)","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Damon EP","AlbumCover":"https://i.scdn.co/image/06945f7c89c8660a23c281b3fc3b69130c98c1c7","Artist":"Jeremy Olander","CreatedAt":"2019-07-16 22:00:14 UTC","Duration":"456585","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kZVDA9y4vL1pVDmmNGKji","Timestamp":"2019-07-16 21:10:33 UTC","Track":"Billinghurst - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Damon EP","AlbumCover":"https://i.scdn.co/image/06945f7c89c8660a23c281b3fc3b69130c98c1c7","Artist":"Jeremy Olander","CreatedAt":"2019-07-16 17:00:15 UTC","Duration":"456585","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1kZVDA9y4vL1pVDmmNGKji","Timestamp":"2019-07-16 16:57:21 UTC","Track":"Billinghurst - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"HOSH At Warung - Selected 03","AlbumCover":"https://i.scdn.co/image/56c26167457242d78a39ecc1f97ee116d66542ca","Artist":"Jeremy Olander","CreatedAt":"2019-05-30 10:15:06 UTC","Duration":"486505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"74t67X3QKYNxmnoF3TDLkt","Timestamp":"2019-05-30 07:53:35 UTC","Track":"1024","YoutubeCategoryId":"","YoutubeId":""},{"Album":"HOSH At Warung - Selected 03","AlbumCover":"https://i.scdn.co/image/56c26167457242d78a39ecc1f97ee116d66542ca","Artist":"Jeremy Olander","CreatedAt":"2019-05-29 17:00:07 UTC","Duration":"486505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"74t67X3QKYNxmnoF3TDLkt","Timestamp":"2019-05-29 16:33:47 UTC","Track":"1024","YoutubeCategoryId":"","YoutubeId":""},{"Album":"HOSH At Warung - Selected 03","AlbumCover":"https://i.scdn.co/image/56c26167457242d78a39ecc1f97ee116d66542ca","Artist":"Jeremy Olander","CreatedAt":"2019-05-29 14:30:14 UTC","Duration":"486505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"74t67X3QKYNxmnoF3TDLkt","Timestamp":"2019-05-29 14:29:58 UTC","Track":"1024","YoutubeCategoryId":"","YoutubeId":""},{"Album":"HOSH At Warung - Selected 03","AlbumCover":"https://i.scdn.co/image/56c26167457242d78a39ecc1f97ee116d66542ca","Artist":"Jeremy Olander","CreatedAt":"2019-05-29 11:30:07 UTC","Duration":"486505","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"74t67X3QKYNxmnoF3TDLkt","Timestamp":"2019-05-29 11:15:28 UTC","Track":"1024","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://i.scdn.co/image/73a2454124a39ae4b523a4cc44b35ddf149eac64","Artist":"Jeremy Olander","CreatedAt":"2019-01-18 00:00:09 UTC","Duration":"296585","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2019-01-17 23:57:41 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-12-23 15:49:42 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-12-23 14:49:36 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-11-02 10:59:52 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-11-02 10:34:06 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-11-01 14:59:22 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-11-01 14:32:29 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-11-01 11:41:02 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-11-01 11:38:09 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-24 21:30:32 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-24 21:24:37 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-15 15:28:47 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-15 14:37:34 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-15 13:51:17 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-15 12:51:18 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-12 23:48:08 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-12 22:53:42 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-12 15:54:24 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-12 15:22:48 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-09 19:18:12 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-09 19:17:51 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-08 21:55:19 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-08 21:38:08 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-06 11:51:07 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-06 10:58:35 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-05 21:52:22 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-05 21:07:36 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-05 13:44:24 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-05 11:54:56 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-04 14:39:24 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-04 14:35:10 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-04 13:41:22 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-04 11:52:22 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:08:50 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 22:02:17 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:51:23 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 21:50:40 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:39:25 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 21:39:03 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:54:49 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 21:27:26 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:22:50 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 21:15:49 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:08:49 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 21:04:12 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:59:05 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 20:52:35 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:47:19 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 20:40:58 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:33:02 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 20:29:21 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 19:53:49 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 19:45:20 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 19:40:08 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 19:33:43 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 19:24:58 UTC","Duration":"275123","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6ik489bXMKTfjTEA2C0yt4","Timestamp":"2021-08-03 19:19:24 UTC","Track":"Depot - Short Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-16 17:27:05 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-16 16:37:35 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-04 21:44:22 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 22:05:26 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:30:02 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:57:42 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:42:58 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:46:05 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:39:24 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:34:27 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:51:22 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:31:45 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 22:30:01 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:22:50 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:39:23 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 21:11:13 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:51:21 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 20:59:37 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:59:04 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 20:47:59 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:47:18 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 20:36:22 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 21:39:22 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 20:24:46 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:06:19 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 19:40:44 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 19:40:07 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 19:29:07 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Depot","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273775fd8c2655e5b8edce47155","Artist":"Jeremy Olander","CreatedAt":"2021-08-03 20:06:18 UTC","Duration":"421463","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"7y7fxB9wjgMdpIioYxQQaV","Timestamp":"2021-08-03 19:14:49 UTC","Track":"Depot - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-24 14:32:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-24 14:32:31 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-20 10:50:37 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-20 10:50:37 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-20 10:06:11 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-20 10:06:11 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-18 22:00:08 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-18 22:00:08 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-10 16:48:29 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-10 16:48:29 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-09 22:36:49 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-09 22:36:49 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-05 18:08:26 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-05 18:08:26 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-05 08:38:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-05 08:38:28 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-04 15:17:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-04 15:17:03 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-04 14:10:19 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-04 14:10:19 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 17:27:21 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 17:27:21 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 16:25:18 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 16:25:18 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 15:18:34 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 15:18:34 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 14:07:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 14:07:06 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 12:54:06 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 12:54:06 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 10:20:31 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 10:20:31 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-02 08:06:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-02 08:06:28 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/55ca49512b496abca7d3d6fe1846d7ac.png","Artist":"Jeremy Olander","CreatedAt":"2017-05-01 17:33:03 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-05-01 17:33:03 UTC","Track":"Falls - Original Mix","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-02-18 17:26:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-02-18 17:26:04 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-29 06:53:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-29 06:53:40 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-26 22:53:36 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-26 22:53:36 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-18 16:42:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-18 16:42:59 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-14 11:19:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-14 11:19:56 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-13 12:09:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-13 12:09:40 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-08 14:28:59 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-08 14:28:59 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-08 11:17:54 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-08 11:17:54 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-07 17:05:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-07 17:05:00 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-07 13:01:24 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-07 13:01:24 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Crossed / Araoz","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/71966a1871d788c7aaf6ca5e8ed52ed5.png","Artist":"Jeremy Olander","CreatedAt":"2018-01-04 14:23:56 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"2ZYkigunETkkLArhq3Vok2","Timestamp":"2018-01-04 14:23:56 UTC","Track":"Araoz","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-23 23:20:25 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-23 23:20:25 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-20 15:05:46 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-20 15:05:46 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-17 20:25:40 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-17 20:25:40 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-16 18:02:00 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-16 18:02:00 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-16 14:00:27 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-16 14:00:27 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-11 11:49:09 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-11 11:49:09 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-08 21:11:55 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-08 21:11:55 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-07 08:52:58 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-07 08:52:58 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Caravelle EP","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/80376072161ba3894a3f283052d19f54.png","Artist":"Jeremy Olander","CreatedAt":"2017-11-06 14:56:17 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2017-11-06 14:56:17 UTC","Track":"Shuttle","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fda59e795c5fae83bc01569d4a5052cf.png","Artist":"Jeremy Olander","CreatedAt":"2016-11-04 18:23:04 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-11-04 18:23:04 UTC","Track":"Roots","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fda59e795c5fae83bc01569d4a5052cf.png","Artist":"Jeremy Olander","CreatedAt":"2016-11-02 17:45:30 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-11-02 17:45:30 UTC","Track":"Roots","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Taiga","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/fda59e795c5fae83bc01569d4a5052cf.png","Artist":"Jeremy Olander","CreatedAt":"2016-01-08 16:47:51 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"","Timestamp":"2016-01-08 16:47:51 UTC","Track":"Roots","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>

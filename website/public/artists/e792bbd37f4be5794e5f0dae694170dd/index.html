@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>RÜFÜS DU SOL - charlieegan3 Music</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fdaciuk-ajax/3.0.4/ajax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@10.19.0/dist/lazyload.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/voca/1.4.0/voca.min.js"></script>
+		<script src="/main.js"></script>
+		<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+		<link href="https://fonts.googleapis.com/css?family=Krub|Londrina+Solid" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Krub', sans-serif;
+			}
+			.display {
+				font-family: 'Londrina Solid', cursive;
+			}
+		</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+</head>
+  <body>
+		<div class="mw7 center ph1 ph2-ns">
+			<h1 class="mb2 f2-ns f4">
+				<a href="/" class="no-underline dark-gray">
+					charlieegan3 <span class="f2-ns f4 dark-blue display">music</span>
+				</a>
+			</h1>
+
+			<p class="display f4-ns f3">
+				<a href="/" class="orange no-underline">home</a> |
+				<a href="/recent" class="orange no-underline">recent</a> |
+				<a href="/artists" class="orange no-underline">by artist</a> |
+				<a href="/months" class="orange no-underline">by month</a>
+			</p>
+  <h1>RÜFÜS DU SOL</h1>
+    <p class="f7 f6-ns">
+    <strong>Plays:</strong> <span class="pr2" id="TotalPlays"></span>
+    <strong>Tracks:</strong> <span class="pr2" id="TotalTracks"></span>
+    <strong>Duration:</strong> <span class="pr2" id="TotalDuration"></span>
+  </p>
+
+  <h2 id="PlaysByBinTitle" class="f4-ns f5 bt pt3 b--light-gray">plays by month</h2>
+  <canvas id="PlaysByBin"></canvas>
+
+  <h2 id="TrackLifetimeHeader" class="dn f3-ns f5 bt pt3 b--light-gray">track lifetime<span class="o-40 f7"> Chart by <a href="http://twitter.com/caletilford">Cale</a></span></h2>
+  <p id="TrackLifetimeNote"></p>
+  <div id="TrackLifetime"></div>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">tracks</h2>
+  <table id="PlaysByTrack" class="f6-ns f7 w-100"></table>
+
+  <h2 class="f4-ns f5 bt pt3 b--light-gray">all plays</h2>
+  <table id="AllPlays" class="f6-ns f7 w-100"></table>
+
+  <script>
+    function countTracks(plays) {
+      var tracks = {};
+      for (var i = 0; i < plays.length; i++) {
+        tracks[plays[i].Track] = 0;
+      }
+      return Object.keys(tracks).length;
+    }
+
+    function calcDuration(plays) {
+      var durationSum = 0;
+      var count = 0;
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Duration) {
+          durationSum += parseInt(plays[i].Duration);
+          count += 1;
+        }
+      }
+      if (count > 0) {
+        var mean = durationSum / count;
+        var approximateCount = plays.length - count;
+        var approximateDuration = mean * approximateCount;
+        durationSum += approximateDuration;
+      } else {
+        
+        durationSum = plays.length * 329537;
+      }
+      return (durationSum / 1000 / 60 / 60).toFixed(1);
+    }
+
+    function playsByCount(plays) {
+      var playCounts = {};
+
+      for (var i = 0; i < plays.length; i++) {
+        if (plays[i].Track in playCounts) {
+          playCounts[plays[i].Track]["Count"] += 1;
+        } else {
+          playCounts[plays[i].Track] = JSON.parse(JSON.stringify(plays[i]));
+          delete playCounts[plays[i].Track]["Timestamp"];
+          playCounts[plays[i].Track]["Lifetime"] = true;
+          playCounts[plays[i].Track]["Count"] = 1;
+        }
+      }
+
+      var countedPlays = [];
+      for (var track in playCounts) {
+        countedPlays.push(playCounts[track]);
+      }
+      countedPlays = countedPlays.sort(function(a, b) {
+          return b.Count - a.Count;
+      });
+
+      renderPlays(countedPlays, "PlaysByTrack", false);
+    }
+
+    function renderPlaysByBin(sortedPlays) {
+      var bins = {};
+      for (var i = 0; i < sortedPlays.length; i++) {
+        var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+        if (date.getFullYear() > 1970) {
+          var binString = date.getFullYear() + "-" + (date.getMonth() + 1);
+          if (bins[binString ] == undefined) {
+            bins[binString ] = 1
+          } else {
+            bins[binString ] += 1
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").innerHTML = "plays by day";
+        bins = {};
+        for (var i = 0; i < sortedPlays.length; i++) {
+          var date = new Date(Date.parse(sortedPlays[i].Timestamp.split(" ")[0]));
+          if (date.getFullYear() > 1970) {
+            var binString = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            if (bins[binString ] == undefined) {
+              bins[binString ] = 1
+            } else {
+              bins[binString ] += 1
+            }
+          }
+        }
+      }
+
+      if (Object.keys(bins).length < 3) {
+        document.getElementById("PlaysByBinTitle").outerHTML = "";
+        document.getElementById("PlaysByBin").outerHTML = "";
+        return
+      }
+
+      var color = Chart.helpers.color;
+      var barChartData = {
+        labels: Object.keys(bins),
+        datasets: [{
+          data: Object.values(bins),
+          label: "Plays",
+          backgroundColor: color("lightgray").alpha(0.5).rgbString(),
+          borderColor: "lightgray",
+          borderWidth: 1,
+        }]
+      };
+
+      var ctx = document.getElementById("PlaysByBin").getContext("2d");
+      window.myBar = new Chart(ctx, {
+        type: "bar",
+        data: barChartData,
+        options: {
+          responsive: true,
+          legend: { display: false },
+          title: { display: false },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false }
+            }],
+            yAxes: [{
+              gridLines: { display: false },
+              ticks: { beginAtZero: true }
+            }]
+          }
+        }
+      });
+    }
+
+	function renderLifetimeChart(e) {
+		document.getElementById("TrackLifetimeHeader").classList.remove("dn");
+		document.getElementById("TrackLifetime").innerHTML = "";
+
+		var track = e.target.getAttribute("data-track");
+		document.getElementById("TrackLifetimeNote").innerHTML = "Cumulative plays of <strong>" + track + "</strong>";
+
+		var getTime = d3.timeParse("%Y-%m-%d %H:%M:%S")
+		var timestamps = [];
+		for (var i = 0; i < plays.length; i++) {
+			if (plays[i].Track == track) {
+				timestamps.push(getTime(plays[i].Timestamp.slice(0, -4)))
+			}
+		}
+		timestamps = timestamps.sort(function(a, b){
+			return a - b;
+		});
+
+		var width = 500;
+		var height = 300;
+		var margin = ({top: 10, right: 10, bottom: 10, left: 10});
+		var svg = d3.select("#TrackLifetime")
+        .append("svg")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+		var x = d3.scaleTime()
+			.domain(d3.extent(timestamps))
+			.range([margin.left, width - margin.right])
+		var y = d3.scaleLinear().domain([0, timestamps.length]).range([height - margin.bottom, margin.top])
+		var line = d3.line()
+			.x(d => x(d))
+			.y((_, i) => y(i + 1))
+			.curve(d3.curveStepAfter)
+
+		var path = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "steelblue")
+			.attr("stroke-width", 1.5)
+			.attr("stroke-linejoin", "round")
+			.attr("stroke-linecap", "round")
+			.selectAll("path")
+			  .data([timestamps])
+			  .enter().append("path")
+			  .attr("d", d => line(d))
+
+		var xAxis = g => g
+			.attr("transform", `translate(0,${height - margin.bottom})`)
+			.call(d3.axisBottom(x))
+		var yAxis = g => g
+			.attr("transform", `translate(${margin.left},0)`)
+			.call(d3.axisLeft(y))
+		svg.append("g").call(xAxis);
+		svg.append("g").call(yAxis);
+
+		document.getElementById("TrackLifetimeHeader").scrollIntoView();
+	}
+
+    var plays = [{"Album":"SOLACE","AlbumCover":"https://i.scdn.co/image/2c5d7d58f5843ab36a95e8524a285dcf6c47b879","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-08-09 15:30:30 UTC","Duration":"349293","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5ZvHcR4OSwvEV5IhigbTOT","Timestamp":"2019-08-09 15:18:50 UTC","Track":"Underwater","YoutubeCategoryId":"","YoutubeId":""},{"Album":"SOLACE","AlbumCover":"https://i.scdn.co/image/2c5d7d58f5843ab36a95e8524a285dcf6c47b879","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-10-08 16:00:15 UTC","Duration":"237986","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6rLQZW36LaEUGWl3sWTg7v","Timestamp":"2019-10-08 14:20:57 UTC","Track":"No Place","YoutubeCategoryId":"","YoutubeId":""},{"Album":"SOLACE","AlbumCover":"https://i.scdn.co/image/2c5d7d58f5843ab36a95e8524a285dcf6c47b879","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-07-28 09:45:05 UTC","Duration":"273640","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"3B8Tx2eKzZ1u6bPnozOL1h","Timestamp":"2019-07-28 09:17:22 UTC","Track":"Treat You Better","YoutubeCategoryId":"","YoutubeId":""},{"Album":"SOLACE","AlbumCover":"https://i.scdn.co/image/3c82296f8b5f45de5fc2ece57fa556c3cb928c79","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-01-28 10:00:04 UTC","Duration":"400080","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5oJFMNh2D1RxWFeOkO1sTz","Timestamp":"2019-01-28 09:21:50 UTC","Track":"Another Life","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/5cf7dae5783c1ce638469d749a6d5d8871fd1fbc","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-10-01 19:15:18 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2019-10-01 18:17:24 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/5cf7dae5783c1ce638469d749a6d5d8871fd1fbc","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-09-30 17:15:13 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2019-09-30 17:06:59 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/5cf7dae5783c1ce638469d749a6d5d8871fd1fbc","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-09-30 14:15:13 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2019-09-30 13:37:11 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/5cf7dae5783c1ce638469d749a6d5d8871fd1fbc","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-09-30 13:00:13 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2019-09-30 10:54:59 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/5cf7dae5783c1ce638469d749a6d5d8871fd1fbc","Artist":"RÜFÜS DU SOL","CreatedAt":"2019-01-28 00:30:06 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2019-01-27 23:48:30 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Atlas (Light / Dark Deluxe Edition)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273633ba5c369329837c17ec23c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 18:40:34 UTC","Duration":"190013","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56kscu4Wrnn8WdY1V0E6km","Timestamp":"2021-01-21 14:17:30 UTC","Track":"Simplicity Is Bliss","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Innerbloom (Radio Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c6e89c4b7ffc8851f43875cf","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-02-19 22:59:49 UTC","Duration":"238067","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"143Lzl9x5wkveE71YQb3N7","Timestamp":"2021-02-19 22:57:26 UTC","Track":"Innerbloom - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Innerbloom (Radio Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c6e89c4b7ffc8851f43875cf","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-02-19 13:14:46 UTC","Duration":"238067","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"143Lzl9x5wkveE71YQb3N7","Timestamp":"2021-02-19 13:11:28 UTC","Track":"Innerbloom - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Innerbloom (Radio Edit)","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273c6e89c4b7ffc8851f43875cf","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 18:40:39 UTC","Duration":"238067","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"143Lzl9x5wkveE71YQb3N7","Timestamp":"2021-01-21 18:38:04 UTC","Track":"Innerbloom - Radio Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 17:50:21 UTC","Duration":"239417","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"77lqbary6vt1DSc1MBN6sx","Timestamp":"2021-01-21 13:38:39 UTC","Track":"You Were Right","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-02-19 16:46:39 UTC","Duration":"246962","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YrjxymUvphcUouycUnnax","Timestamp":"2021-02-19 16:39:41 UTC","Track":"Hypnotised","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 23:09:51 UTC","Duration":"246962","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"6YrjxymUvphcUouycUnnax","Timestamp":"2021-01-21 23:08:47 UTC","Track":"Hypnotised","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 19:37:57 UTC","Duration":"241580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05LoBwiXyb1sx3xV3S3tEd","Timestamp":"2021-01-21 14:48:35 UTC","Track":"Like an Animal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 14:06:59 UTC","Duration":"241580","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05LoBwiXyb1sx3xV3S3tEd","Timestamp":"2021-01-21 14:05:02 UTC","Track":"Like an Animal","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2022-07-31 12:57:37 UTC","Duration":"578040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05kVyNUR9uibHta4jcGTTv","Timestamp":"2022-07-31 12:44:39 UTC","Track":"Innerbloom","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-07-19 09:29:28 UTC","Duration":"578040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05kVyNUR9uibHta4jcGTTv","Timestamp":"2021-07-19 09:29:03 UTC","Track":"Innerbloom","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 12:04:20 UTC","Duration":"578040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05kVyNUR9uibHta4jcGTTv","Timestamp":"2021-01-21 11:50:46 UTC","Track":"Innerbloom","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-19 19:38:17 UTC","Duration":"578040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"05kVyNUR9uibHta4jcGTTv","Timestamp":"2021-01-19 19:14:24 UTC","Track":"Innerbloom","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273de342b284f5dc7e0257fe38c","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-01-21 14:54:30 UTC","Duration":"277324","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"0hmY0QQ1VvSdpkBkXI3oOf","Timestamp":"2021-01-21 14:09:39 UTC","Track":"Say a Prayer For Me","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Surrender","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ec4a97f6c8b0c29711590d66","Artist":"RÜFÜS DU SOL","CreatedAt":"2022-01-12 19:09:43 UTC","Duration":"334754","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1niGC0HGWBVPxhBjYe1Qys","Timestamp":"2022-01-12 18:29:07 UTC","Track":"Alive","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Surrender","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273ec4a97f6c8b0c29711590d66","Artist":"RÜFÜS DU SOL","CreatedAt":"2021-12-16 15:47:56 UTC","Duration":"319920","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"56Qdvab5ordX97OCvgY3ie","Timestamp":"2021-12-16 14:55:31 UTC","Track":"Devotion","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Surrender","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f014b5a71d5e7b0a9ee64386","Artist":"RÜFÜS DU SOL","CreatedAt":"2022-05-25 10:00:44 UTC","Duration":"320040","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"1rssm0lgmiUJnUwQ166kZA","Timestamp":"2022-05-25 09:26:28 UTC","Track":"See You Again","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f8655687f27c30bba87b274f","Artist":"RÜFÜS DU SOL","CreatedAt":"2020-07-09 13:56:12 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2020-07-09 13:55:13 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Treat You Better","AlbumCover":"https://i.scdn.co/image/ab67616d0000b273f8655687f27c30bba87b274f","Artist":"RÜFÜS DU SOL","CreatedAt":"2020-07-08 13:56:19 UTC","Duration":"218305","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"spotify","SpotifyId":"5lzHDkFLN01bKatvKQC0lO","Timestamp":"2020-07-08 13:55:27 UTC","Track":"Treat You Better - Single Edit","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Bloom","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/5b7580449f912293b96285e4a56e3e45.png","Artist":"RÜFÜS DU SOL","CreatedAt":"2018-05-06 13:16:28 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"05kVyNUR9uibHta4jcGTTv","Timestamp":"2018-05-06 13:16:28 UTC","Track":"Innerbloom","YoutubeCategoryId":"","YoutubeId":""},{"Album":"Atlas (Light / Dark Deluxe Edition)","AlbumCover":"https://lastfm-img2.akamaized.net/i/u/34s/9ee25d516ce958a0ba8479f42ead2fff.png","Artist":"RÜFÜS DU SOL","CreatedAt":"2018-05-21 13:43:41 UTC","Duration":"0","ShazamId":"","ShazamPermalink":"","SoundcloudId":"","SoundcloudPermalink":"","Source":"lastfm","SpotifyId":"56kscu4Wrnn8WdY1V0E6km","Timestamp":"2018-05-21 13:43:41 UTC","Track":"Simplicity Is Bliss","YoutubeCategoryId":"","YoutubeId":""}];
+    plays.sort(function(a, b){
+      var a = moment(a.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+      var b = moment(b.Timestamp, "YYYY-MM-DD HH:mm:ss Z");
+
+      if (a.isSame(b)) {
+        return 0
+      }
+
+      if (a.isBefore(b)) {
+        return -1 ;
+      } else {
+        return 1;
+      }
+    });
+
+    document.getElementById("TotalPlays").innerHTML = plays.length;
+    document.getElementById("TotalTracks").innerHTML = countTracks(plays);
+    document.getElementById("TotalDuration").innerHTML = calcDuration(plays) + " hours";
+    playsByCount(plays);
+    renderPlaysByBin(plays);
+    renderPlays(plays.reverse(), "AllPlays");
+
+    var myLazyLoad = new LazyLoad({
+      elements_selector: ".lazy"
+    });
+  </script>
+</div>
+	</body>
+</html>
