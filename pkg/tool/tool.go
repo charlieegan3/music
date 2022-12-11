@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-
 	"github.com/Jeffail/gabs/v2"
+	"github.com/charlieegan3/music/pkg/tool/handlers"
 	"github.com/charlieegan3/toolbelt/pkg/apis"
 	"github.com/gorilla/mux"
 )
@@ -21,8 +21,10 @@ func (m *Music) Name() string {
 
 func (m *Music) FeatureSet() apis.FeatureSet {
 	return apis.FeatureSet{
-		Config: true,
-		Jobs:   true,
+		HTTP:     true,
+		HTTPHost: true,
+		Config:   true,
+		Jobs:     true,
 	}
 }
 
@@ -89,11 +91,26 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 	}, nil
 }
 
+func (m *Music) HTTPAttach(router *mux.Router) error {
+	router.HandleFunc(
+		"/",
+		handlers.BuildIndexHandler(),
+	).Methods("GET")
+
+	return nil
+}
+func (m *Music) HTTPHost() string {
+	path := "web.host"
+	host, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return "example.com"
+	}
+	return host
+}
+func (m *Music) HTTPPath() string { return "" }
+
 func (m *Music) ExternalJobsFuncSet(f func(job apis.ExternalJob) error) {}
 func (m *Music) DatabaseMigrations() (*embed.FS, string, error) {
 	return &embed.FS{}, "migrations", nil
 }
-func (m *Music) DatabaseSet(db *sql.DB)              {}
-func (m *Music) HTTPPath() string                    { return "" }
-func (m *Music) HTTPAttach(router *mux.Router) error { return nil }
-func (m *Music) HTTPHost() string                    { return "" }
+func (m *Music) DatabaseSet(db *sql.DB) {}

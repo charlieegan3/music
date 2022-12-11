@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/storage v1.27.0
 	github.com/Jeffail/gabs/v2 v2.6.1
 	github.com/cenkalti/backoff/v4 v4.0.2
-	github.com/charlieegan3/toolbelt v0.0.0-20221102114204-6b58844b4750
+	github.com/charlieegan3/toolbelt v0.0.0-20221204170703-2a0420bbcdcd
 	github.com/fatih/structs v1.1.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gosimple/slug v1.9.0
