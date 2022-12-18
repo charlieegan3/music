@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"github.com/charlieegan3/toolbelt/pkg/database"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/viper"
 
-	"github.com/charlieegan3/music/pkg/tool"
+	musicTool "github.com/charlieegan3/music/pkg/tool"
+	"github.com/charlieegan3/toolbelt/pkg/tool"
 )
 
 func main() {
@@ -19,28 +23,48 @@ func main() {
 		log.Fatalf("Fatal error config file: %s \n", err)
 	}
 
-	toolCfg, ok := viper.Get("tools.music").(map[string]interface{})
+	cfg, ok := viper.Get("tools").(map[string]interface{})
 	if !ok {
 		log.Fatalf("failed to read tools config in map[string]interface{} format")
+		os.Exit(1)
 	}
-	t := &tool.Music{}
-	t.SetConfig(toolCfg)
 
-	j, err := t.Jobs()
+	// configure global cancel context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-c:
+			cancel()
+		}
+	}()
+
+	// load the database configuration
+	params := viper.GetStringMapString("database.params")
+	connectionString := viper.GetString("database.connectionString")
+	db, err := database.Init(connectionString, params, params["dbname"], false)
 	if err != nil {
-		log.Fatalf("failed to get jobs: %s", err)
+		log.Fatalf("failed to init DB: %s", err)
 	}
+	// we have 5 connections, it's important to be able to manually connect to the db too
+	db.SetMaxOpenConns(4)
+	defer db.Close()
 
-	switch os.Args[1] {
-	case "lastfm":
-		err = j[0].Run(context.Background())
-	case "spotify":
-		err = j[1].Run(context.Background())
-	default:
-		log.Fatalf("unknown job: %s", os.Args[1])
-	}
+	// init the toolbelt, connecting the database, config and external runner
+	tb := tool.NewBelt()
+	tb.SetConfig(cfg)
+	tb.SetDatabase(db)
 
+	err = tb.AddTool(ctx, &musicTool.Music{})
 	if err != nil {
-		log.Fatalf("failed to run job: %s", err)
+		log.Fatalf("failed to add tool: %v", err)
 	}
+
+	// Run services
+	go tb.RunJobs(ctx)
+
+	tb.RunServer(ctx, "0.0.0.0", "3000")
 }

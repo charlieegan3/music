@@ -12,8 +12,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//go:embed migrations
+var migrations embed.FS
+
 // Music is a tool that syncs last.fm plays to bigquery
 type Music struct {
+	db     *sql.DB
 	config *gabs.Container
 }
 
@@ -27,7 +31,16 @@ func (m *Music) FeatureSet() apis.FeatureSet {
 		HTTPHost: true,
 		Config:   true,
 		Jobs:     true,
+		Database: true,
 	}
+}
+
+func (m *Music) DatabaseMigrations() (*embed.FS, string, error) {
+	return &migrations, "migrations", nil
+}
+
+func (m *Music) DatabaseSet(db *sql.DB) {
+	m.db = db
 }
 
 func (m *Music) SetConfig(config map[string]any) error {
@@ -35,6 +48,7 @@ func (m *Music) SetConfig(config map[string]any) error {
 
 	return nil
 }
+
 func (m *Music) Jobs() ([]apis.Job, error) {
 	var j []apis.Job
 	var path string
@@ -148,7 +162,3 @@ func (m *Music) HTTPHost() string {
 func (m *Music) HTTPPath() string { return "" }
 
 func (m *Music) ExternalJobsFuncSet(f func(job apis.ExternalJob) error) {}
-func (m *Music) DatabaseMigrations() (*embed.FS, string, error) {
-	return &embed.FS{}, "migrations", nil
-}
-func (m *Music) DatabaseSet(db *sql.DB) {}
