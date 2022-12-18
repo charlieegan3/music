@@ -140,6 +140,15 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			DatasetName:           dataset,
 			TableName:             table,
 		},
+
+		&jobs.CoversSync{
+			DB:                    m.db,
+			ScheduleOverride:      schedule,
+			GoogleCredentialsJSON: googleJSON,
+			ProjectID:             projectID,
+			DatasetName:           dataset,
+			TableName:             table,
+		},
 	}, nil
 }
 

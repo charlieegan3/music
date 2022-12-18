@@ -58,9 +58,26 @@ func main() {
 	tb.SetConfig(cfg)
 	tb.SetDatabase(db)
 
-	err = tb.AddTool(ctx, &musicTool.Music{})
+	mt := musicTool.Music{}
+	err = tb.AddTool(ctx, &mt)
 	if err != nil {
 		log.Fatalf("failed to add tool: %v", err)
+	}
+
+	if len(os.Args) > 0 {
+		jobs, err := mt.Jobs()
+		if err != nil {
+			log.Fatalf("failed to get jobs: %v", err)
+		}
+		switch os.Args[1] {
+		case "covers":
+			err := jobs[2].Run(ctx)
+			if err != nil {
+				log.Fatalf("failed to run job: %v", err)
+			}
+		}
+
+		os.Exit(0)
 	}
 
 	// Run services

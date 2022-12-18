@@ -8,6 +8,7 @@ require (
 	github.com/Jeffail/gabs/v2 v2.6.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/charlieegan3/toolbelt v0.0.0-20221204170703-2a0420bbcdcd
+	github.com/doug-martin/goqu/v9 v9.18.0
 	github.com/fatih/structs v1.1.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gosimple/slug v1.9.0

@@ -9,7 +9,7 @@ import (
 	"github.com/charlieegan3/music/pkg/tool/bq"
 )
 
-// SpotifySync is a job that syncs last fm plays to bigquery
+// SpotifySync is a job that syncs spotify plays to bigquery
 type SpotifySync struct {
 	ScheduleOverride string
 
