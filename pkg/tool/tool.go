@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
 	"github.com/charlieegan3/music/pkg/tool/handlers"
+	"github.com/charlieegan3/music/pkg/tool/jobs"
 	"github.com/charlieegan3/toolbelt/pkg/apis"
 	"github.com/gorilla/mux"
 )
@@ -79,7 +80,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 	}
 
 	return []apis.Job{
-		&LastFMSync{
+		&jobs.LastFMSync{
 			ScheduleOverride:      schedule,
 			APIKey:                apiKey,
 			Username:              username,
