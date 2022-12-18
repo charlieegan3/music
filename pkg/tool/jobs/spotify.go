@@ -3,10 +3,10 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"github.com/charlieegan3/music/pkg/tool/bq"
 	"time"
 
 	"github.com/charlieegan3/music/internal/pkg/spotify"
+	"github.com/charlieegan3/music/pkg/tool/bq"
 )
 
 // SpotifySync is a job that syncs last fm plays to bigquery

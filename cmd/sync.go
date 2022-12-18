@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"github.com/charlieegan3/music/pkg/tool/bq"
 	"log"
 
 	"github.com/charlieegan3/music/internal/pkg/shazam"
 	"github.com/charlieegan3/music/internal/pkg/soundcloud"
 	"github.com/charlieegan3/music/internal/pkg/spotify"
 	"github.com/charlieegan3/music/internal/pkg/youtube"
+	"github.com/charlieegan3/music/pkg/tool/bq"
 	"github.com/spf13/cobra"
 )
 

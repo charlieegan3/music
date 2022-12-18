@@ -5,8 +5,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/charlieegan3/music/pkg/tool/bq"
-	"github.com/charlieegan3/music/pkg/tool/utils"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +13,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/charlieegan3/music/pkg/tool/bq"
+	"github.com/charlieegan3/music/pkg/tool/utils"
 	"google.golang.org/api/option"
 )
 
