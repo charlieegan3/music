@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/charlieegan3/music/pkg/tool/bq"
+	"github.com/charlieegan3/music/pkg/tool/utils"
 	"io"
 	"log"
 	"net/http"
@@ -13,12 +15,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
-
-//go:embed schema.json
-var jsonSchema string
 
 const lastFMSourceName = "lastfm"
 
@@ -55,7 +53,7 @@ func (s *LastFMSync) Run(ctx context.Context) error {
 			errCh <- fmt.Errorf("failed to create bq client: %v", err)
 			return
 		}
-		schema, err := bigquery.SchemaFromJSON([]byte(jsonSchema))
+		schema, err := bigquery.SchemaFromJSON([]byte(bq.JSONSchema))
 		if err != nil {
 			errCh <- fmt.Errorf("failed to parse schema: %v", err)
 			return
@@ -92,7 +90,7 @@ func (s *LastFMSync) Run(ctx context.Context) error {
 			return
 		}
 
-		mostRecentPlays, err := mostRecentTimestamps(ctx, bigqueryClient, s.ProjectID, s.DatasetName, s.TableName, lastFMSourceName, 1)
+		mostRecentPlays, err := utils.MostRecentTimestamps(ctx, bigqueryClient, s.ProjectID, s.DatasetName, s.TableName, lastFMSourceName, 1)
 		if err != nil {
 			errCh <- fmt.Errorf("failed to get most recent timestamp: %w", err)
 			return
@@ -216,45 +214,4 @@ type lastFMResponse struct {
 	RecentTracks struct {
 		Items []play `json:"track"`
 	} `json:"recenttracks"`
-}
-
-func mostRecentTimestamps(
-	ctx context.Context,
-	client *bigquery.Client,
-	projectID string,
-	datasetName string,
-	tableName string,
-	source string,
-	count int,
-) ([]time.Time, error) {
-	var t []time.Time
-	queryString := fmt.Sprintf(
-		"SELECT timestamp FROM `%s.%s.%s` WHERE source = \"%s\" ORDER BY timestamp DESC LIMIT %d",
-		projectID,
-		datasetName,
-		tableName,
-		source,
-		count,
-	)
-	q := client.Query(queryString)
-	it, err := q.Read(ctx)
-	if err != nil {
-		return t, fmt.Errorf("Failed query for recent timestamps: %v", err)
-	}
-	var l struct {
-		Timestamp time.Time
-	}
-	for {
-		err := it.Next(&l)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			fmt.Println(err)
-			return t, fmt.Errorf("Failed reading results for time: %v", err)
-		}
-		t = append(t, l.Timestamp)
-	}
-
-	return t, nil
 }

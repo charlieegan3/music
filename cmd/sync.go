@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/charlieegan3/music/pkg/tool/bq"
 	"log"
 
 	"github.com/charlieegan3/music/internal/pkg/shazam"
@@ -25,9 +26,11 @@ var spotifySyncCommand = &cobra.Command{
 				cfg.Spotify.RefreshToken,
 				cfg.Spotify.ClientID,
 				cfg.Spotify.ClientSecret,
+				cfg.Google.SvcAccountJSON,
 				cfg.Google.Project,
 				cfg.Google.Dataset,
 				cfg.Google.Table,
+				bq.JSONSchema,
 			)
 			if err != nil {
 				log.Printf("sync attempt failed: %v", err)

@@ -7,7 +7,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// creates a token to interact with the Spotify API
+// buildClient creates a token to interact with the Spotify API
 func buildClient(accessToken, refreshToken, clientID, clientSecret string) spotify.Client {
 	token := &oauth2.Token{
 		AccessToken:  accessToken,

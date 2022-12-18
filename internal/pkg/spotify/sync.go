@@ -3,7 +3,7 @@ package spotify
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"google.golang.org/api/option"
 	"strings"
 	"time"
 
@@ -14,18 +14,27 @@ import (
 )
 
 // Sync gets a list of recently played tracks and uploads to bigquery
-func Sync(accessToken, refreshToken, clientID, clientSecret, projectID, datasetName, tableName string) error {
+func Sync(
+	accessToken,
+	refreshToken,
+	clientID,
+	clientSecret,
+	googleCredentialsJSON,
+	projectID,
+	datasetName,
+	tableName string,
+	jsonSchema []byte,
+) error {
 	// Creates a bq client.
 	ctx := context.Background()
 
-	bigqueryClient, err := bigquery.NewClient(ctx, projectID)
+	bigqueryClient, err := bigquery.NewClient(
+		ctx,
+		projectID,
+		option.WithCredentialsJSON([]byte(googleCredentialsJSON)),
+	)
 	if err != nil {
 		return fmt.Errorf("Failed to create client: %v", err)
-	}
-	// loads in the table schema from file
-	jsonSchema, err := ioutil.ReadFile("schema.json")
-	if err != nil {
-		return fmt.Errorf("Failed to create schema: %v", err)
 	}
 	schema, err := bigquery.SchemaFromJSON(jsonSchema)
 	if err != nil {

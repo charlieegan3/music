@@ -39,12 +39,13 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 	var path string
 	var ok bool
 
-	// load lastfm config
 	path = "jobs.sync.schedule"
 	schedule, ok := m.config.Path(path).Data().(string)
 	if !ok {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
+
+	// load lastfm config
 	path = "lastfm.api_key"
 	apiKey, ok := m.config.Path(path).Data().(string)
 	if !ok {
@@ -52,6 +53,28 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 	}
 	path = "lastfm.username"
 	username, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return j, fmt.Errorf("missing required config path: %s", path)
+	}
+
+	path = "spotify.access_token"
+	spotifyAccessToken, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return j, fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "spotify.refresh_token"
+	spotifyRefreshToken, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return j, fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "spotify.client_id"
+	spotifyClientID, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return j, fmt.Errorf("missing required config path: %s", path)
+	}
+
+	path = "spotify.client_secret"
+	spotifyClientSecret, ok := m.config.Path(path).Data().(string)
 	if !ok {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
@@ -84,10 +107,23 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			ScheduleOverride:      schedule,
 			APIKey:                apiKey,
 			Username:              username,
+			GoogleCredentialsJSON: googleJSON,
 			ProjectID:             projectID,
 			DatasetName:           dataset,
 			TableName:             table,
+		},
+
+		&jobs.SpotifySync{
+			SpotifyAccessToken:  spotifyAccessToken,
+			SpotifyRefreshToken: spotifyRefreshToken,
+			SpotifyClientID:     spotifyClientID,
+			SpotifyClientSecret: spotifyClientSecret,
+
+			ScheduleOverride:      schedule,
 			GoogleCredentialsJSON: googleJSON,
+			ProjectID:             projectID,
+			DatasetName:           dataset,
+			TableName:             table,
 		},
 	}, nil
 }

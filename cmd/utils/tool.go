@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/spf13/viper"
 
@@ -30,7 +31,15 @@ func main() {
 		log.Fatalf("failed to get jobs: %s", err)
 	}
 
-	err = j[0].Run(context.Background())
+	switch os.Args[1] {
+	case "lastfm":
+		err = j[0].Run(context.Background())
+	case "spotify":
+		err = j[1].Run(context.Background())
+	default:
+		log.Fatalf("unknown job: %s", os.Args[1])
+	}
+
 	if err != nil {
 		log.Fatalf("failed to run job: %s", err)
 	}
