@@ -20,7 +20,7 @@ func SavePlay(ctx context.Context,
 	var vss []*bigquery.ValuesSaver
 	vss = append(vss, &bigquery.ValuesSaver{
 		Schema:   schema,
-		InsertID: fmt.Sprintf("%v", time.Now().Unix()),
+		InsertID: fmt.Sprintf("%v", timestamp),
 		Row: []bigquery.Value{
 			track,
 			artists,
