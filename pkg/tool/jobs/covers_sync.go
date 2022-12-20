@@ -45,7 +45,26 @@ func (s *CoversSync) Run(ctx context.Context) error {
 			return
 		}
 
-		queryString := "select distinct artist, album from `charlieegan3-music-001.music.plays` order by artist, album;"
+		queryString := fmt.Sprintf(`
+SELECT
+  artist,
+  album,
+  ARRAY_AGG(album_cover
+  ORDER BY
+    COALESCE(created_at, timestamp) DESC
+  LIMIT
+    1)[
+OFFSET
+  (0)] album_cover,
+FROM %s
+  
+GROUP BY
+  artist,
+  album
+ORDER BY
+  artist,
+  album
+`, "`charlieegan3-music-001.music.plays`")
 		q := bigqueryClient.Query(queryString)
 		it, err := q.Read(ctx)
 		if err != nil {
@@ -62,18 +81,25 @@ func (s *CoversSync) Run(ctx context.Context) error {
 				errCh <- fmt.Errorf("failed to read row from bq result: %v", err)
 			}
 
-			rows = append(rows, goqu.Record{"artist": r.Artist, "album": r.Album})
+			rows = append(rows, goqu.Record{"artist": r.Artist, "album": r.Album, "url": r.URL})
 		}
 
 		goquDB := goqu.New("postgres", s.DB)
-		exe := goquDB.Insert("music.covers").Rows(rows).OnConflict(goqu.DoNothing()).Executor()
-		res, err := exe.Exec()
+		query := goquDB.Insert("music.covers").Rows(rows).OnConflict(
+			goqu.DoUpdate(
+				"artist, album",
+				goqu.C("url").Set(goqu.L("EXCLUDED.url")),
+			).Where(goqu.L(`"covers"."url"`).Neq(goqu.L("EXCLUDED.url"))),
+		)
+		res, err := query.Executor().ExecContext(ctx)
 		if err != nil {
-			errCh <- fmt.Errorf("failed to generate insert sql: %v", err)
+			errCh <- fmt.Errorf("failed to insert: %v", err)
+			return
 		}
 		rowCount, err := res.RowsAffected()
 		if err != nil {
 			errCh <- fmt.Errorf("failed to get row count: %v", err)
+			return
 		}
 
 		fmt.Println("New covers:", rowCount)
@@ -105,4 +131,5 @@ func (s *CoversSync) Schedule() string {
 type artistAlbumRow struct {
 	Artist string
 	Album  string
+	URL    string `bigquery:"album_cover"`
 }
