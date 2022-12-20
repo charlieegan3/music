@@ -75,6 +75,11 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to run job: %v", err)
 			}
+		case "covers_upload":
+			err := jobs[3].Run(ctx)
+			if err != nil {
+				log.Fatalf("failed to run job: %v", err)
+			}
 		}
 
 		os.Exit(0)

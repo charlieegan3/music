@@ -51,7 +51,7 @@ SELECT
   album,
   ARRAY_AGG(album_cover
   ORDER BY
-    COALESCE(created_at, timestamp) DESC
+    COALESCE(timestamp, created_at) DESC
   LIMIT
     1)[
 OFFSET

@@ -62,12 +62,12 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 
 	// load lastfm config
 	path = "lastfm.api_key"
-	apiKey, ok := m.config.Path(path).Data().(string)
+	lastFMAPIKey, ok := m.config.Path(path).Data().(string)
 	if !ok {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "lastfm.username"
-	username, ok := m.config.Path(path).Data().(string)
+	lastFMUsername, ok := m.config.Path(path).Data().(string)
 	if !ok {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
@@ -94,7 +94,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
 
-	// load bigquery/google config
+	// load google config (bq & storage)
 	path = "bigquery.project_id"
 	projectID, ok := m.config.Path(path).Data().(string)
 	if !ok {
@@ -116,12 +116,17 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 	if !ok {
 		return j, fmt.Errorf("missing required config path: %s", path)
 	}
+	path = "google.covers_bucket"
+	coversBucketName, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return j, fmt.Errorf("missing required config path: %s", path)
+	}
 
 	return []apis.Job{
 		&jobs.LastFMSync{
 			ScheduleOverride:      schedule,
-			APIKey:                apiKey,
-			Username:              username,
+			APIKey:                lastFMAPIKey,
+			Username:              lastFMUsername,
 			GoogleCredentialsJSON: googleJSON,
 			ProjectID:             projectID,
 			DatasetName:           dataset,
@@ -148,6 +153,15 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			ProjectID:             projectID,
 			DatasetName:           dataset,
 			TableName:             table,
+		},
+
+		&jobs.CoversStore{
+			DB:               m.db,
+			ScheduleOverride: schedule,
+			LastFMAPIKey:     lastFMAPIKey,
+
+			GoogleCredentialsJSON: googleJSON,
+			GoogleBucketName:      coversBucketName,
 		},
 	}, nil
 }
