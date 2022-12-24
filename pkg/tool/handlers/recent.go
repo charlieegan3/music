@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func BuildIndexHandler(projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
+func BuildRecentHandler(projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		bigqueryClient, err := bigquery.NewClient(
