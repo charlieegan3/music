@@ -28,7 +28,7 @@ func BuildIndexHandler(projectID, datasetName, tablename, googleJSON string) fun
 
 		queryString := fmt.Sprintf(`
 select track, artist, album, timestamp from %s
-order by created_at desc
+order by timestamp desc
 limit 50
 `, fmt.Sprintf("`%s.%s.%s`", projectID, datasetName, tablename))
 
