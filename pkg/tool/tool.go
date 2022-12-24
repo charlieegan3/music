@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-
 	"github.com/Jeffail/gabs/v2"
 	"github.com/charlieegan3/music/pkg/tool/handlers"
 	"github.com/charlieegan3/music/pkg/tool/jobs"
@@ -167,9 +166,45 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 }
 
 func (m *Music) HTTPAttach(router *mux.Router) error {
+	path := "bigquery.project_id"
+	projectID, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "bigquery.dataset"
+	dataset, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "bigquery.table"
+	table, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "google.json"
+	googleJSON, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "google.covers_bucket"
+	coversBucketName, ok := m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+
 	router.HandleFunc(
 		"/",
-		handlers.BuildIndexHandler(),
+		handlers.BuildIndexHandler(projectID, dataset, table, googleJSON),
+	).Methods("GET")
+
+	router.HandleFunc(
+		"/artworks/{artist}/{album}.jpg",
+		handlers.BuildArtworkHandler(coversBucketName),
+	).Methods("GET")
+
+	router.HandleFunc(
+		"/{.*}",
+		handlers.BuildStaticHandler(),
 	).Methods("GET")
 
 	return nil

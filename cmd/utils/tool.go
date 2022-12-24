@@ -64,7 +64,7 @@ func main() {
 		log.Fatalf("failed to add tool: %v", err)
 	}
 
-	if len(os.Args) > 0 {
+	if len(os.Args) > 1 {
 		jobs, err := mt.Jobs()
 		if err != nil {
 			log.Fatalf("failed to get jobs: %v", err)
@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Run services
-	go tb.RunJobs(ctx)
+	//go tb.RunJobs(ctx)
 
 	tb.RunServer(ctx, "0.0.0.0", "3000")
 }

@@ -2,14 +2,11 @@ package jobs
 
 import (
 	"bytes"
-	"cloud.google.com/go/storage"
 	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/api/option"
-	"hash/crc32"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -19,7 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
+	"github.com/charlieegan3/music/pkg/tool/utils"
 	"github.com/doug-martin/goqu/v9"
+	"google.golang.org/api/option"
 )
 
 var coverSizePerferenceOrder = []string{
@@ -128,7 +128,7 @@ func (s *CoversStore) Run(ctx context.Context) error {
 			}
 
 			bkt := storageClient.Bucket(s.GoogleBucketName)
-			obj := bkt.Object(fmt.Sprintf("%s/%s.jpg", crc32Hash(row.Artist), crc32Hash(row.Album)))
+			obj := bkt.Object(fmt.Sprintf("%s/%s.jpg", utils.CRC32Hash(row.Artist), utils.CRC32Hash(row.Album)))
 			w := obj.NewWriter(ctx)
 			_, err = io.Copy(w, resp)
 			if err != nil {
@@ -170,10 +170,6 @@ func (s *CoversStore) Schedule() string {
 		return s.ScheduleOverride
 	}
 	return "0 0 6 * * *"
-}
-
-func crc32Hash(input string) string {
-	return fmt.Sprintf("%d", crc32.ChecksumIEEE([]byte(input)))
 }
 
 func updateAsCompleted(goquDB *goqu.Database, rowID int64) {

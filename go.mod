@@ -9,7 +9,9 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/charlieegan3/toolbelt v0.0.0-20221204170703-2a0420bbcdcd
 	github.com/doug-martin/goqu/v9 v9.18.0
+	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/structs v1.1.0
+	github.com/foolin/goview v0.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gosimple/slug v1.9.0
 	github.com/hashicorp/go-multierror v1.1.1

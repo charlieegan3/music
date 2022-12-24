@@ -1,0 +1,20 @@
+{{define "title"}}Recent{{end}}
+{{define "page_title"}}Recently Played{{end}}
+{{define "head"}}{{end}}
+
+{{define "content"}}
+{{ range .plays }}
+<div class="mb1 pa1 ba b--black-05 flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1 pl0-l">
+      <div class="flex items-center">{{ .Track }}</div>
+      <div class="f6">
+          <div class="tr"> {{ .Artist }} </div>
+          <div class="tr muted"> {{ .AgoTime }} </div>
+      </div>
+    </div>
+</div>
+{{end}}
+{{end}}
