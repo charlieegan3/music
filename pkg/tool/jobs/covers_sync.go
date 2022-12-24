@@ -64,7 +64,7 @@ GROUP BY
 ORDER BY
   artist,
   album
-`, "`charlieegan3-music-001.music.plays`")
+`, fmt.Sprintf("`%s.%s.%s`", s.ProjectID, s.DatasetName, s.TableName))
 		q := bigqueryClient.Query(queryString)
 		it, err := q.Read(ctx)
 		if err != nil {

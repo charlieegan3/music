@@ -70,12 +70,12 @@ func main() {
 			log.Fatalf("failed to get jobs: %v", err)
 		}
 		switch os.Args[1] {
-		case "covers":
+		case "covers_sync":
 			err := jobs[2].Run(ctx)
 			if err != nil {
 				log.Fatalf("failed to run job: %v", err)
 			}
-		case "covers_upload":
+		case "covers_store":
 			err := jobs[3].Run(ctx)
 			if err != nil {
 				log.Fatalf("failed to run job: %v", err)
