@@ -39,12 +39,12 @@ func BuildArtworkHandler(bucketName string) func(http.ResponseWriter, *http.Requ
 			w.Write([]byte(err.Error()))
 			return
 		}
-		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("unable to fetch artwork"))
 			return
 		}
+		defer resp.Body.Close()
 
 		w.Header().Set("ETag", resp.Header.Get("ETag"))
 

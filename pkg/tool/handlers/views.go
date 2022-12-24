@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"embed"
+	"fmt"
+	"github.com/charlieegan3/music/pkg/tool/utils"
 	"github.com/foolin/goview"
+	"github.com/gosimple/slug"
+	"html/template"
 	"path/filepath"
 )
 
@@ -16,6 +20,15 @@ func init() {
 		Root:      "views",
 		Extension: ".html",
 		Master:    "layouts/master",
+		Funcs: template.FuncMap{
+			"artist_slug": func(artistName string) string {
+				return fmt.Sprintf(
+					"%s-%s",
+					utils.CRC32Hash(artistName),
+					slug.Make(artistName),
+				)
+			},
+		},
 	}
 
 	gv = goview.New(cnfg)

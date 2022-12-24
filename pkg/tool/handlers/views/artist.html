@@ -1,0 +1,23 @@
+{{define "title"}}{{.ArtistName}}{{end}}
+{{define "page_title"}}{{.ArtistName}}{{end}}
+{{define "head"}}{{end}}
+
+{{define "content"}}
+
+<p>{{ .Rank }} - {{ .Total }} total plays</p>
+
+{{ range .Tracks }}
+<div class="mb1 pa1 ba b--light-gray flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ $.ArtistName }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1">
+        <div class="flex items-center">{{ .Track }}</div>
+        <div class="f6">
+            <div class="tr"> {{ .Album }} </div>
+            <div class="tr muted"> {{ .Count }} plays </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}

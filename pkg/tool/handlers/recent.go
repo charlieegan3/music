@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -52,6 +53,8 @@ limit 50
 				return
 			}
 
+			r.Artists = strings.Split(r.Artist, ",")
+
 			r.Artwork = fmt.Sprintf(
 				"/artworks/%s/%s.jpg",
 				utils.CRC32Hash(r.Artist),
@@ -67,7 +70,7 @@ limit 50
 			w,
 			http.StatusOK,
 			"recent",
-			goview.M{"plays": rows},
+			goview.M{"Plays": rows},
 		)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -79,6 +82,7 @@ limit 50
 type recentPlayRow struct {
 	Track     string
 	Artist    string
+	Artists   []string
 	Album     string
 	Artwork   string
 	AgoTime   string
