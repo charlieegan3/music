@@ -18,6 +18,22 @@ var migrations embed.FS
 type Music struct {
 	db     *sql.DB
 	config *gabs.Container
+
+	schedule string
+
+	lastFMAPIKey   string
+	lastFMUsername string
+
+	spotifyAccessToken  string
+	spotifyRefreshToken string
+	spotifyClientID     string
+	spotifyClientSecret string
+
+	projectID        string
+	dataset          string
+	table            string
+	googleJSON       string
+	coversBucketName string
 }
 
 func (m *Music) Name() string {
@@ -45,161 +61,133 @@ func (m *Music) DatabaseSet(db *sql.DB) {
 func (m *Music) SetConfig(config map[string]any) error {
 	m.config = gabs.Wrap(config)
 
-	return nil
-}
-
-func (m *Music) Jobs() ([]apis.Job, error) {
-	var j []apis.Job
 	var path string
 	var ok bool
 
 	path = "jobs.sync.schedule"
-	schedule, ok := m.config.Path(path).Data().(string)
+	m.schedule, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 
 	// load lastfm config
 	path = "lastfm.api_key"
-	lastFMAPIKey, ok := m.config.Path(path).Data().(string)
+	m.lastFMAPIKey, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "lastfm.username"
-	lastFMUsername, ok := m.config.Path(path).Data().(string)
+	m.lastFMUsername, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 
 	path = "spotify.access_token"
-	spotifyAccessToken, ok := m.config.Path(path).Data().(string)
+	m.spotifyAccessToken, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "spotify.refresh_token"
-	spotifyRefreshToken, ok := m.config.Path(path).Data().(string)
+	m.spotifyRefreshToken, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "spotify.client_id"
-	spotifyClientID, ok := m.config.Path(path).Data().(string)
+	m.spotifyClientID, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 
 	path = "spotify.client_secret"
-	spotifyClientSecret, ok := m.config.Path(path).Data().(string)
+	m.spotifyClientSecret, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 
 	// load google config (bq & storage)
 	path = "bigquery.project_id"
-	projectID, ok := m.config.Path(path).Data().(string)
+	m.projectID, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "bigquery.dataset"
-	dataset, ok := m.config.Path(path).Data().(string)
+	m.dataset, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "bigquery.table"
-	table, ok := m.config.Path(path).Data().(string)
+	m.table, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
-
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "google.json"
-	googleJSON, ok := m.config.Path(path).Data().(string)
+	m.googleJSON, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 	path = "google.covers_bucket"
-	coversBucketName, ok := m.config.Path(path).Data().(string)
+	m.coversBucketName, ok = m.config.Path(path).Data().(string)
 	if !ok {
-		return j, fmt.Errorf("missing required config path: %s", path)
+		return fmt.Errorf("missing required config path: %s", path)
 	}
 
+	return nil
+}
+
+func (m *Music) Jobs() ([]apis.Job, error) {
 	return []apis.Job{
 		&jobs.LastFMSync{
-			ScheduleOverride:      schedule,
-			APIKey:                lastFMAPIKey,
-			Username:              lastFMUsername,
-			GoogleCredentialsJSON: googleJSON,
-			ProjectID:             projectID,
-			DatasetName:           dataset,
-			TableName:             table,
+			ScheduleOverride:      m.schedule,
+			APIKey:                m.lastFMAPIKey,
+			Username:              m.lastFMUsername,
+			GoogleCredentialsJSON: m.googleJSON,
+			ProjectID:             m.projectID,
+			DatasetName:           m.dataset,
+			TableName:             m.table,
 		},
 
 		&jobs.SpotifySync{
-			SpotifyAccessToken:  spotifyAccessToken,
-			SpotifyRefreshToken: spotifyRefreshToken,
-			SpotifyClientID:     spotifyClientID,
-			SpotifyClientSecret: spotifyClientSecret,
+			SpotifyAccessToken:  m.spotifyAccessToken,
+			SpotifyRefreshToken: m.spotifyRefreshToken,
+			SpotifyClientID:     m.spotifyClientID,
+			SpotifyClientSecret: m.spotifyClientSecret,
 
-			ScheduleOverride:      schedule,
-			GoogleCredentialsJSON: googleJSON,
-			ProjectID:             projectID,
-			DatasetName:           dataset,
-			TableName:             table,
+			ScheduleOverride:      m.schedule,
+			GoogleCredentialsJSON: m.googleJSON,
+			ProjectID:             m.projectID,
+			DatasetName:           m.dataset,
+			TableName:             m.table,
 		},
 
 		&jobs.CoversSync{
 			DB:                    m.db,
-			ScheduleOverride:      schedule,
-			GoogleCredentialsJSON: googleJSON,
-			ProjectID:             projectID,
-			DatasetName:           dataset,
-			TableName:             table,
+			ScheduleOverride:      m.schedule,
+			GoogleCredentialsJSON: m.googleJSON,
+			ProjectID:             m.projectID,
+			DatasetName:           m.dataset,
+			TableName:             m.table,
 		},
 
 		&jobs.CoversStore{
 			DB:               m.db,
-			ScheduleOverride: schedule,
-			LastFMAPIKey:     lastFMAPIKey,
+			ScheduleOverride: m.schedule,
+			LastFMAPIKey:     m.lastFMAPIKey,
 
-			GoogleCredentialsJSON: googleJSON,
-			GoogleBucketName:      coversBucketName,
+			GoogleCredentialsJSON: m.googleJSON,
+			GoogleBucketName:      m.coversBucketName,
 		},
 	}, nil
 }
 
 func (m *Music) HTTPAttach(router *mux.Router) error {
-	path := "bigquery.project_id"
-	projectID, ok := m.config.Path(path).Data().(string)
-	if !ok {
-		return fmt.Errorf("missing required config path: %s", path)
-	}
-	path = "bigquery.dataset"
-	dataset, ok := m.config.Path(path).Data().(string)
-	if !ok {
-		return fmt.Errorf("missing required config path: %s", path)
-	}
-	path = "bigquery.table"
-	table, ok := m.config.Path(path).Data().(string)
-	if !ok {
-		return fmt.Errorf("missing required config path: %s", path)
-	}
-	path = "google.json"
-	googleJSON, ok := m.config.Path(path).Data().(string)
-	if !ok {
-		return fmt.Errorf("missing required config path: %s", path)
-	}
-	path = "google.covers_bucket"
-	coversBucketName, ok := m.config.Path(path).Data().(string)
-	if !ok {
-		return fmt.Errorf("missing required config path: %s", path)
-	}
-
 	router.HandleFunc(
 		"/",
-		handlers.BuildIndexHandler(projectID, dataset, table, googleJSON),
+		handlers.BuildIndexHandler(m.projectID, m.dataset, m.table, m.googleJSON),
 	).Methods("GET")
 
 	router.HandleFunc(
 		"/artworks/{artist}/{album}.jpg",
-		handlers.BuildArtworkHandler(coversBucketName),
+		handlers.BuildArtworkHandler(m.coversBucketName),
 	).Methods("GET")
 
 	router.HandleFunc(
