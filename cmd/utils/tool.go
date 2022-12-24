@@ -80,6 +80,11 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to run job: %v", err)
 			}
+		case "artists_index":
+			err := jobs[4].Run(ctx)
+			if err != nil {
+				log.Fatalf("failed to run job: %v", err)
+			}
 		}
 
 		os.Exit(0)

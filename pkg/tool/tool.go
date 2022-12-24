@@ -176,6 +176,16 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			GoogleCredentialsJSON: m.googleJSON,
 			GoogleBucketName:      m.coversBucketName,
 		},
+
+		&jobs.ArtistsIndex{
+			DB:               m.db,
+			ScheduleOverride: m.schedule,
+
+			GoogleCredentialsJSON: m.googleJSON,
+			ProjectID:             m.projectID,
+			DatasetName:           m.dataset,
+			TableName:             m.table,
+		},
 	}, nil
 }
 
