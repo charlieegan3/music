@@ -14,7 +14,17 @@
     <div class="flex-grow-1 flex justify-between pl1">
         <div class="flex items-center">{{ .Track }}</div>
         <div class="f6">
-            <div class="tr"> {{ .Album }} </div>
+            <div class="tr">
+                {{ .Album }}
+                {{ if ne .Artist $.ArtistName }}
+                <span class="muted">(
+                    {{- $lenArtists := len .Artists -}}
+                    {{- range $i, $e := .Artists -}}
+                    <a href="/artists/{{ artist_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                    {{- end -}}
+                )</span>
+                {{ end }}
+            </div>
             <div class="tr muted"> {{ .Count }} plays </div>
         </div>
     </div>

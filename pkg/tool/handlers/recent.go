@@ -53,7 +53,7 @@ limit 50
 				return
 			}
 
-			r.Artists = strings.Split(r.Artist, ",")
+			r.Artists = strings.Split(r.Artist, ", ")
 
 			r.Artwork = fmt.Sprintf(
 				"/artworks/%s/%s.jpg",

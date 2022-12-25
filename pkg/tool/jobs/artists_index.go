@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/charlieegan3/music/pkg/tool/utils"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -71,6 +72,19 @@ order by artist asc
 				"name": r.Artist,
 				"id":   utils.CRC32Hash(r.Artist),
 			})
+
+			if strings.Contains(r.Artist, ",") {
+				for _, artist := range strings.Split(r.Artist, ", ") {
+					formattedName := strings.TrimSpace(artist)
+					if formattedName == "" {
+						continue
+					}
+					rows = append(rows, goqu.Record{
+						"name": formattedName,
+						"id":   utils.CRC32Hash(formattedName),
+					})
+				}
+			}
 		}
 
 		goquDB := goqu.New("postgres", a.DB)

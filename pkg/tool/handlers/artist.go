@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"math"
 	"net/http"
 	"strings"
 )
@@ -58,7 +59,7 @@ func BuildArtistHandler(db *sql.DB, projectID, datasetName, tablename, googleJSO
 
 		queryString := fmt.Sprintf(`
 select artist, album, track, count(track) as count from %s
-where artist = %q
+where STARTS_WITH(artist, @artistName) or contains_substr(artist, @artistNameWithComma)
 group by artist, album, track
 order by count desc
 `,
@@ -68,9 +69,19 @@ order by count desc
 				datasetName,
 				tablename,
 			),
-			artistName)
-
+		)
 		q := bigqueryClient.Query(queryString)
+		q.Parameters = []bigquery.QueryParameter{
+			{
+				Name:  "artistName",
+				Value: artistName,
+			},
+			{
+				Name:  "artistNameWithComma",
+				Value: fmt.Sprintf(", %s", artistName),
+			},
+		}
+
 		it, err := q.Read(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -93,9 +104,15 @@ order by count desc
 
 			r.Artwork = fmt.Sprintf(
 				"/artworks/%s/%s.jpg",
-				utils.CRC32Hash(artistName),
+				utils.CRC32Hash(r.Artist),
 				utils.CRC32Hash(r.Album),
 			)
+
+			for _, a := range strings.Split(r.Artist, ", ") {
+				if a != artistName {
+					r.Artists = append(r.Artists, a)
+				}
+			}
 
 			total += r.Count
 
@@ -109,7 +126,7 @@ WITH
     artist,
     COUNT(track) AS count
   FROM
-	%s
+    %s
   GROUP BY
     artist
   ORDER BY
@@ -124,11 +141,13 @@ WITH
   ORDER BY
     count DESC)
 SELECT
+  artist,
   rank
 FROM
   ranks
 WHERE
-  artist = %q
+  STARTS_WITH(artist, @artistName) 
+  OR CONTAINS_SUBSTR(artist, @artistNameWithComma)
 `,
 			fmt.Sprintf(
 				"`%s.%s.%s`",
@@ -136,9 +155,20 @@ WHERE
 				datasetName,
 				tablename,
 			),
-			artistName)
+		)
 
 		q = bigqueryClient.Query(queryString)
+		q.Parameters = []bigquery.QueryParameter{
+			{
+				Name:  "artistName",
+				Value: artistName,
+			},
+			{
+				Name:  "artistNameWithComma",
+				Value: fmt.Sprintf(", %s", artistName),
+			},
+		}
+
 		it, err = q.Read(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -146,21 +176,42 @@ WHERE
 			return
 		}
 
-		var rank int64
-		var row struct {
-			Rank int64
+		var ranks []int64
+		var best int64
+		best = math.MaxInt64
+		isPrimaryArtist := true
+		for {
+			var row struct {
+				Rank   int64
+				Artist string
+			}
+			err = it.Next(&row)
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			ranks = append(ranks, row.Rank)
+
+			if row.Artist != artistName {
+				isPrimaryArtist = false
+			}
+			if row.Rank < best {
+				best = row.Rank
+			}
 		}
-		err = it.Next(&row)
-		if err != nil && err != iterator.Done {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		rank = row.Rank
 
 		var rankString string
-		if rank > 0 {
-			rankString = fmt.Sprintf("Artist Rank #%d", rank)
+		if len(ranks) > 0 || !isPrimaryArtist {
+			if len(ranks) > 1 || !isPrimaryArtist {
+				rankString = fmt.Sprintf("Artist Rank #%d (including colabs)", best)
+			} else {
+				rankString = fmt.Sprintf("Artist Rank #%d", best)
+			}
 		}
 
 		err = gv.Render(
@@ -183,6 +234,8 @@ WHERE
 
 type artistTrackRow struct {
 	Album   string
+	Artist  string
+	Artists []string
 	Track   string
 	Artwork string
 	Count   int64

@@ -28,6 +28,9 @@ func init() {
 					slug.Make(artistName),
 				)
 			},
+			"add": func(a, b int) int {
+				return a + b
+			},
 		},
 	}
 
