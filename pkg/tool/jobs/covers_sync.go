@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"log"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -102,7 +103,7 @@ ORDER BY
 			return
 		}
 
-		fmt.Println("New covers:", rowCount)
+		log.Println("New covers:", rowCount)
 
 		doneCh <- true
 	}()

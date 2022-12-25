@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/charlieegan3/music/pkg/tool/utils"
+	"log"
 	"strings"
 	"time"
 
@@ -100,7 +101,7 @@ order by artist asc
 			return
 		}
 
-		fmt.Println("New artists:", rowCount)
+		log.Println("New artists:", rowCount)
 
 		doneCh <- true
 	}()

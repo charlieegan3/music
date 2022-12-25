@@ -19,7 +19,10 @@ type Music struct {
 	db     *sql.DB
 	config *gabs.Container
 
-	schedule string
+	lastFMschedule  string
+	spotifySchedule string
+	coversSchedule  string
+	artistsSchedule string
 
 	lastFMAPIKey   string
 	lastFMUsername string
@@ -64,8 +67,23 @@ func (m *Music) SetConfig(config map[string]any) error {
 	var path string
 	var ok bool
 
-	path = "jobs.sync.schedule"
-	m.schedule, ok = m.config.Path(path).Data().(string)
+	path = "jobs.lastfm.schedule"
+	m.lastFMschedule, ok = m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "jobs.spotify.schedule"
+	m.spotifySchedule, ok = m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "jobs.covers.schedule"
+	m.coversSchedule, ok = m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "jobs.artists.schedule"
+	m.artistsSchedule, ok = m.config.Path(path).Data().(string)
 	if !ok {
 		return fmt.Errorf("missing required config path: %s", path)
 	}
@@ -137,7 +155,7 @@ func (m *Music) SetConfig(config map[string]any) error {
 func (m *Music) Jobs() ([]apis.Job, error) {
 	return []apis.Job{
 		&jobs.LastFMSync{
-			ScheduleOverride:      m.schedule,
+			ScheduleOverride:      m.lastFMschedule,
 			APIKey:                m.lastFMAPIKey,
 			Username:              m.lastFMUsername,
 			GoogleCredentialsJSON: m.googleJSON,
@@ -152,7 +170,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			SpotifyClientID:     m.spotifyClientID,
 			SpotifyClientSecret: m.spotifyClientSecret,
 
-			ScheduleOverride:      m.schedule,
+			ScheduleOverride:      m.spotifySchedule,
 			GoogleCredentialsJSON: m.googleJSON,
 			ProjectID:             m.projectID,
 			DatasetName:           m.dataset,
@@ -161,7 +179,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 
 		&jobs.CoversSync{
 			DB:                    m.db,
-			ScheduleOverride:      m.schedule,
+			ScheduleOverride:      m.coversSchedule,
 			GoogleCredentialsJSON: m.googleJSON,
 			ProjectID:             m.projectID,
 			DatasetName:           m.dataset,
@@ -170,7 +188,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 
 		&jobs.CoversStore{
 			DB:               m.db,
-			ScheduleOverride: m.schedule,
+			ScheduleOverride: m.coversSchedule,
 			LastFMAPIKey:     m.lastFMAPIKey,
 
 			GoogleCredentialsJSON: m.googleJSON,
@@ -179,7 +197,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 
 		&jobs.ArtistsIndex{
 			DB:               m.db,
-			ScheduleOverride: m.schedule,
+			ScheduleOverride: m.artistsSchedule,
 
 			GoogleCredentialsJSON: m.googleJSON,
 			ProjectID:             m.projectID,
