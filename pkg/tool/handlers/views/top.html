@@ -1,0 +1,83 @@
+{{define "title"}}{{.Top}}{{end}}
+{{define "page_title"}}Top Plays{{end}}
+{{define "head"}}{{end}}
+
+{{define "content"}}
+<h2>Month</h2>
+{{ range .MonthTop }}
+<div class="mb1 pa1 ba b--light-gray flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1">
+        <div class="flex items-center">
+            <a href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
+        </div>
+        <div class="f6">
+            <div class="tr">
+                <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}">{{ .Album }}</a>
+                <span class="muted">(
+                    {{- $lenArtists := len .Artists -}}
+                    {{- range $i, $e := .Artists -}}
+                    <a href="/artists/{{ name_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                    {{- end -}}
+                )</span>
+            </div>
+            <div class="tr muted"> {{ .Count }} plays </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<h2>Year</h2>
+{{ range .YearTop }}
+<div class="mb1 pa1 ba b--light-gray flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1">
+        <div class="flex items-center">
+            <a href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
+        </div>
+        <div class="f6">
+            <div class="tr">
+                <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}">{{ .Album }}</a>
+                <span class="muted">(
+                    {{- $lenArtists := len .Artists -}}
+                    {{- range $i, $e := .Artists -}}
+                    <a href="/artists/{{ name_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                    {{- end -}}
+                )</span>
+            </div>
+            <div class="tr muted"> {{ .Count }} plays </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<h2>All Time</h2>
+{{ range .AllTop }}
+<div class="mb1 pa1 ba b--light-gray flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1">
+        <div class="flex items-center">
+            <a href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
+        </div>
+        <div class="f6">
+            <div class="tr">
+                <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}">{{ .Album }}</a>
+                <span class="muted">(
+                    {{- $lenArtists := len .Artists -}}
+                    {{- range $i, $e := .Artists -}}
+                    <a href="/artists/{{ name_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                    {{- end -}}
+                )</span>
+            </div>
+            <div class="tr muted"> {{ .Count }} plays </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}
