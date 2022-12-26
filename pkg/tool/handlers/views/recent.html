@@ -13,7 +13,7 @@
       <div class="f6">
           <div class="tr">
               {{ range .Artists }}
-                <a href="/artists/{{ artist_slug . }}">{{ . }}</a>
+                <a href="/artists/{{ name_slug . }}">{{ . }}</a>
               {{ end }}
           </div>
           <div class="tr muted"> {{ .AgoTime }} </div>

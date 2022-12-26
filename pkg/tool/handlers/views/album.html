@@ -1,10 +1,12 @@
-{{define "title"}}{{.ArtistName}}{{end}}
-{{define "page_title"}}{{.ArtistName}}{{end}}
+{{define "title"}}{{.AlbumName}} - {{.ArtistName}}{{end}}
+{{define "page_title"}}
+  {{.AlbumName}} <a href="/artists/{{ name_slug .ArtistName }}" class="muted">{{.ArtistName}}</a>
+{{end}}
 {{define "head"}}{{end}}
 
 {{define "content"}}
 
-<p>{{ .Rank }} - {{ .Total }} total plays</p>
+<p>{{ .Total }} total plays</p>
 
 {{ range .Tracks }}
 <div class="mb1 pa1 ba b--light-gray flex items-center">
@@ -15,7 +17,6 @@
         <div class="flex items-center">{{ .Track }}</div>
         <div class="f6">
             <div class="tr">
-                <a href="/artists/{{ name_slug $.ArtistName }}/albums/{{ name_slug .Album }}">{{ .Album }}</a>
                 {{ if ne .Artist $.ArtistName }}
                 <span class="muted">(
                     {{- $lenArtists := len .Artists -}}

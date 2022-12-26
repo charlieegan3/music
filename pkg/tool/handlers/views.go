@@ -21,7 +21,7 @@ func init() {
 		Extension: ".html",
 		Master:    "layouts/master",
 		Funcs: template.FuncMap{
-			"artist_slug": func(artistName string) string {
+			"name_slug": func(artistName string) string {
 				return fmt.Sprintf(
 					"%s-%s",
 					utils.CRC32Hash(artistName),

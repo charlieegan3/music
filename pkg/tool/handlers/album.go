@@ -10,16 +10,17 @@ import (
 	"github.com/gorilla/mux"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-	"math"
 	"net/http"
 	"strings"
 )
 
-func BuildArtistHandler(db *sql.DB, projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
+func BuildArtistAlbumHandler(db *sql.DB, projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
 
 	goquDB := goqu.New("postgres", db)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+
 		artistSlug, ok := mux.Vars(r)["artistSlug"]
 		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -27,19 +28,44 @@ func BuildArtistHandler(db *sql.DB, projectID, datasetName, tablename, googleJSO
 			return
 		}
 
-		parts := strings.Split(artistSlug, "-")
-		if len(parts) < 2 {
+		artistParts := strings.Split(artistSlug, "-")
+		if len(artistParts) < 2 {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("invalid URL"))
 			return
 		}
 
-		artistID := parts[0]
+		albumSlug, ok := mux.Vars(r)["albumSlug"]
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("invalid URL"))
+			return
+		}
+
+		albumParts := strings.Split(albumSlug, "-")
+		if len(albumParts) < 2 {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("invalid URL"))
+			return
+		}
+
+		artistID := artistParts[0]
+		albumID := albumParts[0]
 
 		var artistName string
-		_, err := goquDB.Select("name").
+		_, err = goquDB.Select("name").
 			From("music.name_index").
 			Where(goqu.C("id").Eq(artistID)).ScanVal(&artistName)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		var albumName string
+		_, err = goquDB.Select("name").
+			From("music.name_index").
+			Where(goqu.C("id").Eq(albumID)).ScanVal(&albumName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -58,10 +84,23 @@ func BuildArtistHandler(db *sql.DB, projectID, datasetName, tablename, googleJSO
 		}
 
 		queryString := fmt.Sprintf(`
-select artist, album, track, count(track) as count from %s
-where STARTS_WITH(artist, @artistName) or contains_substr(artist, @artistNameWithComma)
-group by artist, album, track
-order by count desc
+SELECT
+  artist,
+  album,
+  track,
+  COUNT(track) AS count
+FROM
+  %s
+WHERE
+  (STARTS_WITH(artist, @artistName)
+    OR CONTAINS_SUBSTR(artist, @artistNameWithComma))
+  AND ( album = @albumName )
+GROUP BY
+  artist,
+  album,
+  track
+ORDER BY
+  count DESC
 `,
 			fmt.Sprintf(
 				"`%s.%s.%s`",
@@ -80,6 +119,10 @@ order by count desc
 				Name:  "artistNameWithComma",
 				Value: fmt.Sprintf(", %s", artistName),
 			},
+			{
+				Name:  "albumName",
+				Value: albumName,
+			},
 		}
 
 		it, err := q.Read(r.Context())
@@ -88,10 +131,10 @@ order by count desc
 			w.Write([]byte(err.Error()))
 			return
 		}
-		var rows []artistTrackRow
+		var rows []artistAlbumTrackRow
 		var total int64
 		for {
-			var r artistTrackRow
+			var r artistAlbumTrackRow
 			err := it.Next(&r)
 			if err == iterator.Done {
 				break
@@ -119,110 +162,15 @@ order by count desc
 			rows = append(rows, r)
 		}
 
-		queryString = fmt.Sprintf(`
-WITH
-  artists AS (
-  SELECT
-    artist,
-    COUNT(track) AS count
-  FROM
-    %s
-  GROUP BY
-    artist
-  ORDER BY
-    count DESC ),
-  ranks AS (
-  SELECT
-    ROW_NUMBER() OVER (ORDER BY count DESC) AS rank,
-    artist,
-    count
-  FROM
-    artists
-  ORDER BY
-    count DESC)
-SELECT
-  artist,
-  rank
-FROM
-  ranks
-WHERE
-  STARTS_WITH(artist, @artistName) 
-  OR CONTAINS_SUBSTR(artist, @artistNameWithComma)
-`,
-			fmt.Sprintf(
-				"`%s.%s.%s`",
-				projectID,
-				datasetName,
-				tablename,
-			),
-		)
-
-		q = bigqueryClient.Query(queryString)
-		q.Parameters = []bigquery.QueryParameter{
-			{
-				Name:  "artistName",
-				Value: artistName,
-			},
-			{
-				Name:  "artistNameWithComma",
-				Value: fmt.Sprintf(", %s", artistName),
-			},
-		}
-
-		it, err = q.Read(r.Context())
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		var ranks []int64
-		var best int64
-		best = math.MaxInt64
-		isPrimaryArtist := true
-		for {
-			var row struct {
-				Rank   int64
-				Artist string
-			}
-			err = it.Next(&row)
-			if err == iterator.Done {
-				break
-			}
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				return
-			}
-
-			ranks = append(ranks, row.Rank)
-
-			if row.Artist != artistName {
-				isPrimaryArtist = false
-			}
-			if row.Rank < best {
-				best = row.Rank
-			}
-		}
-
-		var rankString string
-		if len(ranks) > 0 || !isPrimaryArtist {
-			if len(ranks) > 1 || !isPrimaryArtist {
-				rankString = fmt.Sprintf("Artist Rank #%d (including colabs)", best)
-			} else {
-				rankString = fmt.Sprintf("Artist Rank #%d", best)
-			}
-		}
-
 		err = gv.Render(
 			w,
 			http.StatusOK,
-			"artist",
+			"album",
 			goview.M{
 				"ArtistName": artistName,
+				"AlbumName":  albumName,
 				"Tracks":     rows,
 				"Total":      total,
-				"Rank":       rankString,
 			},
 		)
 		if err != nil {
@@ -232,7 +180,7 @@ WHERE
 	}
 }
 
-type artistTrackRow struct {
+type artistAlbumTrackRow struct {
 	Album   string
 	Artist  string
 	Artists []string
