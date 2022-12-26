@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"cloud.google.com/go/bigquery"
+	"encoding/json"
 	"fmt"
 	"github.com/charlieegan3/music/pkg/tool/utils"
 	"github.com/dustin/go-humanize"
 	"github.com/foolin/goview"
+	"github.com/gorilla/mux"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"net/http"
@@ -40,10 +42,11 @@ limit 50
 			w.Write([]byte(err.Error()))
 			return
 		}
+
 		var rows []recentPlayRow
 		for {
-			var r recentPlayRow
-			err := it.Next(&r)
+			var row recentPlayRow
+			err := it.Next(&row)
 			if err == iterator.Done {
 				break
 			}
@@ -53,17 +56,35 @@ limit 50
 				return
 			}
 
-			r.Artists = strings.Split(r.Artist, ", ")
+			row.Artists = strings.Split(row.Artist, ", ")
 
-			r.Artwork = fmt.Sprintf(
+			row.Artwork = fmt.Sprintf(
 				"/artworks/%s/%s.jpg",
-				utils.CRC32Hash(r.Artist),
-				utils.CRC32Hash(r.Album),
+				utils.CRC32Hash(row.Artist),
+				utils.CRC32Hash(row.Album),
 			)
 
-			r.AgoTime = humanize.Time(r.Timestamp)
+			row.AgoTime = humanize.Time(row.Timestamp)
 
-			rows = append(rows, r)
+			rows = append(rows, row)
+		}
+
+		format, _ := mux.Vars(r)["format"]
+		if format == ".json" {
+			d, err := json.MarshalIndent(struct {
+				RecentPlays []recentPlayRow `json:"RecentPlays"`
+			}{
+				RecentPlays: rows,
+			}, "", "  ")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(d)
+			return
 		}
 
 		err = gv.Render(

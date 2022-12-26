@@ -242,7 +242,7 @@ func (m *Music) HTTPAttach(router *mux.Router) error {
 	).Methods("GET")
 
 	router.HandleFunc(
-		"/recent",
+		"/recent{format:.*}",
 		handlers.BuildRecentHandler(m.projectID, m.dataset, m.table, m.googleJSON),
 	).Methods("GET")
 
