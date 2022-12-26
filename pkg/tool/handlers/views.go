@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"embed"
-	"fmt"
 	"github.com/charlieegan3/music/pkg/tool/utils"
 	"github.com/foolin/goview"
-	"github.com/gosimple/slug"
 	"html/template"
 	"path/filepath"
 )
@@ -21,13 +19,7 @@ func init() {
 		Extension: ".html",
 		Master:    "layouts/master",
 		Funcs: template.FuncMap{
-			"name_slug": func(artistName string) string {
-				return fmt.Sprintf(
-					"%s-%s",
-					utils.CRC32Hash(artistName),
-					slug.Make(artistName),
-				)
-			},
+			"name_slug": utils.NameSlug,
 			"add": func(a, b int) int {
 				return a + b
 			},

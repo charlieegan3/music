@@ -219,6 +219,11 @@ func (m *Music) HTTPAttach(router *mux.Router) error {
 	).Methods("GET")
 
 	router.HandleFunc(
+		"/artists",
+		handlers.BuildArtistSearchHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+	).Methods("GET")
+
+	router.HandleFunc(
 		"/artists/{artistSlug}",
 		handlers.BuildArtistHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
 	).Methods("GET")
