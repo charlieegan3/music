@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/api/iterator"
+	"log"
 	"time"
 )
 
@@ -41,7 +42,7 @@ func MostRecentTimestamps(
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return t, fmt.Errorf("Failed reading results for time: %v", err)
 		}
 		t = append(t, l.Timestamp)
