@@ -13,11 +13,7 @@
     </div>
     <div class="flex-grow-1 flex justify-between pl1">
         <div class="flex items-center">
-            <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
-
-            <span class="ml2 f6 o-70">
-              <a alt="View this track from all albums" class="no-underline" href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">&#128270;</a>
-            </span>
+            <a href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
         </div>
         <div class="f6">
             <div class="tr">
