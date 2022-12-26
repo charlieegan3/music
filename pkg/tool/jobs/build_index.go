@@ -47,6 +47,8 @@ func (a *BuildIndex) Run(ctx context.Context) error {
 			return
 		}
 
+		var rows []goqu.Record
+
 		queryString := fmt.Sprintf(`
 select distinct artist from %s
 order by artist asc
@@ -56,7 +58,6 @@ order by artist asc
 		if err != nil {
 			errCh <- fmt.Errorf("failed to read from bq: %v", err)
 		}
-		var rows []goqu.Record
 		for {
 			var r struct {
 				Artist string `bigquery:"artist"`
@@ -87,6 +88,59 @@ order by artist asc
 				}
 			}
 		}
+		queryString = fmt.Sprintf(`
+select distinct album from %s
+order by album asc
+`, fmt.Sprintf("`%s.%s.%s`", a.ProjectID, a.DatasetName, a.TableName))
+		q = bigqueryClient.Query(queryString)
+		it, err = q.Read(ctx)
+		if err != nil {
+			errCh <- fmt.Errorf("failed to read from bq: %v", err)
+		}
+		for {
+			var r struct {
+				Album string `bigquery:"album"`
+			}
+			err := it.Next(&r)
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				errCh <- fmt.Errorf("failed to read row from bq result: %v", err)
+			}
+
+			rows = append(rows, goqu.Record{
+				"name": r.Album,
+				"id":   utils.CRC32Hash(r.Album),
+			})
+		}
+
+		queryString = fmt.Sprintf(`
+select distinct track from %s
+order by track asc
+`, fmt.Sprintf("`%s.%s.%s`", a.ProjectID, a.DatasetName, a.TableName))
+		q = bigqueryClient.Query(queryString)
+		it, err = q.Read(ctx)
+		if err != nil {
+			errCh <- fmt.Errorf("failed to read from bq: %v", err)
+		}
+		for {
+			var r struct {
+				Track string `bigquery:"track"`
+			}
+			err := it.Next(&r)
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				errCh <- fmt.Errorf("failed to read row from bq result: %v", err)
+			}
+
+			rows = append(rows, goqu.Record{
+				"name": r.Track,
+				"id":   utils.CRC32Hash(r.Track),
+			})
+		}
 
 		goquDB := goqu.New("postgres", a.DB)
 		query := goquDB.Insert("music.name_index").Rows(rows).OnConflict(goqu.DoNothing())
@@ -101,7 +155,7 @@ order by artist asc
 			return
 		}
 
-		log.Println("New artists:", rowCount)
+		log.Println("New rows:", rowCount)
 
 		doneCh <- true
 	}()
