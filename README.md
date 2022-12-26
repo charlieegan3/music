@@ -1,19 +1,9 @@
 # charlieegan3-music
 
-This repo contains the projects which manage the data and website at
+This repo contains the project which manages the data and website at
 [music.charlieegan3.com](https://music.charlieegan3.com).
-
-![animated image of UI](./docs/ui-demo.gif)
 
 The idea is to give myself music data throughout the year, rather than just as
 part of Spotify unwrapped at the end of the year.
 
-The site is hosted on [Netlify](https://www.netlify.com/), the data which the
-site presents is stored in [BigQuery](https://cloud.google.com/bigquery). This
-data is updated using a scruffy Go app in [GitHub
-Actions](https://github.com/features/actions).
-
-This project is only for my own use and is kind of hacked together. You can
-read about it in a [blog post
-here](https://charlieegan3.com/blog/2018/11/20/how-i-learned-to-stop-worrying-and-build-my-own-lastfm)
-on my website.
+The project is desisgned to be registered to a [toolbelt](https://github.com/charlieegan3/toolbelt).
