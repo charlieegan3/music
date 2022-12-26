@@ -195,7 +195,7 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			GoogleBucketName:      m.coversBucketName,
 		},
 
-		&jobs.ArtistsIndex{
+		&jobs.BuildIndex{
 			DB:               m.db,
 			ScheduleOverride: m.artistsSchedule,
 

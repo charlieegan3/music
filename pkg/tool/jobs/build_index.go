@@ -16,8 +16,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-// ArtistsIndex will create a mapping of crc32(artist) -> artist name in the database
-type ArtistsIndex struct {
+// BuildIndex will create a mapping of crc32(artist/album/track) -> name in the database
+type BuildIndex struct {
 	DB *sql.DB
 
 	ScheduleOverride string
@@ -28,11 +28,11 @@ type ArtistsIndex struct {
 	TableName             string
 }
 
-func (a *ArtistsIndex) Name() string {
-	return "artists-index"
+func (a *BuildIndex) Name() string {
+	return "build-index"
 }
 
-func (a *ArtistsIndex) Run(ctx context.Context) error {
+func (a *BuildIndex) Run(ctx context.Context) error {
 	doneCh := make(chan bool)
 	errCh := make(chan error)
 
@@ -89,7 +89,7 @@ order by artist asc
 		}
 
 		goquDB := goqu.New("postgres", a.DB)
-		query := goquDB.Insert("music.artists").Rows(rows).OnConflict(goqu.DoNothing())
+		query := goquDB.Insert("music.name_index").Rows(rows).OnConflict(goqu.DoNothing())
 		res, err := query.Executor().ExecContext(ctx)
 		if err != nil {
 			errCh <- fmt.Errorf("failed to insert: %v", err)
@@ -116,11 +116,11 @@ order by artist asc
 	}
 }
 
-func (a *ArtistsIndex) Timeout() time.Duration {
+func (a *BuildIndex) Timeout() time.Duration {
 	return 30 * time.Second
 }
 
-func (a *ArtistsIndex) Schedule() string {
+func (a *BuildIndex) Schedule() string {
 	if a.ScheduleOverride != "" {
 		return a.ScheduleOverride
 	}
