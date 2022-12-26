@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"github.com/foolin/goview"
 	"net/http"
+
+	"github.com/foolin/goview"
 )
 
 func BuildMenuHandler() func(http.ResponseWriter, *http.Request) {

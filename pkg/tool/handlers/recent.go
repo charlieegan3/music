@@ -1,18 +1,20 @@
 package handlers
 
 import (
-	"cloud.google.com/go/bigquery"
 	"encoding/json"
 	"fmt"
-	"github.com/charlieegan3/music/pkg/tool/utils"
+	"net/http"
+	"strings"
+	"time"
+
+	"cloud.google.com/go/bigquery"
 	"github.com/dustin/go-humanize"
 	"github.com/foolin/goview"
 	"github.com/gorilla/mux"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-	"net/http"
-	"strings"
-	"time"
+
+	"github.com/charlieegan3/music/pkg/tool/utils"
 )
 
 func BuildRecentHandler(projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {

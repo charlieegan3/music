@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"embed"
-	"github.com/charlieegan3/music/pkg/tool/utils"
-	"github.com/foolin/goview"
 	"html/template"
 	"path/filepath"
+
+	"github.com/foolin/goview"
+
+	"github.com/charlieegan3/music/pkg/tool/utils"
 )
 
 //go:embed views/*

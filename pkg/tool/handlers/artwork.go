@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"io"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func BuildArtworkHandler(bucketName string) func(http.ResponseWriter, *http.Request) {

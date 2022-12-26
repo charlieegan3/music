@@ -1,17 +1,19 @@
 package handlers
 
 import (
-	"cloud.google.com/go/bigquery"
 	"database/sql"
 	"fmt"
-	"github.com/charlieegan3/music/pkg/tool/utils"
+	"net/http"
+	"strings"
+
+	"cloud.google.com/go/bigquery"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/foolin/goview"
 	"github.com/gorilla/mux"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-	"net/http"
-	"strings"
+
+	"github.com/charlieegan3/music/pkg/tool/utils"
 )
 
 func BuildArtistAlbumHandler(db *sql.DB, projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
