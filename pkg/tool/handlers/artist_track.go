@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func BuildArtistAlbumTrackHandler(db *sql.DB, projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
+func BuildArtistTrackHandler(db *sql.DB, projectID, datasetName, tablename, googleJSON string) func(http.ResponseWriter, *http.Request) {
 
 	goquDB := goqu.New("postgres", db)
 
@@ -37,20 +37,6 @@ func BuildArtistAlbumTrackHandler(db *sql.DB, projectID, datasetName, tablename,
 			return
 		}
 
-		albumSlug, ok := mux.Vars(r)["albumSlug"]
-		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("invalid URL"))
-			return
-		}
-
-		albumParts := strings.Split(albumSlug, "-")
-		if len(albumParts) < 2 {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("invalid URL"))
-			return
-		}
-
 		trackSlug, ok := mux.Vars(r)["trackSlug"]
 		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -66,23 +52,12 @@ func BuildArtistAlbumTrackHandler(db *sql.DB, projectID, datasetName, tablename,
 		}
 
 		artistID := artistParts[0]
-		albumID := albumParts[0]
 		trackID := trackParts[0]
 
 		var artistName string
 		_, err = goquDB.Select("name").
 			From("music.name_index").
 			Where(goqu.C("id").Eq(artistID)).ScanVal(&artistName)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		var albumName string
-		_, err = goquDB.Select("name").
-			From("music.name_index").
-			Where(goqu.C("id").Eq(albumID)).ScanVal(&albumName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -113,13 +88,13 @@ func BuildArtistAlbumTrackHandler(db *sql.DB, projectID, datasetName, tablename,
 		queryString := fmt.Sprintf(`
 SELECT
   artist,
+  album,
   timestamp
 FROM
   %s
 WHERE
   (STARTS_WITH(artist, @artistName)
     OR CONTAINS_SUBSTR(artist, @artistNameWithComma))
-  AND ( album = @albumName )
   AND ( track = @trackName )
 ORDER BY
   timestamp desc
@@ -142,10 +117,6 @@ ORDER BY
 				Value: fmt.Sprintf(", %s", artistName),
 			},
 			{
-				Name:  "albumName",
-				Value: albumName,
-			},
-			{
 				Name:  "trackName",
 				Value: trackName,
 			},
@@ -157,9 +128,9 @@ ORDER BY
 			w.Write([]byte(err.Error()))
 			return
 		}
-		var rows []artistAlbumSingleTrackRow
+		var rows []artistSingleTrackRow
 		for {
-			var r artistAlbumSingleTrackRow
+			var r artistSingleTrackRow
 			err := it.Next(&r)
 			if err == iterator.Done {
 				break
@@ -176,6 +147,12 @@ ORDER BY
 				}
 			}
 
+			r.Artwork = fmt.Sprintf(
+				"/artworks/%s/%s.jpg",
+				utils.CRC32Hash(r.Artist),
+				utils.CRC32Hash(r.Album),
+			)
+
 			r.TimestampString = humanize.Time(r.Timestamp)
 			if r.Timestamp.Before(time.Now().Add(-24 * 30 * time.Hour)) {
 				r.TimestampDetail = r.Timestamp.Format("2006-01-02")
@@ -187,17 +164,11 @@ ORDER BY
 		err = gv.Render(
 			w,
 			http.StatusOK,
-			"album_track",
+			"artist_track",
 			goview.M{
 				"TrackName":  trackName,
 				"ArtistName": artistName,
-				"AlbumName":  albumName,
 				"Plays":      rows,
-				"Artwork": fmt.Sprintf(
-					"/artworks/%s/%s.jpg",
-					utils.CRC32Hash(artistName),
-					utils.CRC32Hash(albumName),
-				),
 			},
 		)
 		if err != nil {
@@ -207,9 +178,11 @@ ORDER BY
 	}
 }
 
-type artistAlbumSingleTrackRow struct {
+type artistSingleTrackRow struct {
 	Artist          string
+	Album           string
 	Artists         []string
+	Artwork         string
 	Timestamp       time.Time
 	TimestampString string
 	TimestampDetail string
