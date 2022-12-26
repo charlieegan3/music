@@ -210,12 +210,12 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 func (m *Music) HTTPAttach(router *mux.Router) error {
 	router.HandleFunc(
 		"/",
-		handlers.BuildRecentHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		handlers.BuildTopHandler(m.projectID, m.dataset, m.table, m.googleJSON),
 	).Methods("GET")
 
 	router.HandleFunc(
-		"/top",
-		handlers.BuildTopHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		"/recent",
+		handlers.BuildRecentHandler(m.projectID, m.dataset, m.table, m.googleJSON),
 	).Methods("GET")
 
 	router.HandleFunc(
