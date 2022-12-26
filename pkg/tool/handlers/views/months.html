@@ -1,0 +1,33 @@
+{{define "title"}}Top Plays by Month{{end}}
+{{define "page_title"}}Top Plays by Month{{end}}
+{{define "head"}}{{end}}
+
+{{define "content"}}
+  {{ range .Months }}
+    <h2>{{ .Pretty }}</h2>
+    {{ range .TopTracks }}
+        <div class="mb1 pa1 ba b--light-gray flex items-center">
+            <div class="flex-grow-0">
+                <img loading="lazy" class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
+            </div>
+            <div class="flex-grow-1 flex justify-between pl1">
+                <div class="flex items-center">
+                    <a href="/artists/{{ name_slug .Artist }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
+                </div>
+                <div class="f6">
+                    <div class="tr">
+                        <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}">{{ .Album }}</a>
+                        <span class="muted">(
+                            {{- $lenArtists := len .Artists -}}
+                            {{- range $i, $e := .Artists -}}
+                            <a href="/artists/{{ name_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                            {{- end -}}
+                        )</span>
+                    </div>
+                    <div class="tr muted"> {{ .Count }} plays </div>
+                </div>
+            </div>
+        </div>
+    {{ end }}
+  {{ end }}
+{{ end }}
