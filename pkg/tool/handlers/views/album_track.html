@@ -1,0 +1,38 @@
+{{define "title"}}{{ .TrackName }} - {{.AlbumName}} - {{.ArtistName}}{{end}}
+{{define "page_title"}}
+{{ .TrackName }}
+<a href="/artists/{{ name_slug .ArtistName }}/albums/{{ name_slug .AlbumName }}" class="muted">{{ .AlbumName }}</a>
+<a href="/artists/{{ name_slug .ArtistName }}" class="muted">{{ .ArtistName }}</a>
+{{end}}
+{{define "head"}}{{end}}
+
+{{define "content"}}
+
+<p>{{ len .Plays }} total plays</p>
+
+{{ range .Plays }}
+<div class="mb1 pa1 ba b--light-gray flex items-center">
+    <div class="flex-grow-0">
+        <img class="dib w2 v-mid ba b--light-gray" src="{{ $.Artwork }}" alt="Album artwork for {{ $.AlbumName }} by {{ $.ArtistName }}" />
+    </div>
+    <div class="flex-grow-1 flex justify-between pl1">
+        <div class="flex items-center">
+            {{ .TimestampString }}
+        </div>
+        <div class="f6">
+            <div class="tr">
+                {{- $lenArtists := len .Artists -}}
+                {{ if gt $lenArtists 0 }}
+                <span class="muted">(
+                    {{- range $i, $e := .Artists -}}
+                    <a href="/artists/{{ name_slug . }}">{{ . }}</a>{{- if lt $i (add $lenArtists -1) -}}&ensp;{{- end -}}
+                    {{- end -}}
+                )</span>
+                {{- end -}}
+            </div>
+            <div class="tr muted"> {{ .TimestampDetail }} </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}

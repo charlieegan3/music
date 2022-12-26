@@ -9,7 +9,9 @@
         <img class="dib w2 v-mid ba b--light-gray" src="{{ .Artwork }}" alt="Album artwork for {{ .Album }} by {{ .Artist }}" />
     </div>
     <div class="flex-grow-1 flex justify-between pl1">
-      <div class="flex items-center">{{ .Track }}</div>
+      <div class="flex items-center">
+          <a href="/artists/{{ name_slug .Artist }}/albums/{{ name_slug .Album }}/tracks/{{ name_slug .Track }}">{{ .Track }}</a>
+      </div>
       <div class="f6">
           <div class="tr">
               {{ range .Artists }}
