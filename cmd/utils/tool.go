@@ -85,6 +85,11 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to run job: %v", err)
 			}
+		case "backup":
+			err := jobs[5].Run(ctx)
+			if err != nil {
+				log.Fatalf("failed to run job: %v", err)
+			}
 		}
 
 		os.Exit(0)

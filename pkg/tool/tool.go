@@ -23,6 +23,7 @@ type Music struct {
 	spotifySchedule string
 	coversSchedule  string
 	artistsSchedule string
+	backupSchedule  string
 
 	lastFMAPIKey   string
 	lastFMUsername string
@@ -37,6 +38,7 @@ type Music struct {
 	table            string
 	googleJSON       string
 	coversBucketName string
+	backupBucketName string
 }
 
 func (m *Music) Name() string {
@@ -84,6 +86,11 @@ func (m *Music) SetConfig(config map[string]any) error {
 	}
 	path = "jobs.artists.schedule"
 	m.artistsSchedule, ok = m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
+	path = "jobs.backup.schedule"
+	m.backupSchedule, ok = m.config.Path(path).Data().(string)
 	if !ok {
 		return fmt.Errorf("missing required config path: %s", path)
 	}
@@ -148,6 +155,11 @@ func (m *Music) SetConfig(config map[string]any) error {
 	if !ok {
 		return fmt.Errorf("missing required config path: %s", path)
 	}
+	path = "google.backup_bucket"
+	m.backupBucketName, ok = m.config.Path(path).Data().(string)
+	if !ok {
+		return fmt.Errorf("missing required config path: %s", path)
+	}
 
 	return nil
 }
@@ -203,6 +215,17 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 			ProjectID:             m.projectID,
 			DatasetName:           m.dataset,
 			TableName:             m.table,
+		},
+
+		&jobs.Backup{
+			DB:               m.db,
+			ScheduleOverride: m.backupSchedule,
+
+			GoogleCredentialsJSON: m.googleJSON,
+			ProjectID:             m.projectID,
+			DatasetName:           m.dataset,
+			TableName:             m.table,
+			BackupBucketName:      m.backupBucketName,
 		},
 	}, nil
 }
