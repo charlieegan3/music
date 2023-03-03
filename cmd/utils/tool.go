@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/charlieegan3/toolbelt/pkg/database"
 	"log"
 	"os"
 	"os/signal"
@@ -11,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	musicTool "github.com/charlieegan3/music/pkg/tool"
+	"github.com/charlieegan3/toolbelt/pkg/database"
 	"github.com/charlieegan3/toolbelt/pkg/tool"
 )
 

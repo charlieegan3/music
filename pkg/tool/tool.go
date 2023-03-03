@@ -4,11 +4,14 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+
 	"github.com/Jeffail/gabs/v2"
+	"github.com/gorilla/mux"
+
+	"github.com/charlieegan3/music/pkg/tool/cache"
 	"github.com/charlieegan3/music/pkg/tool/handlers"
 	"github.com/charlieegan3/music/pkg/tool/jobs"
 	"github.com/charlieegan3/toolbelt/pkg/apis"
-	"github.com/gorilla/mux"
 )
 
 //go:embed migrations
@@ -231,49 +234,84 @@ func (m *Music) Jobs() ([]apis.Job, error) {
 }
 
 func (m *Music) HTTPAttach(router *mux.Router) error {
+
+	store := cache.NewStorage()
+
 	router.HandleFunc(
 		"/menu",
 		handlers.BuildMenuHandler(),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/",
-		handlers.BuildTopHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildTopHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/recent{format:.*}",
-		handlers.BuildRecentHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"15m",
+			store,
+			handlers.BuildRecentHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/months",
-		handlers.BuildMonthsHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"168h",
+			store,
+			handlers.BuildMonthsHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/artists",
-		handlers.BuildArtistSearchHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildArtistSearchHandler(m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/artists/{artistSlug}",
-		handlers.BuildArtistHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildArtistHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/artists/{artistSlug}/albums/{albumSlug}",
-		handlers.BuildArtistAlbumHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildArtistAlbumHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/artists/{artistSlug}/tracks/{trackSlug}",
-		handlers.BuildArtistTrackHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildArtistTrackHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
-	router.HandleFunc(
+	router.Handle(
 		"/artists/{artistSlug}/albums/{albumSlug}/tracks/{trackSlug}",
-		handlers.BuildArtistAlbumTrackHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		cache.Middleware(
+			"24h",
+			store,
+			handlers.BuildArtistAlbumTrackHandler(m.db, m.projectID, m.dataset, m.table, m.googleJSON),
+		),
 	).Methods("GET")
 
 	router.HandleFunc(
