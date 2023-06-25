@@ -7,15 +7,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"google.golang.org/api/option"
+
 	"github.com/charlieegan3/music/pkg/tool/bq"
 	"github.com/charlieegan3/music/pkg/tool/utils"
-	"google.golang.org/api/option"
 )
 
 const lastFMSourceName = "lastfm"
@@ -104,33 +106,52 @@ func (s *LastFMSync) Run(ctx context.Context) error {
 		mostRecentPlayTime := mostRecentPlays[0].UTC()
 
 		var newCompletedPlays []play
-		for _, play := range results.RecentTracks.Items {
-			if play.Date.Timestamp != "" {
-				i, err := strconv.ParseInt(play.Date.Timestamp, 10, 64)
+		for _, p := range results.RecentTracks.Items {
+			if p.Date.Timestamp == "" {
+				continue
+			}
+
+			i, err := strconv.ParseInt(p.Date.Timestamp, 10, 64)
+			if err != nil {
+				errCh <- fmt.Errorf("failed to parse timestamp: %w", err)
+				return
+			}
+			if time.Unix(i, 0).Before(mostRecentPlayTime) {
+				continue
+			}
+
+			if len(newCompletedPlays) > 0 {
+				lastPlay := newCompletedPlays[len(newCompletedPlays)-1]
+
+				j, err := strconv.ParseInt(lastPlay.Date.Timestamp, 10, 64)
 				if err != nil {
 					errCh <- fmt.Errorf("failed to parse timestamp: %w", err)
 					return
 				}
-				if time.Unix(i, 0).After(mostRecentPlayTime) {
-					newCompletedPlays = append(newCompletedPlays, play)
+
+				if math.Abs(float64(i-j)) < 5 {
+					fmt.Printf("skipping %v as it's too close to the previous play\n", p.Name)
+					continue
 				}
 			}
+
+			newCompletedPlays = append(newCompletedPlays, p)
 		}
 
 		var vss []*bigquery.ValuesSaver
-		for _, play := range newCompletedPlays {
+		for _, p := range newCompletedPlays {
 			var image string
-			if len(play.Image) > 0 {
-				image = play.Image[len(play.Image)-1].Text
+			if len(p.Image) > 0 {
+				image = p.Image[len(p.Image)-1].Text
 			}
 			vss = append(vss, &bigquery.ValuesSaver{
 				Schema:   schema,
-				InsertID: fmt.Sprintf("%v", play.Date.Timestamp),
+				InsertID: fmt.Sprintf("%v", p.Date.Timestamp),
 				Row: []bigquery.Value{
-					play.Name,
-					play.Artist.Name,
-					play.Album.Name,
-					play.Date.Timestamp,
+					p.Name,
+					p.Artist.Name,
+					p.Album.Name,
+					p.Date.Timestamp,
 					bigquery.NullInt64{Int64: 0, Valid: false},
 					"",
 					image,
