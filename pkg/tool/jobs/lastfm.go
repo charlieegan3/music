@@ -123,15 +123,17 @@ func (s *LastFMSync) Run(ctx context.Context) error {
 			if len(newCompletedPlays) > 0 {
 				lastPlay := newCompletedPlays[len(newCompletedPlays)-1]
 
-				j, err := strconv.ParseInt(lastPlay.Date.Timestamp, 10, 64)
-				if err != nil {
-					errCh <- fmt.Errorf("failed to parse timestamp: %w", err)
-					return
-				}
+				if p.Name == lastPlay.Name && p.Artist.Name == lastPlay.Artist.Name {
+					j, err := strconv.ParseInt(lastPlay.Date.Timestamp, 10, 64)
+					if err != nil {
+						errCh <- fmt.Errorf("failed to parse timestamp: %w", err)
+						return
+					}
 
-				if math.Abs(float64(i-j)) < 5 {
-					fmt.Printf("skipping %v as it's too close to the previous play\n", p.Name)
-					continue
+					if math.Abs(float64(i-j)) < 5 {
+						fmt.Printf("skipping %v as it's too close to the previous play\n", p.Name)
+						continue
+					}
 				}
 			}
 
