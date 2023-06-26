@@ -119,6 +119,9 @@ func (s *LastFMSync) Run(ctx context.Context) error {
 			if time.Unix(i, 0).Before(mostRecentPlayTime) {
 				continue
 			}
+			if time.Unix(i, 0).Equal(mostRecentPlayTime) {
+				continue
+			}
 
 			if len(newCompletedPlays) > 0 {
 				lastPlay := newCompletedPlays[len(newCompletedPlays)-1]

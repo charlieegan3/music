@@ -9,9 +9,10 @@ import (
 
 	"github.com/spf13/viper"
 
-	musicTool "github.com/charlieegan3/music/pkg/tool"
 	"github.com/charlieegan3/toolbelt/pkg/database"
 	"github.com/charlieegan3/toolbelt/pkg/tool"
+
+	musicTool "github.com/charlieegan3/music/pkg/tool"
 )
 
 func main() {
@@ -70,6 +71,11 @@ func main() {
 			log.Fatalf("failed to get jobs: %v", err)
 		}
 		switch os.Args[1] {
+		case "lastfm":
+			err := jobs[0].Run(ctx)
+			if err != nil {
+				log.Fatalf("failed to run job: %v", err)
+			}
 		case "covers_sync":
 			err := jobs[2].Run(ctx)
 			if err != nil {
